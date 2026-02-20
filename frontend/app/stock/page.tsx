@@ -2,6 +2,7 @@
 import { useEffect, useState, useRef } from "react";
 import { getParts, getCategories, createMovement } from "@/lib/api";
 import { Package, Search, Filter, TrendingDown, CheckCircle2, ScanBarcode, ArrowDownToLine, ArrowUpFromLine, Minus, Plus, X, AlertCircle } from "lucide-react";
+import { Pagination } from "@/components/Pagination";
 
 export default function StockPage() {
     const [parts, setParts] = useState<any[]>([]);
@@ -10,6 +11,8 @@ export default function StockPage() {
     const [search, setSearch] = useState("");
     const [categoryFilter, setCategoryFilter] = useState("");
     const [lowStockOnly, setLowStockOnly] = useState(false);
+    const [page, setPage] = useState(1);
+    const [pagination, setPagination] = useState({ page: 1, pageSize: 20, total: 0, totalPages: 1 });
 
     // Modal
     const [selectedPart, setSelectedPart] = useState<any>(null);
@@ -27,8 +30,13 @@ export default function StockPage() {
 
     const fetchData = async () => {
         try {
-            const [p, c] = await Promise.all([getParts(), getCategories()]);
-            setParts(p);
+            const params: Record<string, string> = { page: String(page), pageSize: "20" };
+            if (search) params.search = search;
+            if (categoryFilter) params.categoryId = categoryFilter;
+            if (lowStockOnly) params.lowStock = "true";
+            const [result, c] = await Promise.all([getParts(params), getCategories()]);
+            setParts(result.data);
+            setPagination(result.pagination);
             setCategories(c);
         } catch (err) {
             console.error(err);
@@ -38,16 +46,15 @@ export default function StockPage() {
     };
 
     useEffect(() => {
+        setLoading(true);
         fetchData();
-    }, []);
+    }, [page, search, categoryFilter, lowStockOnly]);
 
-    const filtered = parts.filter((p) => {
-        const q = search.toLowerCase();
-        const matchSearch = !search || p.name.toLowerCase().includes(q) || p.code.toLowerCase().includes(q) || (p.brand && p.brand.toLowerCase().includes(q));
-        const matchCat = !categoryFilter || p.categoryId === categoryFilter;
-        const matchLow = !lowStockOnly || p.quantity <= p.minStock;
-        return matchSearch && matchCat && matchLow;
-    });
+    // Reset page when filters change
+    const handleFilterChange = (setter: (v: any) => void, value: any) => {
+        setPage(1);
+        setter(value);
+    };
 
     const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
         const now = Date.now();
@@ -144,7 +151,7 @@ export default function StockPage() {
                             type="text"
                             placeholder="ค้นหาหรือสแกนบาร์โค้ด... (ชื่อ, รหัส, ยี่ห้อ)"
                             value={search}
-                            onChange={(e) => setSearch(e.target.value)}
+                            onChange={(e) => handleFilterChange(setSearch, e.target.value)}
                             onKeyDown={handleSearchKeyDown}
                             className="w-full rounded-lg pl-10 pr-10 py-2.5 text-sm transition-colors focus:outline-none focus:ring-1 focus:ring-emerald-500/30"
                             style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }}
@@ -156,7 +163,7 @@ export default function StockPage() {
                     </div>
                     <select
                         value={categoryFilter}
-                        onChange={(e) => setCategoryFilter(e.target.value)}
+                        onChange={(e) => handleFilterChange(setCategoryFilter, e.target.value)}
                         className="rounded-lg px-3 py-2.5 text-sm focus:outline-none cursor-pointer min-w-[140px]"
                         style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }}
                     >
@@ -166,7 +173,7 @@ export default function StockPage() {
                         ))}
                     </select>
                     <button
-                        onClick={() => setLowStockOnly(!lowStockOnly)}
+                        onClick={() => handleFilterChange(setLowStockOnly, !lowStockOnly)}
                         className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors cursor-pointer ${lowStockOnly ? "bg-amber-500/15 text-amber-500 border border-amber-500/30" : ""}`}
                         style={lowStockOnly ? {} : { background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-text-secondary)" }}
                     >
@@ -176,12 +183,12 @@ export default function StockPage() {
             </div>
 
             <p className="text-sm mb-4" style={{ color: "var(--t-text-muted)" }}>
-                พบ <span className="font-medium" style={{ color: "var(--t-text)" }}>{filtered.length}</span> รายการ
+                พบ <span className="font-medium" style={{ color: "var(--t-text)" }}>{pagination.total}</span> รายการ
             </p>
 
             {/* Table */}
             <div className="rounded-xl overflow-hidden" style={{ background: "var(--t-card)", border: "1px solid var(--t-border-subtle)" }}>
-                {filtered.length === 0 ? (
+                {parts.length === 0 ? (
                     <div className="text-center py-16">
                         <Package className="w-10 h-10 mx-auto mb-3" style={{ color: "var(--t-text-dim)" }} />
                         <p style={{ color: "var(--t-text-muted)" }}>ไม่พบอะไหล่</p>
@@ -197,7 +204,7 @@ export default function StockPage() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {filtered.map((p) => {
+                                {parts.map((p) => {
                                     const isLow = p.quantity <= p.minStock;
                                     return (
                                         <tr
@@ -246,6 +253,7 @@ export default function StockPage() {
                         </table>
                     </div>
                 )}
+                <Pagination page={pagination.page} totalPages={pagination.totalPages} total={pagination.total} pageSize={pagination.pageSize} onPageChange={setPage} />
             </div>
 
             {/* Action Modal — shows selected part detail + form */}

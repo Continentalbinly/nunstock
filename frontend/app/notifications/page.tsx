@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { getClaims, notifyClaimCustomer } from "@/lib/api";
+import { getClaimsAll, notifyClaimCustomer } from "@/lib/api";
 import { Bell, BellRing, Send, CheckCircle2, Clock, Phone, Car } from "lucide-react";
 
 const statusLabel: Record<string, string> = { PENDING: "รอดำเนินการ", ORDERED: "สั่งแล้ว", ARRIVED: "มาถึง", NOTIFIED: "แจ้งแล้ว", COMPLETED: "เสร็จสิ้น" };
@@ -12,7 +12,7 @@ export default function NotificationsPage() {
     const [sending, setSending] = useState<string | null>(null);
     const [success, setSuccess] = useState("");
 
-    const fetchData = async () => { try { setClaims(await getClaims()); } catch (err) { console.error(err); } finally { setLoading(false); } };
+    const fetchData = async () => { try { setClaims(await getClaimsAll()); } catch (err) { console.error(err); } finally { setLoading(false); } };
     useEffect(() => { fetchData(); }, []);
 
     const readyToNotify = claims.filter((c) => c.status === "ARRIVED");

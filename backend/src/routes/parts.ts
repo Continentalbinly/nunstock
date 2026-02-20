@@ -2,36 +2,52 @@ import { Hono } from "hono";
 import { prisma } from "../lib/prisma.js";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
+import { parsePagination, paginatedJson } from "../lib/pagination.js";
 
 export const partsRouter = new Hono();
 
-// GET /api/parts - ดึงอะไหล่ทั้งหมด
+// GET /api/parts - ดึงอะไหล่ทั้งหมด (paginated)
 partsRouter.get("/", async (c) => {
     try {
         const { search, categoryId, lowStock } = c.req.query();
-        const parts = await prisma.part.findMany({
-            where: {
-                ...(search && {
-                    OR: [
-                        { name: { contains: search, mode: "insensitive" } },
-                        { code: { contains: search, mode: "insensitive" } },
-                        { brand: { contains: search, mode: "insensitive" } },
-                    ],
-                }),
-                ...(categoryId && { categoryId }),
-                ...(lowStock === "true" && {
-                    quantity: { lte: prisma.part.fields.minStock },
-                }),
-            },
-            include: { category: true },
-            orderBy: { createdAt: "desc" },
-        });
-        // Filter low stock manually if needed
-        const filtered =
-            lowStock === "true"
-                ? parts.filter((p) => p.quantity <= p.minStock)
-                : parts;
-        return c.json({ success: true, data: filtered });
+        const pag = parsePagination(c);
+
+        const where: any = {
+            ...(search && {
+                OR: [
+                    { name: { contains: search, mode: "insensitive" } },
+                    { code: { contains: search, mode: "insensitive" } },
+                    { brand: { contains: search, mode: "insensitive" } },
+                ],
+            }),
+            ...(categoryId && { categoryId }),
+        };
+
+        // Low stock needs manual filtering, so fetch all matching first
+        if (lowStock === "true") {
+            const allParts = await prisma.part.findMany({
+                where,
+                include: { category: true },
+                orderBy: { createdAt: "desc" },
+            });
+            const filtered = allParts.filter((p) => p.quantity <= p.minStock);
+            const total = filtered.length;
+            const data = filtered.slice(pag.skip, pag.skip + pag.take);
+            return c.json(paginatedJson(data, total, pag));
+        }
+
+        const [parts, total] = await Promise.all([
+            prisma.part.findMany({
+                where,
+                include: { category: true },
+                orderBy: { createdAt: "desc" },
+                skip: pag.skip,
+                take: pag.take,
+            }),
+            prisma.part.count({ where }),
+        ]);
+
+        return c.json(paginatedJson(parts, total, pag));
     } catch (error) {
         return c.json({ success: false, error: "ไม่สามารถดึงข้อมูลอะไหล่ได้" }, 500);
     }

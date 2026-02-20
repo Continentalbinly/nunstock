@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { getParts, getCategories, createPart, updatePart, deletePart, createCategory, deleteCategory } from "@/lib/api";
 import { PackagePlus, Layers, Plus, Pencil, Trash2, X, Search } from "lucide-react";
+import { Pagination } from "@/components/Pagination";
 
 export default function PartsPage() {
     const [tab, setTab] = useState<"parts" | "categories">("parts");
@@ -9,6 +10,8 @@ export default function PartsPage() {
     const [categories, setCategories] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
+    const [page, setPage] = useState(1);
+    const [pagination, setPagination] = useState({ page: 1, pageSize: 20, total: 0, totalPages: 1 });
     const [showModal, setShowModal] = useState(false);
     const [editingPart, setEditingPart] = useState<any>(null);
     const [newCatName, setNewCatName] = useState("");
@@ -19,10 +22,8 @@ export default function PartsPage() {
     const inputStyle = { background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" };
     const inputCls = "w-full rounded-lg px-3 py-2 text-sm transition-colors focus:outline-none focus:ring-1 focus:ring-emerald-500/30";
 
-    const fetchData = async () => { try { const [p, c] = await Promise.all([getParts(), getCategories()]); setParts(p); setCategories(c); } catch (err) { console.error(err); } finally { setLoading(false); } };
-    useEffect(() => { fetchData(); }, []);
-
-    const filtered = parts.filter((p) => !search || p.name.toLowerCase().includes(search.toLowerCase()) || p.code.toLowerCase().includes(search.toLowerCase()));
+    const fetchData = async () => { try { const params: Record<string, string> = { page: String(page), pageSize: "20" }; if (search) params.search = search; const [result, c] = await Promise.all([getParts(params), getCategories()]); setParts(result.data); setPagination(result.pagination); setCategories(c); } catch (err) { console.error(err); } finally { setLoading(false); } };
+    useEffect(() => { setLoading(true); fetchData(); }, [page, search]);
 
     const openAddModal = () => { setEditingPart(null); setForm({ code: "", name: "", description: "", brand: "", unit: "ชิ้น", quantity: 0, minStock: 5, categoryId: categories[0]?.id || "" }); setError(""); setShowModal(true); };
     const openEditModal = (part: any) => { setEditingPart(part); setForm({ code: part.code, name: part.name, description: part.description || "", brand: part.brand || "", unit: part.unit, quantity: part.quantity, minStock: part.minStock, categoryId: part.categoryId }); setError(""); setShowModal(true); };
@@ -51,15 +52,15 @@ export default function PartsPage() {
             {tab === "parts" && (
                 <>
                     <div className="rounded-xl p-3 mb-4" style={{ background: "var(--t-card)", border: "1px solid var(--t-border-subtle)" }}>
-                        <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--t-text-muted)" }} /><input type="text" placeholder="ค้นหาอะไหล่..." value={search} onChange={(e) => setSearch(e.target.value)} className={`${inputCls} pl-10!`} style={inputStyle} /></div>
+                        <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--t-text-muted)" }} /><input type="text" placeholder="ค้นหาอะไหล่..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} className={`${inputCls} pl-10!`} style={inputStyle} /></div>
                     </div>
                     <div className="rounded-xl overflow-hidden" style={{ background: "var(--t-card)", border: "1px solid var(--t-border-subtle)" }}>
-                        {filtered.length === 0 ? <div className="text-center py-16"><PackagePlus className="w-10 h-10 mx-auto mb-3" style={{ color: "var(--t-text-dim)" }} /><p style={{ color: "var(--t-text-muted)" }}>ไม่พบอะไหล่</p></div> : (
+                        {parts.length === 0 ? <div className="text-center py-16"><PackagePlus className="w-10 h-10 mx-auto mb-3" style={{ color: "var(--t-text-dim)" }} /><p style={{ color: "var(--t-text-muted)" }}>ไม่พบอะไหล่</p></div> : (
                             <div className="overflow-x-auto">
                                 <table className="w-full">
                                     <thead><tr style={{ borderBottom: "1px solid var(--t-border-subtle)" }}>{["รหัส", "ชื่อ", "ยี่ห้อ", "ประเภท", "จำนวน", "หน่วย", "จัดการ"].map((h, i) => <th key={h} className={`px-4 py-3 text-xs font-semibold uppercase tracking-wider ${i === 6 ? "text-right" : "text-left"}`} style={{ color: "var(--t-text-muted)" }}>{h}</th>)}</tr></thead>
                                     <tbody>
-                                        {filtered.map((p) => (
+                                        {parts.map((p) => (
                                             <tr key={p.id} className="transition-colors" style={{ borderBottom: "1px solid var(--t-border-subtle)" }} onMouseEnter={(e) => e.currentTarget.style.background = "var(--t-hover-overlay)"} onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
                                                 <td className="px-4 py-3 font-mono text-xs" style={{ color: "var(--t-text-secondary)" }}>{p.code}</td>
                                                 <td className="px-4 py-3 text-sm font-medium" style={{ color: "var(--t-text)" }}>{p.name}</td>
@@ -79,6 +80,7 @@ export default function PartsPage() {
                                 </table>
                             </div>
                         )}
+                        <Pagination page={pagination.page} totalPages={pagination.totalPages} total={pagination.total} pageSize={pagination.pageSize} onPageChange={setPage} />
                     </div>
                 </>
             )}

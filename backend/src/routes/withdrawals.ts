@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { prisma } from "../lib/prisma.js";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
+import { parsePagination, paginatedJson } from "../lib/pagination.js";
 
 export const withdrawalsRouter = new Hono();
 
@@ -13,17 +14,26 @@ const withdrawSchema = z.object({
     techName: z.string().optional(),
 });
 
-// GET /api/withdrawals - ประวัติการเบิก
+// GET /api/withdrawals - ประวัติการเบิก (paginated)
 withdrawalsRouter.get("/", async (c) => {
     try {
-        const { partId, limit } = c.req.query();
-        const withdrawals = await prisma.withdrawal.findMany({
-            where: { ...(partId && { partId }) },
-            include: { part: { include: { category: true } } },
-            orderBy: { createdAt: "desc" },
-            take: limit ? parseInt(limit) : 50,
-        });
-        return c.json({ success: true, data: withdrawals });
+        const { partId } = c.req.query();
+        const pag = parsePagination(c);
+
+        const where: any = { ...(partId && { partId }) };
+
+        const [withdrawals, total] = await Promise.all([
+            prisma.withdrawal.findMany({
+                where,
+                include: { part: { include: { category: true } } },
+                orderBy: { createdAt: "desc" },
+                skip: pag.skip,
+                take: pag.take,
+            }),
+            prisma.withdrawal.count({ where }),
+        ]);
+
+        return c.json(paginatedJson(withdrawals, total, pag));
     } catch (error) {
         return c.json({ success: false, error: "ไม่สามารถดึงประวัติการเบิกได้" }, 500);
     }

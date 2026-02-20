@@ -3,6 +3,7 @@ import { prisma } from "../lib/prisma.js";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import { requireAuth } from "./auth.js";
+import { parsePagination, paginatedJson } from "../lib/pagination.js";
 
 export const movementsRouter = new Hono();
 
@@ -15,23 +16,32 @@ const movementSchema = z.object({
     techName: z.string().optional(),
 });
 
-// GET /api/movements — ดึงประวัติเคลื่อนไหวสต็อก
+// GET /api/movements — ดึงประวัติเคลื่อนไหวสต็อก (paginated)
 movementsRouter.get("/", async (c) => {
     try {
-        const { partId, type, limit } = c.req.query();
-        const movements = await prisma.stockMovement.findMany({
-            where: {
-                ...(partId && { partId }),
-                ...(type && { type: type as any }),
-            },
-            include: {
-                part: { include: { category: true } },
-                user: { select: { id: true, username: true, name: true } },
-            },
-            orderBy: { createdAt: "desc" },
-            take: limit ? parseInt(limit) : 100,
-        });
-        return c.json({ success: true, data: movements });
+        const { partId, type } = c.req.query();
+        const pag = parsePagination(c);
+
+        const where: any = {
+            ...(partId && { partId }),
+            ...(type && { type: type as any }),
+        };
+
+        const [movements, total] = await Promise.all([
+            prisma.stockMovement.findMany({
+                where,
+                include: {
+                    part: { include: { category: true } },
+                    user: { select: { id: true, username: true, name: true } },
+                },
+                orderBy: { createdAt: "desc" },
+                skip: pag.skip,
+                take: pag.take,
+            }),
+            prisma.stockMovement.count({ where }),
+        ]);
+
+        return c.json(paginatedJson(movements, total, pag));
     } catch (error) {
         return c.json({ success: false, error: "ไม่สามารถดึงประวัติได้" }, 500);
     }

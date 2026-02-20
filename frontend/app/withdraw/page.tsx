@@ -2,19 +2,34 @@
 import { useEffect, useState } from "react";
 import { getMovements } from "@/lib/api";
 import { History, ArrowDownToLine, ArrowUpFromLine, Package, Filter, Search, User } from "lucide-react";
+import { Pagination } from "@/components/Pagination";
 
 export default function WithdrawHistoryPage() {
     const [movements, setMovements] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [typeFilter, setTypeFilter] = useState<"" | "IN" | "OUT">("");
     const [search, setSearch] = useState("");
+    const [page, setPage] = useState(1);
+    const [pagination, setPagination] = useState({ page: 1, pageSize: 20, total: 0, totalPages: 1 });
+
+    const fetchData = async () => {
+        setLoading(true);
+        try {
+            const params: Record<string, string> = { page: String(page), pageSize: "20" };
+            if (typeFilter) params.type = typeFilter;
+            const result = await getMovements(params);
+            setMovements(result.data);
+            setPagination(result.pagination);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
-        getMovements(typeFilter ? { type: typeFilter } : undefined)
-            .then(setMovements)
-            .catch(console.error)
-            .finally(() => setLoading(false));
-    }, [typeFilter]);
+        fetchData();
+    }, [typeFilter, page]);
 
     const filtered = movements.filter((m) => {
         if (!search) return true;
@@ -61,7 +76,7 @@ export default function WithdrawHistoryPage() {
                             { value: "IN", label: "เข้า", icon: ArrowDownToLine },
                             { value: "OUT", label: "ออก", icon: ArrowUpFromLine },
                         ].map(({ value, label, icon: Icon }) => (
-                            <button key={value} onClick={() => { setTypeFilter(value as any); setLoading(true); }} className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${typeFilter === value ? value === "IN" ? "bg-emerald-500/15 text-emerald-500" : value === "OUT" ? "bg-orange-500/15 text-orange-500" : "bg-blue-500/15 text-blue-500" : ""}`} style={typeFilter === value ? { border: `1px solid ${value === "IN" ? "rgba(34,197,94,0.3)" : value === "OUT" ? "rgba(249,115,22,0.3)" : "rgba(59,130,246,0.3)"}` } : { color: "var(--t-text-secondary)" }}>
+                            <button key={value} onClick={() => { setTypeFilter(value as any); setPage(1); }} className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${typeFilter === value ? value === "IN" ? "bg-emerald-500/15 text-emerald-500" : value === "OUT" ? "bg-orange-500/15 text-orange-500" : "bg-blue-500/15 text-blue-500" : ""}`} style={typeFilter === value ? { border: `1px solid ${value === "IN" ? "rgba(34,197,94,0.3)" : value === "OUT" ? "rgba(249,115,22,0.3)" : "rgba(59,130,246,0.3)"}` } : { color: "var(--t-text-secondary)" }}>
                                 <Icon className="w-3.5 h-3.5" /> {label}
                             </button>
                         ))}
@@ -69,7 +84,7 @@ export default function WithdrawHistoryPage() {
                 </div>
             </div>
 
-            <p className="text-sm mb-4" style={{ color: "var(--t-text-muted)" }}>พบ <span className="font-medium" style={{ color: "var(--t-text)" }}>{filtered.length}</span> รายการ</p>
+            <p className="text-sm mb-4" style={{ color: "var(--t-text-muted)" }}>พบ <span className="font-medium" style={{ color: "var(--t-text)" }}>{pagination.total}</span> รายการ</p>
 
             {/* History table */}
             <div className="rounded-xl overflow-hidden" style={{ background: "var(--t-card)", border: "1px solid var(--t-border-subtle)" }}>
@@ -131,6 +146,7 @@ export default function WithdrawHistoryPage() {
                         </table>
                     </div>
                 )}
+                <Pagination page={pagination.page} totalPages={pagination.totalPages} total={pagination.total} pageSize={pagination.pageSize} onPageChange={setPage} />
             </div>
         </div>
     );

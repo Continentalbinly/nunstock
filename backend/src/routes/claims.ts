@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { prisma } from "../lib/prisma.js";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
+import { parsePagination, paginatedJson } from "../lib/pagination.js";
 
 export const claimsRouter = new Hono();
 
@@ -24,26 +25,36 @@ const claimSchema = z.object({
     items: z.array(claimItemSchema).min(1, "กรุณาเพิ่มอะไหล่อย่างน้อย 1 รายการ"),
 });
 
-// GET /api/claims - ดึงรายการเคลมทั้งหมด
+// GET /api/claims - ดึงรายการเคลมทั้งหมด (paginated)
 claimsRouter.get("/", async (c) => {
     try {
         const { status, search } = c.req.query();
-        const claims = await prisma.insuranceClaim.findMany({
-            where: {
-                ...(status && { status: status as any }),
-                ...(search && {
-                    OR: [
-                        { claimNo: { contains: search, mode: "insensitive" } },
-                        { customerName: { contains: search, mode: "insensitive" } },
-                        { customerPhone: { contains: search } },
-                        { plateNo: { contains: search, mode: "insensitive" } },
-                    ],
-                }),
-            },
-            include: { items: { include: { part: true } } },
-            orderBy: { createdAt: "desc" },
-        });
-        return c.json({ success: true, data: claims });
+        const pag = parsePagination(c);
+
+        const where: any = {
+            ...(status && { status: status as any }),
+            ...(search && {
+                OR: [
+                    { claimNo: { contains: search, mode: "insensitive" } },
+                    { customerName: { contains: search, mode: "insensitive" } },
+                    { customerPhone: { contains: search } },
+                    { plateNo: { contains: search, mode: "insensitive" } },
+                ],
+            }),
+        };
+
+        const [claims, total] = await Promise.all([
+            prisma.insuranceClaim.findMany({
+                where,
+                include: { items: { include: { part: true } } },
+                orderBy: { createdAt: "desc" },
+                skip: pag.skip,
+                take: pag.take,
+            }),
+            prisma.insuranceClaim.count({ where }),
+        ]);
+
+        return c.json(paginatedJson(claims, total, pag));
     } catch (error) {
         return c.json({ success: false, error: "ไม่สามารถดึงข้อมูลเคลมได้" }, 500);
     }
@@ -122,9 +133,6 @@ claimsRouter.post("/:id/notify", async (c) => {
         if (claim.status !== "ARRIVED" && claim.status !== "ORDERED") {
             return c.json({ success: false, error: "ยังไม่สามารถแจ้งเตือนได้ อะไหล่ยังไม่มาถึง" }, 400);
         }
-
-        // TODO: เชื่อมต่อ LINE OA ในอนาคต
-        // await sendLineNotification(claim.customerPhone, message);
 
         const updated = await prisma.insuranceClaim.update({
             where: { id },

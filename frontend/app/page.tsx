@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { getStockSummary } from "@/lib/api";
-import { Package, Layers, AlertTriangle, ShieldCheck, ArrowUpFromLine, TrendingDown } from "lucide-react";
+import { Package, Layers, AlertTriangle, ShieldCheck, ArrowUpFromLine, ArrowDownToLine, TrendingDown, History } from "lucide-react";
 import Link from "next/link";
 
 const statusLabel: Record<string, string> = {
@@ -131,6 +131,49 @@ export default function DashboardPage() {
                       <td className="py-3 text-xs" style={{ color: "var(--t-text-muted)" }}>{new Date(w.createdAt).toLocaleDateString("th-TH", { day: "2-digit", month: "short", year: "2-digit", hour: "2-digit", minute: "2-digit" })}</td>
                     </tr>
                   ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* Recent Stock Movements */}
+        <div className="rounded-xl p-5 lg:col-span-2" style={{ background: "var(--t-card)", border: "1px solid var(--t-border-subtle)" }}>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <History className="w-5 h-5 text-cyan-500" />
+              <h2 className="font-semibold" style={{ color: "var(--t-text)" }}>ประวัติสต็อกล่าสุด</h2>
+            </div>
+            <Link href="/withdraw" className="text-xs text-emerald-500 hover:text-emerald-400 transition-colors">ดูทั้งหมด →</Link>
+          </div>
+          {!summary?.recentMovements?.length ? (
+            <div className="text-center py-8"><History className="w-8 h-8 mx-auto mb-2" style={{ color: "var(--t-text-dim)" }} /><p style={{ color: "var(--t-text-muted)" }} className="text-sm">ยังไม่มีประวัติสต็อก</p></div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr style={{ borderBottom: "1px solid var(--t-border-subtle)" }}>
+                    {["ประเภท", "อะไหล่", "จำนวน", "ผู้ดำเนินการ", "วันที่"].map((h) => <th key={h} className="pb-3 text-xs font-semibold uppercase tracking-wider text-left" style={{ color: "var(--t-text-muted)" }}>{h}</th>)}
+                  </tr>
+                </thead>
+                <tbody>
+                  {summary.recentMovements.map((m: any) => {
+                    const isIn = m.type === "IN";
+                    return (
+                      <tr key={m.id} className="transition-colors" style={{ borderBottom: "1px solid var(--t-border-subtle)" }} onMouseEnter={(e) => e.currentTarget.style.background = "var(--t-hover-overlay)"} onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
+                        <td className="py-3">
+                          <span className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full font-semibold ${isIn ? "bg-emerald-500/15 text-emerald-500" : "bg-orange-500/15 text-orange-500"}`}>
+                            {isIn ? <ArrowDownToLine className="w-3 h-3" /> : <ArrowUpFromLine className="w-3 h-3" />}
+                            {isIn ? "เข้า" : "ออก"}
+                          </span>
+                        </td>
+                        <td className="py-3"><p className="text-sm font-medium" style={{ color: "var(--t-text)" }}>{m.part?.name}</p><p className="font-mono text-[11px]" style={{ color: "var(--t-text-muted)" }}>{m.part?.code}</p></td>
+                        <td className="py-3"><span className={`text-sm font-bold ${isIn ? "text-emerald-500" : "text-orange-500"}`}>{isIn ? "+" : "-"}{m.quantity}</span><span className="text-xs ml-1" style={{ color: "var(--t-text-dim)" }}>{m.part?.unit}</span></td>
+                        <td className="py-3 text-sm" style={{ color: "var(--t-text-secondary)" }}>{m.user?.name || "-"}</td>
+                        <td className="py-3 text-xs" style={{ color: "var(--t-text-muted)" }}>{new Date(m.createdAt).toLocaleDateString("th-TH", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

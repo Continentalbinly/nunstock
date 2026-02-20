@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useRef } from "react";
-import { getParts, getCategories } from "@/lib/api";
+import { getPartsAll, getCategories } from "@/lib/api";
 import { Barcode, Search, Package, X, Printer, ScanBarcode } from "lucide-react";
 import { useTheme } from "@/components/ThemeProvider";
 
@@ -21,7 +21,7 @@ export default function BarcodePage() {
     const [scannerMode, setScannerMode] = useState(false);
 
     useEffect(() => {
-        Promise.all([getParts(), getCategories()])
+        Promise.all([getPartsAll(), getCategories()])
             .then(([p, c]) => { setParts(p); setCategories(c); })
             .catch(console.error)
             .finally(() => setLoading(false));

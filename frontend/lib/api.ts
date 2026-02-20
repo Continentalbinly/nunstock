@@ -1,5 +1,15 @@
 const API_BASE = "";
 
+interface PaginatedResponse<T> {
+    data: T[];
+    pagination: {
+        page: number;
+        pageSize: number;
+        total: number;
+        totalPages: number;
+    };
+}
+
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
     const res = await fetch(`${API_BASE}${path}`, {
         headers: { "Content-Type": "application/json" },
@@ -11,9 +21,22 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
     return data.data;
 }
 
-// ---- อะไหล่ ----
+async function apiFetchPaginated<T>(path: string, options?: RequestInit): Promise<PaginatedResponse<T>> {
+    const res = await fetch(`${API_BASE}${path}`, {
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        ...options,
+    });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || "เกิดข้อผิดพลาด");
+    return { data: data.data, pagination: data.pagination };
+}
+
+// ---- อะไหล่ (paginated) ----
 export const getParts = (params?: Record<string, string>) =>
-    apiFetch<any[]>(`/api/parts?${new URLSearchParams(params)}`);
+    apiFetchPaginated<any>(`/api/parts?${new URLSearchParams(params)}`);
+export const getPartsAll = (params?: Record<string, string>) =>
+    apiFetchPaginated<any>(`/api/parts?pageSize=999&${new URLSearchParams(params)}`).then((r) => r.data);
 export const getPartByBarcode = (code: string) =>
     apiFetch<any>(`/api/parts/barcode/${code}`);
 export const createPart = (data: any) =>
@@ -30,21 +53,24 @@ export const createCategory = (data: any) =>
 export const deleteCategory = (id: string) =>
     apiFetch<any>(`/api/categories/${id}`, { method: "DELETE" });
 
-// ---- การเบิก ----
+// ---- การเบิก (paginated) ----
 export const getWithdrawals = (params?: Record<string, string>) =>
-    apiFetch<any[]>(`/api/withdrawals?${new URLSearchParams(params)}`);
+    apiFetchPaginated<any>(`/api/withdrawals?${new URLSearchParams(params)}`);
+
 export const createWithdrawal = (data: any) =>
     apiFetch<any>("/api/withdrawals", { method: "POST", body: JSON.stringify(data) });
 
-// ---- เคลื่อนไหวสต็อก ----
+// ---- เคลื่อนไหวสต็อก (paginated) ----
 export const getMovements = (params?: Record<string, string>) =>
-    apiFetch<any[]>(`/api/movements?${new URLSearchParams(params)}`);
+    apiFetchPaginated<any>(`/api/movements?${new URLSearchParams(params)}`);
 export const createMovement = (data: any) =>
     apiFetch<any>("/api/movements", { method: "POST", body: JSON.stringify(data) });
 
-// ---- เคลมประกัน ----
+// ---- เคลมประกัน (paginated) ----
 export const getClaims = (params?: Record<string, string>) =>
-    apiFetch<any[]>(`/api/claims?${new URLSearchParams(params)}`);
+    apiFetchPaginated<any>(`/api/claims?${new URLSearchParams(params)}`);
+export const getClaimsAll = (params?: Record<string, string>) =>
+    apiFetchPaginated<any>(`/api/claims?pageSize=999&${new URLSearchParams(params)}`).then((r) => r.data);
 export const getClaim = (id: string) => apiFetch<any>(`/api/claims/${id}`);
 export const createClaim = (data: any) =>
     apiFetch<any>("/api/claims", { method: "POST", body: JSON.stringify(data) });

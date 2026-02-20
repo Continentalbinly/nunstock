@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
-import { getClaims, createClaim, updateClaimStatus, deleteClaim, notifyClaimCustomer, getParts } from "@/lib/api";
+import { getClaims, createClaim, updateClaimStatus, deleteClaim, notifyClaimCustomer, getPartsAll } from "@/lib/api";
 import { ShieldCheck, Plus, X, Search, ChevronRight, Bell, Trash2, CheckCircle2 } from "lucide-react";
+import { Pagination } from "@/components/Pagination";
 
 const statusList = ["PENDING", "ORDERED", "ARRIVED", "NOTIFIED", "COMPLETED"] as const;
 const statusLabel: Record<string, string> = { PENDING: "รอดำเนินการ", ORDERED: "สั่งแล้ว", ARRIVED: "มาถึง", NOTIFIED: "แจ้งแล้ว", COMPLETED: "เสร็จสิ้น" };
@@ -20,18 +21,16 @@ export default function ClaimsPage() {
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState("");
     const [msg, setMsg] = useState("");
+    const [page, setPage] = useState(1);
+    const [pagination, setPagination] = useState({ page: 1, pageSize: 20, total: 0, totalPages: 1 });
 
     const inputStyle = { background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" };
     const inputCls = "w-full rounded-lg px-3 py-2 text-sm transition-colors focus:outline-none focus:ring-1 focus:ring-emerald-500/30";
 
-    const fetchData = async () => { try { const [c, p] = await Promise.all([getClaims(), getParts()]); setClaims(c); setParts(p); } catch (err) { console.error(err); } finally { setLoading(false); } };
-    useEffect(() => { fetchData(); }, []);
+    const fetchData = async () => { setLoading(true); try { const params: Record<string, string> = { page: String(page), pageSize: "20" }; if (statusFilter) params.status = statusFilter; if (search) params.search = search; const [result, p] = await Promise.all([getClaims(params), getPartsAll()]); setClaims(result.data); setPagination(result.pagination); setParts(p); } catch (err) { console.error(err); } finally { setLoading(false); } };
+    useEffect(() => { fetchData(); }, [page, statusFilter, search]);
 
-    const filtered = claims.filter((c) => {
-        const matchStatus = !statusFilter || c.status === statusFilter;
-        const matchSearch = !search || c.claimNo.toLowerCase().includes(search.toLowerCase()) || c.customerName.toLowerCase().includes(search.toLowerCase()) || c.plateNo.toLowerCase().includes(search.toLowerCase());
-        return matchStatus && matchSearch;
-    });
+
 
     const handleCreate = async () => { setSaving(true); setError(""); try { const items = form.items.filter((i: any) => i.partName.trim()).map((i: any) => ({ partName: i.partName, quantity: Number(i.quantity), ...(i.partId ? { partId: i.partId } : {}) })); if (items.length === 0) { setError("กรุณาเพิ่มอะไหล่อย่างน้อย 1 รายการ"); setSaving(false); return; } await createClaim({ ...form, items }); setShowModal(false); setForm({ ...emptyForm }); fetchData(); } catch (err: any) { setError(err.message || "ไม่สามารถสร้างเคลมได้"); } finally { setSaving(false); } };
     const handleStatusChange = async (id: string, s: string) => { try { await updateClaimStatus(id, s); fetchData(); } catch (err: any) { alert(err.message); } };
@@ -55,19 +54,19 @@ export default function ClaimsPage() {
 
             <div className="rounded-xl p-4 mb-6" style={{ background: "var(--t-card)", border: "1px solid var(--t-border-subtle)" }}>
                 <div className="flex flex-wrap items-center gap-3">
-                    <div className="relative flex-1 min-w-[200px]"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--t-text-muted)" }} /><input type="text" placeholder="ค้นหาเคลม..." value={search} onChange={(e) => setSearch(e.target.value)} className={`${inputCls} pl-10!`} style={inputStyle} /></div>
-                    <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="rounded-lg px-3 py-2 text-sm focus:outline-none cursor-pointer min-w-[140px]" style={inputStyle}><option value="">ทุกสถานะ</option>{statusList.map((s) => <option key={s} value={s}>{statusLabel[s]}</option>)}</select>
+                    <div className="relative flex-1 min-w-[200px]"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--t-text-muted)" }} /><input type="text" placeholder="ค้นหาเคลม..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} className={`${inputCls} pl-10!`} style={inputStyle} /></div>
+                    <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }} className="rounded-lg px-3 py-2 text-sm focus:outline-none cursor-pointer min-w-[140px]" style={inputStyle}><option value="">ทุกสถานะ</option>{statusList.map((s) => <option key={s} value={s}>{statusLabel[s]}</option>)}</select>
                     <button onClick={() => { setForm({ ...emptyForm }); setError(""); setShowModal(true); }} className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-white font-semibold rounded-lg px-4 py-2 text-sm transition-colors cursor-pointer"><Plus className="w-4 h-4" /> สร้างเคลม</button>
                 </div>
             </div>
 
-            <p className="text-sm mb-4" style={{ color: "var(--t-text-muted)" }}>พบ <span className="font-medium" style={{ color: "var(--t-text)" }}>{filtered.length}</span> รายการ</p>
+            <p className="text-sm mb-4" style={{ color: "var(--t-text-muted)" }}>พบ <span className="font-medium" style={{ color: "var(--t-text)" }}>{pagination.total}</span> รายการ</p>
 
-            {filtered.length === 0 ? (
+            {claims.length === 0 ? (
                 <div className="rounded-xl text-center py-16" style={{ background: "var(--t-card)", border: "1px solid var(--t-border-subtle)" }}><ShieldCheck className="w-10 h-10 mx-auto mb-3" style={{ color: "var(--t-text-dim)" }} /><p style={{ color: "var(--t-text-muted)" }}>ไม่พบรายการเคลม</p></div>
             ) : (
                 <div className="space-y-3">
-                    {filtered.map((c) => {
+                    {claims.map((c) => {
                         const next = getNextStatus(c.status);
                         return (
                             <div key={c.id} className="rounded-xl p-5" style={{ background: "var(--t-card)", border: "1px solid var(--t-border-subtle)" }}>
@@ -93,6 +92,8 @@ export default function ClaimsPage() {
                     })}
                 </div>
             )}
+
+            <Pagination page={pagination.page} totalPages={pagination.totalPages} total={pagination.total} pageSize={pagination.pageSize} onPageChange={setPage} />
 
             {showModal && (
                 <div className="fixed inset-0 z-100 flex items-center justify-center" style={{ background: "var(--t-modal-overlay)", animation: "fadeIn 150ms ease" }} onClick={() => setShowModal(false)}>
