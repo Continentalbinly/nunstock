@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Environment files (อย่า commit ขึ้น git)
+.env
+**/.env
+frontend/.env.local
+
+# Build outputs
+dist/
+.next/
+**/dist/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+
+# Prisma generated
+**/node_modules/.prisma/

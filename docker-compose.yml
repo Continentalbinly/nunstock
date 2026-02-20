@@ -1,0 +1,56 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: nunstock-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: nunstock
+      POSTGRES_USER: nunstock
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme123}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U nunstock -d nunstock" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: nunstock-backend
+    restart: unless-stopped
+    ports:
+      - "1100:1100"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://nunstock:${DB_PASSWORD:-changeme123}@postgres:5432/nunstock
+      PORT: 1100
+      NODE_ENV: production
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -f http://localhost:1100/ || exit 1" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: nunstock-frontend
+    restart: unless-stopped
+    ports:
+      - "9090:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:1100}
+      NODE_ENV: production
+
+volumes:
+  postgres_data:
+    name: nunstock-postgres-data

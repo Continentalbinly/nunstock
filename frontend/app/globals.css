@@ -1,0 +1,196 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --color-surface: var(--t-surface);
+  --color-surface-hover: var(--t-surface-hover);
+  --color-border-subtle: var(--t-border-subtle);
+}
+
+/* ═══ DARK THEME (default) ═══ */
+:root,
+[data-theme="dark"] {
+  --t-bg: #020617;
+  --t-surface: #0F172A;
+  --t-surface-hover: #1E293B;
+  --t-card: #0F172A;
+  --t-card-hover: #1a2744;
+  --t-text: #F8FAFC;
+  --t-text-secondary: #94A3B8;
+  --t-text-muted: #64748B;
+  --t-text-dim: #475569;
+  --t-border: #1E293B;
+  --t-border-subtle: rgba(255, 255, 255, 0.06);
+  --t-input-bg: #1E293B;
+  --t-input-border: #475569;
+  --t-input-text: #F8FAFC;
+  --t-input-placeholder: #64748B;
+  --t-sidebar-bg: linear-gradient(180deg, #0F172A 0%, #020617 100%);
+  --t-sidebar-border: rgba(255, 255, 255, 0.06);
+  --t-sidebar-text: #94A3B8;
+  --t-sidebar-active-bg: rgba(34, 197, 94, 0.15);
+  --t-sidebar-active-text: #4ADE80;
+  --t-hover-overlay: rgba(255, 255, 255, 0.04);
+  --t-badge-bg: rgba(255, 255, 255, 0.04);
+  --t-badge-text: #94A3B8;
+  --t-modal-bg: #0F172A;
+  --t-modal-border: #334155;
+  --t-modal-overlay: rgba(0, 0, 0, 0.7);
+
+  --sidebar-width: 260px;
+  color-scheme: dark;
+}
+
+/* ═══ LIGHT THEME ═══ */
+[data-theme="light"] {
+  --t-bg: #F1F5F9;
+  --t-surface: #FFFFFF;
+  --t-surface-hover: #F8FAFC;
+  --t-card: #FFFFFF;
+  --t-card-hover: #F8FAFC;
+  --t-text: #0F172A;
+  --t-text-secondary: #475569;
+  --t-text-muted: #64748B;
+  --t-text-dim: #94A3B8;
+  --t-border: #E2E8F0;
+  --t-border-subtle: rgba(0, 0, 0, 0.06);
+  --t-input-bg: #F8FAFC;
+  --t-input-border: #CBD5E1;
+  --t-input-text: #0F172A;
+  --t-input-placeholder: #94A3B8;
+  --t-sidebar-bg: linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%);
+  --t-sidebar-border: #E2E8F0;
+  --t-sidebar-text: #64748B;
+  --t-sidebar-active-bg: rgba(34, 197, 94, 0.1);
+  --t-sidebar-active-text: #16A34A;
+  --t-hover-overlay: rgba(0, 0, 0, 0.03);
+  --t-badge-bg: #F1F5F9;
+  --t-badge-text: #475569;
+  --t-modal-bg: #FFFFFF;
+  --t-modal-border: #E2E8F0;
+  --t-modal-overlay: rgba(0, 0, 0, 0.4);
+
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-thai, 'Noto Sans Thai'), 'Inter', sans-serif;
+  background: var(--t-bg);
+  color: var(--t-text);
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* ═══ LAYOUT ═══ */
+.sidebar {
+  width: var(--sidebar-width);
+  background: var(--t-sidebar-bg);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 50;
+  border-right: 1px solid var(--t-sidebar-border);
+  transition: background 0.3s ease, border-color 0.3s ease;
+}
+
+.main-content {
+  margin-left: var(--sidebar-width);
+  min-height: 100vh;
+  background: var(--t-bg);
+  transition: background-color 0.3s ease;
+}
+
+/* ═══ SCROLLBAR ═══ */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.3);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(128, 128, 128, 0.5);
+}
+
+/* ═══ ANIMATIONS ═══ */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ═══ PRINT STYLES ═══ */
+@media print {
+  body {
+    background: white !important;
+  }
+
+  .sidebar,
+  .main-content,
+  .no-print {
+    display: none !important;
+  }
+
+  .print-area {
+    display: flex !important;
+    position: fixed;
+    inset: 0;
+    align-items: center;
+    justify-content: center;
+    background: white;
+    z-index: 9999;
+  }
+
+  .print-area canvas {
+    max-width: 100% !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    transform: translateX(-100%);
+  }
+
+  .main-content {
+    margin-left: 0;
+  }
+}

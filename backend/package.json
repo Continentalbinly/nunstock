@@ -1,0 +1,35 @@
+{
+  "name": "nunstock-backend",
+  "version": "1.0.0",
+  "description": "NunStock Backend API - ระบบคลังอะไหล่ร้านซ่อมรถยนต์",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate deploy",
+    "db:migrate:dev": "prisma migrate dev",
+    "db:seed": "tsx src/seed.ts",
+    "db:studio": "prisma studio"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.14.1",
+    "@hono/zod-validator": "^0.7.6",
+    "@prisma/client": "^6.4.1",
+    "bcryptjs": "^3.0.3",
+    "canvas": "^3.1.0",
+    "hono": "^4.7.2",
+    "jsbarcode": "^3.11.6",
+    "jsonwebtoken": "^9.0.3",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^22.13.5",
+    "prisma": "^6.4.1",
+    "tsx": "^4.19.3",
+    "typescript": "^5.7.3"
+  }
+}
