@@ -7,14 +7,14 @@ interface ThemeContextType {
     toggleTheme: () => void;
 }
 
-const ThemeContext = createContext<ThemeContextType>({ theme: "dark", toggleTheme: () => { } });
+const ThemeContext = createContext<ThemeContextType>({ theme: "light", toggleTheme: () => { } });
 
 export function useTheme() {
     return useContext(ThemeContext);
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-    const [theme, setTheme] = useState<Theme>("dark");
+    const [theme, setTheme] = useState<Theme>("light");
     const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
@@ -36,7 +36,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     // Prevent flash of wrong theme
     if (!mounted) {
         return (
-            <div data-theme="dark" style={{ visibility: "hidden" }}>
+            <div data-theme="light" style={{ visibility: "hidden" }}>
                 {children}
             </div>
         );
