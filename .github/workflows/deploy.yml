@@ -99,7 +99,7 @@ jobs:
             npm ci
             npx prisma generate
             npx prisma db push --accept-data-loss
-            npx prisma db seed 2>/dev/null || true
+            npx tsx src/seed.ts
             npx tsx src/seed-admin.ts
             rm -rf dist
             npx tsc
