@@ -33,7 +33,7 @@ export function Sidebar() {
     const isDark = theme === "dark";
 
     const handleLogout = async () => {
-        await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:1100"}/api/auth/logout`, {
+        await fetch("/api/auth/logout", {
             method: "POST",
             credentials: "include",
         });
