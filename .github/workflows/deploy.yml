@@ -17,6 +17,7 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           password: ${{ secrets.VPS_PASSWORD }}
           command_timeout: 30m
+          envs: DB_PASSWORD,DATABASE_URL,JWT_SECRET
           script: |
             set -e
             echo "======================================"
@@ -24,66 +25,73 @@ jobs:
             echo "======================================"
 
             # ── 1. Node.js 22 ──────────────────────
-            if ! command -v node &>/dev/null; then
-              echo ">>> ติดตั้ง Node.js 22..."
+            export NODE_VERSION=$(node -v 2>/dev/null || echo "none")
+            if [ "$NODE_VERSION" = "none" ]; then
+              echo ">>> Installing Node.js 22..."
               curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
               sudo apt install -y nodejs
             else
-              echo ">>> Node.js $(node -v) พร้อมแล้ว"
+              echo ">>> Node.js $NODE_VERSION ready"
             fi
 
             # ── 2. PM2 ─────────────────────────────
             if ! command -v pm2 &>/dev/null; then
-              echo ">>> ติดตั้ง PM2..."
+              echo ">>> Installing PM2..."
               sudo npm install -g pm2
               pm2 startup systemd -u $USER --hp $HOME | tail -1 | bash || true
             else
-              echo ">>> PM2 $(pm2 -v) พร้อมแล้ว"
+              echo ">>> PM2 $(pm2 -v) ready"
             fi
 
             # ── 3. PostgreSQL ───────────────────────
             if ! command -v psql &>/dev/null; then
-              echo ">>> ติดตั้ง PostgreSQL..."
+              echo ">>> Installing PostgreSQL..."
               sudo apt install -y postgresql postgresql-contrib
               sudo systemctl enable postgresql
               sudo systemctl start postgresql
             else
-              echo ">>> PostgreSQL พร้อมแล้ว"
+              echo ">>> PostgreSQL ready"
             fi
 
-            # ── 4. สร้าง DB user (ถ้าไม่มี) ────────
+            # ── 4. Setup DB (safe idempotent) ──────
+            echo ">>> Setting up database..."
             sudo -u postgres psql -tc "SELECT 1 FROM pg_roles WHERE rolname='nunstock'" \
-              | grep -q 1 || \
-              sudo -u postgres psql -c "CREATE USER nunstock WITH PASSWORD '$(echo "${{ secrets.DATABASE_URL }}" | grep -oP "(?<=:)[^@]+(?=@)")'"
+              | grep -q 1 \
+              && sudo -u postgres psql -c "ALTER USER nunstock WITH PASSWORD '$DB_PASSWORD'" \
+              || sudo -u postgres psql -c "CREATE USER nunstock WITH PASSWORD '$DB_PASSWORD'"
             sudo -u postgres psql -tc "SELECT 1 FROM pg_database WHERE datname='nunstock'" \
               | grep -q 1 || \
               sudo -u postgres psql -c "CREATE DATABASE nunstock OWNER nunstock"
+            echo ">>> Database ready"
 
-            # ── 5. Clone หรือ Pull ──────────────────
+            # ── 5. Clone or Pull ────────────────────
             if [ ! -d "/var/www/nunstock/.git" ]; then
-              echo ">>> Clone โปรเจกต์..."
+              echo ">>> Cloning project..."
               sudo mkdir -p /var/www/nunstock
               sudo chown $USER:$USER /var/www/nunstock
               git clone https://github.com/${{ github.repository }} /var/www/nunstock
             else
-              echo ">>> Pull โค้ดล่าสุด..."
+              echo ">>> Pulling latest code..."
               cd /var/www/nunstock
               git fetch origin
               git reset --hard origin/main
             fi
 
-            # ── 6. สร้าง .env ───────────────────────
-            echo ">>> สร้าง .env files..."
-            cat > /var/www/nunstock/backend/.env << 'ENVEOF'
-            DATABASE_URL=${{ secrets.DATABASE_URL }}
+            # ── 6. Create .env files ────────────────
+            echo ">>> Creating .env files..."
+            cat > /var/www/nunstock/backend/.env << EOF
+            DATABASE_URL=$DATABASE_URL
             PORT=1100
             NODE_ENV=production
-            JWT_SECRET=${{ secrets.JWT_SECRET }}
-            ENVEOF
+            JWT_SECRET=$JWT_SECRET
+            EOF
+            # Trim leading whitespace from heredoc
+            sed -i 's/^[[:space:]]*//' /var/www/nunstock/backend/.env
 
             cat > /var/www/nunstock/frontend/.env.local << 'ENVEOF'
             NEXT_PUBLIC_API_URL=http://localhost:1100
             ENVEOF
+            sed -i 's/^[[:space:]]*//' /var/www/nunstock/frontend/.env.local
 
             # ── 7. Deploy Backend ───────────────────
             echo ">>> Deploy Backend (port 1100)..."
@@ -109,6 +117,11 @@ jobs:
 
             pm2 save
             echo "======================================"
-            echo "  Deploy เสร็จสมบูรณ์! ✅"
+            echo "  Deploy complete!"
             echo "  http://${{ secrets.VPS_HOST }}:9090"
             echo "======================================"
+        env:
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+
