@@ -31,8 +31,8 @@ export default function BarcodePage() {
         if (selectedPart && barcodeRef.current) {
             import("jsbarcode").then((JsBarcode) => {
                 JsBarcode.default(barcodeRef.current, selectedPart.code, {
-                    format: "CODE128", width: 2, height: 80, displayValue: true,
-                    background: "#FFFFFF", lineColor: "#000000", fontSize: 16, font: "monospace", margin: 16, textMargin: 6,
+                    format: "CODE128", width: 1.5, height: 40, displayValue: true,
+                    background: "#FFFFFF", lineColor: "#000000", fontSize: 11, font: "monospace", margin: 4, textMargin: 3,
                 });
             });
         }
