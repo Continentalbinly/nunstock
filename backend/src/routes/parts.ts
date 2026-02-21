@@ -27,7 +27,7 @@ partsRouter.get("/", async (c) => {
         if (lowStock === "true") {
             const allParts = await prisma.part.findMany({
                 where,
-                include: { category: true },
+                include: { category: { include: { parent: { include: { parent: true } } } } },
                 orderBy: { createdAt: "desc" },
             });
             const filtered = allParts.filter((p) => p.quantity <= p.minStock);
@@ -39,7 +39,7 @@ partsRouter.get("/", async (c) => {
         const [parts, total] = await Promise.all([
             prisma.part.findMany({
                 where,
-                include: { category: true },
+                include: { category: { include: { parent: { include: { parent: true } } } } },
                 orderBy: { createdAt: "desc" },
                 skip: pag.skip,
                 take: pag.take,
@@ -114,35 +114,4 @@ partsRouter.post("/", zValidator("json", partSchema), async (c) => {
     }
 });
 
-// PUT /api/parts/:id - แก้ไขอะไหล่
-partsRouter.put("/:id", zValidator("json", partSchema.partial()), async (c) => {
-    try {
-        const { id } = c.req.param();
-        const body = c.req.valid("json");
-        const part = await prisma.part.update({
-            where: { id },
-            data: body,
-            include: { category: true },
-        });
-        return c.json({ success: true, data: part });
-    } catch (error: any) {
-        if (error?.code === "P2025") {
-            return c.json({ success: false, error: "ไม่พบอะไหล่นี้" }, 404);
-        }
-        return c.json({ success: false, error: "ไม่สามารถแก้ไขอะไหล่ได้" }, 500);
-    }
-});
 
-// DELETE /api/parts/:id - ลบอะไหล่
-partsRouter.delete("/:id", async (c) => {
-    try {
-        const { id } = c.req.param();
-        await prisma.part.delete({ where: { id } });
-        return c.json({ success: true, message: "ลบอะไหล่เรียบร้อย" });
-    } catch (error: any) {
-        if (error?.code === "P2025") {
-            return c.json({ success: false, error: "ไม่พบอะไหล่นี้" }, 404);
-        }
-        return c.json({ success: false, error: "ไม่สามารถลบอะไหล่ได้" }, 500);
-    }
-});

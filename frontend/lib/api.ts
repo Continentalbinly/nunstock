@@ -1,5 +1,14 @@
 const API_BASE = "";
 
+export interface Category {
+    id: string;
+    name: string;
+    icon: string;
+    color: string;
+    parentId?: string | null;
+    parent?: { id: string, name: string } | null;
+    _count?: { parts: number };
+}
 interface PaginatedResponse<T> {
     data: T[];
     pagination: {
@@ -41,17 +50,11 @@ export const getPartByBarcode = (code: string) =>
     apiFetch<any>(`/api/parts/barcode/${code}`);
 export const createPart = (data: any) =>
     apiFetch<any>("/api/parts", { method: "POST", body: JSON.stringify(data) });
-export const updatePart = (id: string, data: any) =>
-    apiFetch<any>(`/api/parts/${id}`, { method: "PUT", body: JSON.stringify(data) });
-export const deletePart = (id: string) =>
-    apiFetch<any>(`/api/parts/${id}`, { method: "DELETE" });
 
 // ---- ประเภท ----
 export const getCategories = () => apiFetch<any[]>("/api/categories");
 export const createCategory = (data: any) =>
     apiFetch<any>("/api/categories", { method: "POST", body: JSON.stringify(data) });
-export const deleteCategory = (id: string) =>
-    apiFetch<any>(`/api/categories/${id}`, { method: "DELETE" });
 
 // ---- การเบิก (paginated) ----
 export const getWithdrawals = (params?: Record<string, string>) =>

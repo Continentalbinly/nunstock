@@ -1,59 +1,91 @@
 import { prisma } from "./lib/prisma.js";
 
-const categories = [
-    { name: "อะไหล่สิ้นเปลือง", color: "#f59e0b", icon: "wrench" },
-    { name: "อะไหล่ซ่อม", color: "#3b82f6", icon: "cog" },
-    { name: "Body Part", color: "#8b5cf6", icon: "car" },
-    { name: "ระบบไฟ", color: "#eab308", icon: "lightbulb" },
-    { name: "ระบบแอร์", color: "#06b6d4", icon: "snowflake" },
-    { name: "แบตเตอรี่และไฟฟ้า", color: "#22c55e", icon: "battery-charging" },
-    { name: "ยางและล้อ", color: "#64748b", icon: "circle-dot" },
-    { name: "อื่นๆ", color: "#6b7280", icon: "package" },
-];
-
-const sampleParts = [
-    { code: "OIL-5W30", name: "น้ำมันเครื่อง 5W-30", brand: "Castrol", quantity: 48, minStock: 10, unit: "ลิตร", catIndex: 0 },
-    { code: "FILTER-OIL-001", name: "กรองน้ำมันเครื่อง", brand: "Toyota", quantity: 30, minStock: 10, unit: "ลูก", catIndex: 0 },
-    { code: "FILTER-AIR-001", name: "กรองอากาศ", brand: "Bosch", quantity: 25, minStock: 8, unit: "ลูก", catIndex: 0 },
-    { code: "SPARK-NGK-001", name: "หัวเทียน NGK", brand: "NGK", quantity: 60, minStock: 20, unit: "ลูก", catIndex: 0 },
-    { code: "BRAKE-PAD-F", name: "ผ้าเบรกหน้า", brand: "Brembo", quantity: 12, minStock: 5, unit: "ชุด", catIndex: 1 },
-    { code: "BRAKE-PAD-R", name: "ผ้าเบรกหลัง", brand: "Brembo", quantity: 8, minStock: 5, unit: "ชุด", catIndex: 1 },
-    { code: "SHOCK-F-001", name: "โช้คหน้า", brand: "Monroe", quantity: 4, minStock: 2, unit: "คู่", catIndex: 1 },
-    { code: "BELT-TIMING", name: "สายพานราวลิ้น", brand: "Gates", quantity: 5, minStock: 3, unit: "เส้น", catIndex: 1 },
-    { code: "BODY-BUMPER-F", name: "กันชนหน้า", brand: "OEM", quantity: 2, minStock: 1, unit: "ชิ้น", catIndex: 2 },
-    { code: "BODY-HOOD", name: "ฝากระโปรงหน้า", brand: "OEM", quantity: 1, minStock: 1, unit: "ชิ้น", catIndex: 2 },
-    { code: "LIGHT-H4-55W", name: "หลอดไฟหน้า H4 55W", brand: "Philips", quantity: 20, minStock: 10, unit: "ลูก", catIndex: 3 },
-    { code: "COMP-AC-001", name: "คอมแอร์", brand: "Denso", quantity: 2, minStock: 1, unit: "ตัว", catIndex: 4 },
-    { code: "BAT-55AH", name: "แบตเตอรี่ 55AH", brand: "Yuasa", quantity: 5, minStock: 2, unit: "ลูก", catIndex: 5 },
-    { code: "TIRE-195-65-15", name: "ยาง 195/65 R15", brand: "Bridgestone", quantity: 8, minStock: 4, unit: "เส้น", catIndex: 6 },
-];
-
 async function seed() {
-    console.log("Seeding database...");
+    console.log("🌱 Seeding database...\n");
 
-    // สร้างประเภทอะไหล่
-    const createdCategories = await Promise.all(
-        categories.map((cat) =>
-            prisma.partCategory.upsert({
-                where: { name: cat.name },
-                update: cat,
-                create: cat,
-            })
-        )
-    );
-    console.log(`[OK] Created ${createdCategories.length} categories`);
+    // 1. Clear existing data
+    await prisma.stockMovement.deleteMany();
+    await prisma.withdrawal.deleteMany();
+    await prisma.claimItem.deleteMany();
+    await prisma.insuranceClaim.deleteMany();
+    await prisma.part.deleteMany();
+    await prisma.partCategory.deleteMany();
+    console.log("[OK] Cleared old data");
 
-    // สร้างอะไหล่ตัวอย่าง
-    for (const p of sampleParts) {
-        const { catIndex, ...partData } = p;
-        await prisma.part.upsert({
-            where: { code: partData.code },
-            update: { ...partData, categoryId: createdCategories[catIndex].id },
-            create: { ...partData, categoryId: createdCategories[catIndex].id },
+    // ─── Top-Level Categories ───────────────────────────────────
+    const shopCat = await prisma.partCategory.create({
+        data: { name: "รถหน้าร้าน", color: "#10b981", icon: "store" }
+    });
+    const insuranceCat = await prisma.partCategory.create({
+        data: { name: "รถประกัน", color: "#3b82f6", icon: "shield" }
+    });
+    const consumableCat = await prisma.partCategory.create({
+        data: { name: "อุปกรณ์สิ้นเปลือง", color: "#f59e0b", icon: "wrench" }
+    });
+    console.log("[OK] Created 3 top-level categories");
+
+    // ─── Car Brands (5 ยี่ห้อยอดนิยมในไทย) ─────────────────────
+    const brands = ["Toyota", "Honda", "Isuzu", "Mitsubishi", "Mazda"];
+
+    // Level 2: Brands under รถหน้าร้าน
+    const shopBrands: Record<string, any> = {};
+    for (const brand of brands) {
+        shopBrands[brand] = await prisma.partCategory.create({
+            data: { name: brand, color: "#10b981", icon: "car", parentId: shopCat.id }
         });
     }
-    console.log(`[OK] Created ${sampleParts.length} sample parts`);
-    console.log("[DONE] Seed complete");
+    console.log(`[OK] Created ${brands.length} brands under รถหน้าร้าน`);
+
+    // Level 2: Insurance Company under รถประกัน
+    const samukkee = await prisma.partCategory.create({
+        data: { name: "ศามัคคีประกันภัย", color: "#6366f1", icon: "building", parentId: insuranceCat.id }
+    });
+    console.log("[OK] Created insurance company: ศามัคคีประกันภัย");
+
+    // Level 3: Brands under ศามัคคีประกันภัย
+    const insuranceBrands: Record<string, any> = {};
+    for (const brand of brands) {
+        insuranceBrands[brand] = await prisma.partCategory.create({
+            data: { name: brand, color: "#8b5cf6", icon: "car", parentId: samukkee.id }
+        });
+    }
+    console.log(`[OK] Created ${brands.length} brands under ศามัคคีประกันภัย`);
+
+    // ─── Sample Parts ───────────────────────────────────────────
+    const parts = [
+        // รถหน้าร้าน > Toyota
+        { code: "SH-TYT-001", name: "กันชนหน้า Revo", brand: "OEM", quantity: 3, minStock: 1, unit: "ชิ้น", categoryId: shopBrands["Toyota"].id },
+        { code: "SH-TYT-002", name: "ฝากระโปรง Hilux", brand: "OEM", quantity: 2, minStock: 1, unit: "ชิ้น", categoryId: shopBrands["Toyota"].id },
+
+        // รถหน้าร้าน > Honda
+        { code: "SH-HND-001", name: "ไฟหน้า Civic", brand: "Stanley", quantity: 4, minStock: 2, unit: "ดวง", categoryId: shopBrands["Honda"].id },
+
+        // รถหน้าร้าน > Isuzu
+        { code: "SH-ISZ-001", name: "ไฟท้าย D-Max", brand: "OEM", quantity: 2, minStock: 1, unit: "ดวง", categoryId: shopBrands["Isuzu"].id },
+
+        // ประกัน > ศามัคคี > Toyota
+        { code: "IN-TYT-001", name: "กันชนหน้า Yaris", brand: "OEM", quantity: 1, minStock: 1, unit: "ชิ้น", categoryId: insuranceBrands["Toyota"].id },
+        { code: "IN-TYT-002", name: "บังโคลนหน้า Vios", brand: "OEM", quantity: 2, minStock: 1, unit: "ชิ้น", categoryId: insuranceBrands["Toyota"].id },
+
+        // ประกัน > ศามัคคี > Honda
+        { code: "IN-HND-001", name: "กระจกข้าง City", brand: "OEM", quantity: 2, minStock: 1, unit: "ชิ้น", categoryId: insuranceBrands["Honda"].id },
+
+        // ประกัน > ศามัคคี > Isuzu
+        { code: "IN-ISZ-001", name: "กันชนหลัง D-Max", brand: "OEM", quantity: 1, minStock: 1, unit: "ชิ้น", categoryId: insuranceBrands["Isuzu"].id },
+
+        // อุปกรณ์สิ้นเปลือง
+        { code: "CON-001", name: "น้ำมันเครื่อง 5W-30", brand: "Castrol", quantity: 48, minStock: 10, unit: "ลิตร", categoryId: consumableCat.id },
+        { code: "CON-002", name: "เทปกาว 3M", brand: "3M", quantity: 20, minStock: 5, unit: "ม้วน", categoryId: consumableCat.id },
+        { code: "CON-003", name: "กาวซิลิโคน", brand: "Dowsil", quantity: 15, minStock: 5, unit: "หลอด", categoryId: consumableCat.id },
+        { code: "CON-004", name: "กระดาษทราย #120", brand: "3M", quantity: 100, minStock: 20, unit: "แผ่น", categoryId: consumableCat.id },
+    ];
+
+    for (const p of parts) {
+        await prisma.part.create({ data: p });
+    }
+    console.log(`[OK] Created ${parts.length} sample parts`);
+
+    console.log("\n✅ Seed complete!");
 }
 
 seed()

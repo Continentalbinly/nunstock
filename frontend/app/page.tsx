@@ -32,7 +32,7 @@ export default function DashboardPage() {
 
   const stats = [
     { label: "อะไหล่ทั้งหมด", value: summary?.totalParts ?? 0, icon: Package, accent: "#3B82F6", href: "/stock" },
-    { label: "ประเภทอะไหล่", value: summary?.totalCategories ?? 0, icon: Layers, accent: "#A855F7", href: "/parts" },
+    { label: "ประเภทอะไหล่", value: summary?.totalCategories ?? 0, icon: Layers, accent: "#A855F7", href: "/shop" },
     { label: "ของใกล้หมด", value: summary?.lowStockCount ?? 0, icon: TrendingDown, accent: "#F59E0B", href: "/stock?lowStock=true" },
     { label: "เคลมค้าง", value: summary?.pendingClaimsCount ?? 0, icon: ShieldCheck, accent: "#22C55E", href: "/claims" },
   ];

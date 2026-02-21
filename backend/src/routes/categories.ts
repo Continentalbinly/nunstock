@@ -10,8 +10,9 @@ categoriesRouter.get("/", async (c) => {
         const categories = await prisma.partCategory.findMany({
             include: {
                 _count: { select: { parts: true } },
+                parent: { select: { id: true, name: true } }
             },
-            orderBy: { name: "asc" },
+            orderBy: [{ parentId: "asc" }, { name: "asc" }],
         });
         return c.json({ success: true, data: categories });
     } catch (error) {
@@ -23,6 +24,7 @@ const categorySchema = z.object({
     name: z.string().min(1, "กรุณาระบุชื่อประเภท"),
     color: z.string().optional(),
     icon: z.string().optional(),
+    parentId: z.string().optional().nullable(),
 });
 
 categoriesRouter.post("/", zValidator("json", categorySchema), async (c) => {
@@ -35,29 +37,5 @@ categoriesRouter.post("/", zValidator("json", categorySchema), async (c) => {
             return c.json({ success: false, error: "ชื่อประเภทนี้มีอยู่แล้ว" }, 400);
         }
         return c.json({ success: false, error: "ไม่สามารถเพิ่มประเภทได้" }, 500);
-    }
-});
-
-categoriesRouter.put("/:id", zValidator("json", categorySchema), async (c) => {
-    try {
-        const { id } = c.req.param();
-        const body = c.req.valid("json");
-        const category = await prisma.partCategory.update({ where: { id }, data: body });
-        return c.json({ success: true, data: category });
-    } catch (error) {
-        return c.json({ success: false, error: "ไม่สามารถแก้ไขประเภทได้" }, 500);
-    }
-});
-
-categoriesRouter.delete("/:id", async (c) => {
-    try {
-        const { id } = c.req.param();
-        await prisma.partCategory.delete({ where: { id } });
-        return c.json({ success: true, message: "ลบประเภทเรียบร้อย" });
-    } catch (error: any) {
-        if (error?.code === "P2003") {
-            return c.json({ success: false, error: "ไม่สามารถลบได้ เนื่องจากมีอะไหล่ในประเภทนี้" }, 400);
-        }
-        return c.json({ success: false, error: "ไม่สามารถลบประเภทได้" }, 500);
     }
 });
