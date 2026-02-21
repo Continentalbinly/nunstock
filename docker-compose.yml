@@ -6,7 +6,9 @@ services:
     environment:
       POSTGRES_DB: nunstock
       POSTGRES_USER: nunstock
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme123}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-password123}
+    ports:
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:

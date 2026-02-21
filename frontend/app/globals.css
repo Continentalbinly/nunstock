@@ -166,30 +166,21 @@ body {
 
 @media print {
 
+  /* Hide everything except the print container */
+  body>*:not(#barcode-print) {
+    display: none !important;
+  }
+
   html,
   body {
     margin: 0 !important;
     padding: 0 !important;
-    width: 70mm !important;
-    height: 30mm !important;
     background: white !important;
-    overflow: hidden !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
 
-  /* Hide everything */
-  body * {
-    visibility: hidden !important;
-  }
-
-  /* Show only the barcode print area */
-  .print-area,
-  .print-area * {
-    visibility: visible !important;
-  }
-
-  .print-area {
+  #barcode-print {
     display: flex !important;
     position: fixed !important;
     top: 0 !important;
@@ -197,30 +188,18 @@ body {
     width: 70mm !important;
     height: 30mm !important;
     margin: 0 !important;
-    padding: 1mm !important;
+    padding: 0 !important;
     align-items: center !important;
     justify-content: center !important;
     background: white !important;
     z-index: 99999 !important;
-    border: none !important;
-    border-radius: 0 !important;
-    box-shadow: none !important;
   }
 
-  .print-area canvas {
-    max-width: 68mm !important;
-    max-height: 28mm !important;
-    width: auto !important;
+  #barcode-print img {
+    width: 70mm !important;
     height: auto !important;
-  }
-
-  .sidebar,
-  .main-content,
-  .no-print,
-  nav,
-  header,
-  footer {
-    display: none !important;
+    max-height: 30mm !important;
+    object-fit: contain !important;
   }
 }
 

@@ -31,8 +31,8 @@ export default function BarcodePage() {
         if (selectedPart && barcodeRef.current) {
             import("jsbarcode").then((JsBarcode) => {
                 JsBarcode.default(barcodeRef.current, selectedPart.code, {
-                    format: "CODE128", width: 1.5, height: 40, displayValue: true,
-                    background: "#FFFFFF", lineColor: "#000000", fontSize: 11, font: "monospace", margin: 4, textMargin: 3,
+                    format: "CODE128", width: 3, height: 100, displayValue: true,
+                    background: "#FFFFFF", lineColor: "#000000", fontSize: 18, font: "monospace", margin: 10, textMargin: 5,
                 });
             });
         }
@@ -83,7 +83,26 @@ export default function BarcodePage() {
         }
     }, [search, scannerMode, parts]);
 
-    const handlePrint = () => { window.print(); };
+    const handlePrint = () => {
+        if (!barcodeRef.current) return;
+
+        // Convert canvas to high-res image
+        const dataUrl = barcodeRef.current.toDataURL("image/png");
+
+        // Create print container directly on body (outside all modals)
+        const container = document.createElement("div");
+        container.id = "barcode-print";
+        container.innerHTML = `<img src="${dataUrl}" />`;
+        document.body.appendChild(container);
+
+        // Print, then cleanup
+        setTimeout(() => {
+            window.print();
+            setTimeout(() => {
+                if (container.parentNode) container.parentNode.removeChild(container);
+            }, 500);
+        }, 100);
+    };
 
     if (loading) return <div className="p-8 flex items-center justify-center min-h-screen"><div className="text-center"><div className="w-10 h-10 border-3 rounded-full animate-spin mx-auto mb-4" style={{ borderColor: "var(--t-border)", borderTopColor: "#22C55E" }} /><p style={{ color: "var(--t-text-muted)" }} className="text-sm">กำลังโหลดข้อมูล...</p></div></div>;
 
@@ -175,8 +194,8 @@ export default function BarcodePage() {
                             </div>
                         </div>
 
-                        <div className="bg-white rounded-xl p-4 flex justify-center print-area">
-                            <canvas ref={barcodeRef} />
+                        <div className="bg-white rounded-xl p-4 flex justify-center print-area overflow-hidden">
+                            <canvas ref={barcodeRef} style={{ maxWidth: "100%", height: "auto" }} />
                         </div>
 
                         <div className="flex gap-3 mt-5 pt-4" style={{ borderTop: "1px solid var(--t-border-subtle)" }}>
