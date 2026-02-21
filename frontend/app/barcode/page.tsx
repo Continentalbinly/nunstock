@@ -32,7 +32,7 @@ export default function BarcodePage() {
             import("jsbarcode").then((JsBarcode) => {
                 JsBarcode.default(barcodeRef.current, selectedPart.code, {
                     format: "CODE128", width: 3, height: 100, displayValue: true,
-                    background: "#FFFFFF", lineColor: "#000000", fontSize: 18, font: "monospace", margin: 10, textMargin: 5,
+                    background: "#FFFFFF", lineColor: "#000000", fontSize: 24, font: "monospace", margin: 10, textMargin: 8,
                 });
             });
         }
@@ -175,7 +175,7 @@ export default function BarcodePage() {
             {/* Barcode Modal */}
             {selectedPart && (
                 <div className="fixed inset-0 z-100 flex items-center justify-center no-print" style={{ background: "var(--t-modal-overlay)", animation: "fadeIn 150ms ease" }} onClick={() => setSelectedPart(null)}>
-                    <div className="rounded-2xl p-6 w-[90%] max-w-md shadow-2xl" style={{ background: "var(--t-modal-bg)", border: `1px solid var(--t-modal-border)`, animation: "slideUp 200ms ease" }} onClick={(e) => e.stopPropagation()}>
+                    <div className="rounded-2xl p-6 w-[90%] max-w-lg shadow-2xl" style={{ background: "var(--t-modal-bg)", border: `1px solid var(--t-modal-border)`, animation: "slideUp 200ms ease" }} onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-between mb-5">
                             <h3 className="text-lg font-semibold" style={{ color: "var(--t-text)" }}>บาร์โค้ด</h3>
                             <button onClick={() => setSelectedPart(null)} className="p-1 rounded-lg transition-colors cursor-pointer" style={{ color: "var(--t-text-muted)" }} onMouseEnter={(e) => e.currentTarget.style.background = "var(--t-hover-overlay)"} onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}><X className="w-5 h-5" /></button>
