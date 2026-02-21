@@ -188,7 +188,7 @@ body {
     width: 70mm !important;
     height: 30mm !important;
     margin: 0 !important;
-    padding: 0 !important;
+    padding: 0 1mm !important;
     align-items: center !important;
     justify-content: center !important;
     background: white !important;
@@ -196,7 +196,7 @@ body {
   }
 
   #barcode-print img {
-    width: 70mm !important;
+    width: 68mm !important;
     height: auto !important;
     max-height: 30mm !important;
     object-fit: contain !important;
