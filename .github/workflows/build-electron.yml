@@ -33,9 +33,10 @@ jobs:
         working-directory: ./electron
         run: npm install
 
-      - name: Build Windows .exe
+      # Build AND publish to GitHub Releases (electron-updater needs this)
+      - name: Build and Publish
         working-directory: ./electron
-        run: npm run build:win
+        run: npm run build:win -- --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -45,7 +46,7 @@ jobs:
           name: NunMechanic-Windows-v1.0.${{ github.run_number }}
           path: electron/dist/*.exe
 
-      # Always update the "latest" release on every push
+      # Also update the "latest" tag for easy download link
       - name: Update Latest Release
         uses: softprops/action-gh-release@v2
         with:
@@ -58,9 +59,12 @@ jobs:
             📥 คลิกไฟล์ `.exe` ด้านล่างเพื่อดาวน์โหลดและติดตั้ง
 
             > ⚠️ ครั้งแรกอาจจะเจอ Windows SmartScreen — กด "More info" → "Run anyway"
+            > 🔄 ครั้งต่อไปแอปจะอัพเดตเองอัตโนมัติ ไม่ต้องดาวน์โหลดใหม่!
 
             🕐 อัพเดตล่าสุด: ${{ github.event.head_commit.timestamp }}
-          files: electron/dist/*.exe
+          files: |
+            electron/dist/*.exe
+            electron/dist/latest.yml
           prerelease: false
           make_latest: true
         env:

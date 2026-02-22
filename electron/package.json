@@ -58,11 +58,7 @@
             "installerSidebar": null,
             "license": "LICENSE.txt",
             "deleteAppDataOnUninstall": true,
-            "runAfterFinish": true,
-            "installerLanguages": [
-                "English",
-                "Thai"
-            ]
+            "runAfterFinish": true
         },
         "mac": {
             "target": "dmg",

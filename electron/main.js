@@ -213,7 +213,16 @@ app.whenReady().then(() => {
 
     // Check for updates (production only)
     if (!isDev) {
-        autoUpdater.checkForUpdatesAndNotify().catch(() => { });
+        // Check on startup (with delay to not block launch)
+        setTimeout(() => {
+            console.log(`[AutoUpdate] Current version: ${app.getVersion()}`);
+            autoUpdater.checkForUpdates().catch(() => { });
+        }, 5000);
+
+        // Check every 30 minutes
+        setInterval(() => {
+            autoUpdater.checkForUpdates().catch(() => { });
+        }, 30 * 60 * 1000);
     }
 
     app.on("activate", () => {
@@ -232,21 +241,40 @@ app.on("window-all-closed", () => {
 // ═══════════════════════════════════════════════
 //  Auto Updater Events
 // ═══════════════════════════════════════════════
-autoUpdater.on("update-available", () => {
+autoUpdater.on("checking-for-update", () => {
+    console.log("[AutoUpdate] Checking for updates...");
+});
+
+autoUpdater.on("update-available", (info) => {
+    console.log(`[AutoUpdate] Update available: v${info.version}`);
     mainWindow?.webContents.send("update-available");
 });
 
-autoUpdater.on("update-downloaded", () => {
+autoUpdater.on("update-not-available", () => {
+    console.log("[AutoUpdate] Already up to date");
+});
+
+autoUpdater.on("download-progress", (progress) => {
+    console.log(`[AutoUpdate] Downloading: ${Math.round(progress.percent)}%`);
+});
+
+autoUpdater.on("update-downloaded", (info) => {
+    console.log(`[AutoUpdate] Update downloaded: v${info.version}`);
     dialog
         .showMessageBox(mainWindow, {
             type: "info",
-            title: "อัพเดตพร้อมแล้ว",
-            message: "มีเวอร์ชันใหม่ อยากรีสตาร์ทเพื่ออัพเดตเลยไหม?",
+            title: "🔄 อัพเดตพร้อมแล้ว!",
+            message: `เวอร์ชันใหม่ v${info.version} พร้อมติดตั้ง\n(ปัจจุบัน: v${app.getVersion()})\n\nรีสตาร์ทเพื่ออัพเดตเลยไหม?`,
             buttons: ["อัพเดตเลย", "ทีหลัง"],
+            defaultId: 0,
         })
         .then(({ response }) => {
             if (response === 0) {
                 autoUpdater.quitAndInstall();
             }
         });
+});
+
+autoUpdater.on("error", (err) => {
+    console.error("[AutoUpdate] Error:", err.message);
 });
