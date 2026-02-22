@@ -80,38 +80,63 @@ ipcMain.handle("get-printers", async () => {
     return printers;
 });
 
+// ── Label size config (Xprinter 365b: 70mm x 30mm) ──
+const LABEL_WIDTH_MM = 70;
+const LABEL_HEIGHT_MM = 30;
+const LABEL_WIDTH_MICRON = LABEL_WIDTH_MM * 1000;
+const LABEL_HEIGHT_MICRON = LABEL_HEIGHT_MM * 1000;
+
 // Print barcode using a dedicated hidden window
-// Uses base64 HTML to avoid double-encoding of the barcode data URL
-ipcMain.handle("print-barcode", async (event, { imageDataUrl, printerName, width, height }) => {
+ipcMain.handle("print-barcode", async (event, { imageDataUrl, printerName }) => {
     return new Promise((resolve, reject) => {
         try {
             const printWindow = new BrowserWindow({
-                width: width || 280,
-                height: height || 150,
+                width: 400,
+                height: 200,
                 show: false,
                 webPreferences: { contextIsolation: true },
             });
 
             const htmlContent = `<!DOCTYPE html>
 <html><head><style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{display:flex;align-items:center;justify-content:center;width:100%;height:100%}
-img{max-width:100%;height:auto}
-@media print{@page{margin:0;size:auto}body{margin:0}}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    width: ${LABEL_WIDTH_MM}mm;
+    height: ${LABEL_HEIGHT_MM}mm;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+img {
+    max-width: ${LABEL_WIDTH_MM - 4}mm;
+    max-height: ${LABEL_HEIGHT_MM - 4}mm;
+    object-fit: contain;
+}
+@media print {
+    @page {
+        size: ${LABEL_WIDTH_MM}mm ${LABEL_HEIGHT_MM}mm;
+        margin: 0;
+    }
+    body { margin: 0; }
+}
 </style></head>
 <body><img src="${imageDataUrl}"/></body></html>`;
 
-            // Use base64 encoding to avoid URL encoding issues with data URLs
             const base64Html = Buffer.from(htmlContent).toString("base64");
             printWindow.loadURL(`data:text/html;base64,${base64Html}`);
 
             printWindow.webContents.on("did-finish-load", () => {
-                // Wait a bit for the image to render
                 setTimeout(() => {
                     const printOptions = {
                         silent: true,
                         printBackground: true,
                         margins: { marginType: "none" },
+                        pageSize: {
+                            width: LABEL_WIDTH_MICRON,
+                            height: LABEL_HEIGHT_MICRON,
+                        },
+                        scaleFactor: 100,
                     };
                     if (printerName) {
                         printOptions.deviceName = printerName;
@@ -125,10 +150,9 @@ img{max-width:100%;height:auto}
                             reject(new Error(failureReason || "Print failed"));
                         }
                     });
-                }, 300);
+                }, 500);
             });
 
-            // Timeout safety
             setTimeout(() => {
                 if (!printWindow.isDestroyed()) {
                     printWindow.close();
@@ -141,30 +165,48 @@ img{max-width:100%;height:auto}
     });
 });
 
-// Test print - prints a test pattern (not the current page)
+// Test print - prints a test pattern on 70x30mm label
 ipcMain.handle("test-print", async (event, { printerName }) => {
     return new Promise((resolve, reject) => {
         try {
             const printWindow = new BrowserWindow({
-                width: 280,
-                height: 150,
+                width: 400,
+                height: 200,
                 show: false,
                 webPreferences: { contextIsolation: true },
             });
 
             const testHtml = `<!DOCTYPE html>
 <html><head><style>
-*{margin:0;padding:0}
-body{display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-family:sans-serif}
-.box{border:2px solid #000;padding:10px 20px;text-align:center}
-.title{font-size:14px;font-weight:bold}
-.sub{font-size:10px;color:#666;margin-top:4px}
-@media print{@page{margin:0;size:auto}}
+* { margin: 0; padding: 0; }
+body {
+    width: ${LABEL_WIDTH_MM}mm;
+    height: ${LABEL_HEIGHT_MM}mm;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: sans-serif;
+    overflow: hidden;
+}
+.box {
+    border: 1px solid #000;
+    padding: 4mm 8mm;
+    text-align: center;
+}
+.title { font-size: 12px; font-weight: bold; }
+.sub { font-size: 8px; color: #666; margin-top: 2px; }
+@media print {
+    @page {
+        size: ${LABEL_WIDTH_MM}mm ${LABEL_HEIGHT_MM}mm;
+        margin: 0;
+    }
+    body { margin: 0; }
+}
 </style></head>
 <body>
 <div class="box">
-<div class="title">นันการช่าง</div>
-<div class="sub">ทดสอบเครื่องปริ้น ✓</div>
+<div class="title">NunMechanic</div>
+<div class="sub">Test Print OK</div>
 </div>
 </body></html>`;
 
@@ -177,6 +219,11 @@ body{display:flex;align-items:center;justify-content:center;width:100%;height:10
                         silent: true,
                         printBackground: true,
                         margins: { marginType: "none" },
+                        pageSize: {
+                            width: LABEL_WIDTH_MICRON,
+                            height: LABEL_HEIGHT_MICRON,
+                        },
+                        scaleFactor: 100,
                     };
                     if (printerName) {
                         printOptions.deviceName = printerName;
@@ -190,7 +237,7 @@ body{display:flex;align-items:center;justify-content:center;width:100%;height:10
                             reject(new Error(failureReason || "Print failed"));
                         }
                     });
-                }, 300);
+                }, 500);
             });
 
             setTimeout(() => {

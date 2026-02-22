@@ -1,23 +1,23 @@
-ข้อตกลงการใช้งาน นันการช่าง (NunMechanic)
+NunMechanic - End User License Agreement
 ================================================
 
-ยินดีต้อนรับสู่ นันการช่าง - ระบบจัดการอะไหล่ร้านซ่อมรถยนต์
+Welcome to NunMechanic - Auto Parts Management System
 
-โดยการติดตั้งซอฟต์แวร์นี้ ท่านยอมรับข้อตกลงดังนี้:
+By installing this software, you agree to the following terms:
 
-1. สิทธิ์การใช้งาน
-   - ซอฟต์แวร์นี้ให้สิทธิ์ใช้งานสำหรับร้าน นันการช่าง เท่านั้น
-   - ห้ามทำซ้ำ แจกจ่าย หรือจำหน่ายโดยไม่ได้รับอนุญาต
+1. License
+   - This software is licensed for use by NunMechanic shop only.
+   - Unauthorized copying, distribution, or resale is prohibited.
 
-2. ข้อมูลและความเป็นส่วนตัว
-   - ข้อมูลทั้งหมดจะถูกจัดเก็บบนเซิร์ฟเวอร์อย่างปลอดภัย
-   - เราไม่แบ่งปันข้อมูลส่วนตัวกับบุคคลที่สาม
+2. Privacy & Data
+   - All data is stored securely on our servers.
+   - We do not share personal information with third parties.
 
-3. การอัพเดต
-   - ซอฟต์แวร์จะตรวจสอบอัพเดตอัตโนมัติ
-   - แนะนำให้ติดตั้งอัพเดตทุกครั้งเพื่อรับฟีเจอร์ใหม่
+3. Updates
+   - The software will automatically check for updates.
+   - We recommend installing updates for the latest features.
 
-4. ข้อจำกัดความรับผิดชอบ
-   - ซอฟต์แวร์นี้ให้บริการ "ตามสภาพ" โดยไม่มีการรับประกัน
+4. Disclaimer
+   - This software is provided "as is" without warranty.
 
-© 2026 นันการช่าง - ร้านซ่อมรถยนต์ สงวนลิขสิทธิ์
+Copyright 2026 NunMechanic. All rights reserved.
