@@ -33,10 +33,10 @@ jobs:
         working-directory: ./electron
         run: npm install
 
-      # Build AND publish to GitHub Releases (electron-updater needs this)
-      - name: Build and Publish
+      # Build only (no publish) — we handle the release ourselves
+      - name: Build Windows .exe
         working-directory: ./electron
-        run: npm run build:win -- --publish always
+        run: npm run build:win
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -46,22 +46,30 @@ jobs:
           name: NunMechanic-Windows-v1.0.${{ github.run_number }}
           path: electron/dist/*.exe
 
-      # Also update the "latest" tag for easy download link
-      - name: Update Latest Release
+      # Delete old "latest" release so files don't pile up
+      - name: Delete old latest release
+        uses: cb80/delrel@latest
+        with:
+          tag: latest
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Create fresh "latest" release with only new files
+      - name: Create Latest Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
-          name: "📥 นันการช่าง v1.0.${{ github.run_number }}"
+          name: "📥 NunMechanic v1.0.${{ github.run_number }}"
           body: |
-            ## ดาวน์โหลด นันการช่าง Desktop v1.0.${{ github.run_number }}
+            ## Download NunMechanic Desktop v1.0.${{ github.run_number }}
 
             ### Windows
-            📥 คลิกไฟล์ `.exe` ด้านล่างเพื่อดาวน์โหลดและติดตั้ง
+            📥 Click the `.exe` file below to download and install.
 
-            > ⚠️ ครั้งแรกอาจจะเจอ Windows SmartScreen — กด "More info" → "Run anyway"
-            > 🔄 ครั้งต่อไปแอปจะอัพเดตเองอัตโนมัติ ไม่ต้องดาวน์โหลดใหม่!
+            > ⚠️ First time: Windows SmartScreen may appear — click "More info" → "Run anyway"
+            > 🔄 Future updates will install automatically!
 
-            🕐 อัพเดตล่าสุด: ${{ github.event.head_commit.timestamp }}
+            🕐 Updated: ${{ github.event.head_commit.timestamp }}
           files: |
             electron/dist/*.exe
             electron/dist/latest.yml
