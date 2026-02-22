@@ -51,11 +51,7 @@
             "allowToChangeInstallationDirectory": true,
             "createDesktopShortcut": true,
             "createStartMenuShortcut": true,
-            "shortcutName": "นันการช่าง",
-            "installerIcon": "icon.png",
-            "uninstallerIcon": "icon.png",
-            "installerHeaderIcon": "icon.png",
-            "installerSidebar": null,
+            "shortcutName": "NunMechanic",
             "license": "LICENSE.txt",
             "deleteAppDataOnUninstall": true,
             "runAfterFinish": true
