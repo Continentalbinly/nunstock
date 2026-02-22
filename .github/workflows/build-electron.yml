@@ -1,0 +1,51 @@
+name: Build Electron App
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        working-directory: ./electron
+        run: npm ci
+
+      - name: Build Windows .exe
+        working-directory: ./electron
+        run: npm run build:win
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NunMechanic-Windows
+          path: electron/dist/*.exe
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: electron/dist/*.exe
+          name: "นันการช่าง ${{ github.ref_name }}"
+          body: |
+            ## ดาวน์โหลด นันการช่าง Desktop
+
+            ### Windows
+            📥 ดาวน์โหลดไฟล์ `.exe` ด้านล่างแล้วติดตั้งได้เลย
+
+            ### มีอะไรใหม่
+            - อัพเดตล่าสุดจาก web version
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

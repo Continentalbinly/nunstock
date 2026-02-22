@@ -4,6 +4,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { getPartsAll, getCategories } from "@/lib/api";
 import { getCarLogoUrl } from "@/lib/carLogos";
 import { Barcode, Search, Package, X, Printer, ScanBarcode, Car, Wrench, ChevronLeft } from "lucide-react";
+import { isElectron, silentPrint } from "@/lib/electron";
 
 type TabType = "shop" | "consumables";
 
@@ -158,8 +159,12 @@ export default function BarcodePage() {
         container.id = "barcode-print";
         container.innerHTML = `<img src="${dataUrl}" />`;
         document.body.appendChild(container);
-        setTimeout(() => {
-            window.print();
+        setTimeout(async () => {
+            if (isElectron()) {
+                await silentPrint();
+            } else {
+                window.print();
+            }
             setTimeout(() => {
                 if (container.parentNode) container.parentNode.removeChild(container);
             }, 500);

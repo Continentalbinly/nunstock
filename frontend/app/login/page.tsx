@@ -54,25 +54,8 @@ export default function LoginPage() {
             className="min-h-screen flex items-center justify-center p-4 relative transition-colors duration-300"
             style={{ background: isDark ? "linear-gradient(135deg, #020617 0%, #0F172A 50%, #020617 100%)" : "linear-gradient(135deg, #F1F5F9 0%, #E2E8F0 50%, #F1F5F9 100%)" }}
         >
-            {/* Top right buttons */}
-            <div className="absolute top-6 right-6 flex items-center gap-2 z-20">
-                {installPrompt && (
-                    <button
-                        onClick={handleInstall}
-                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all duration-200 cursor-pointer text-sm font-medium"
-                        style={{
-                            background: "var(--t-card)",
-                            border: "1px solid var(--t-border-subtle)",
-                            color: "var(--t-text-secondary)",
-                        }}
-                        onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#22C55E60"; e.currentTarget.style.color = "#22C55E"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(34,197,94,0.15)"; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--t-border-subtle)"; e.currentTarget.style.color = "var(--t-text-secondary)"; e.currentTarget.style.boxShadow = "none"; }}
-                        title="ติดตั้งแอป นันการช่าง"
-                    >
-                        <Download className="w-4 h-4" />
-                        ติดตั้งแอป
-                    </button>
-                )}
+            {/* Theme Toggle - top right */}
+            <div className="absolute top-6 right-6 z-20">
                 <button
                     onClick={toggleTheme}
                     className="p-2.5 rounded-xl transition-all duration-200 cursor-pointer"
@@ -169,7 +152,40 @@ export default function LoginPage() {
                     </form>
                 </div>
 
-                <p className="text-center text-xs mt-6" style={{ color: "var(--t-text-dim)" }}>© 2026 นันการช่าง • ร้านซ่อมรถยนต์</p>
+                {/* Download Section */}
+                <div className="mt-6 rounded-xl p-4 text-center" style={{ background: "var(--t-card)", border: "1px solid var(--t-border-subtle)" }}>
+                    <p className="text-xs font-medium mb-3" style={{ color: "var(--t-text-muted)" }}>📥 ดาวน์โหลดแอปนันการช่าง</p>
+                    <div className="flex gap-2">
+                        {/* Desktop .exe */}
+                        <a
+                            href="https://github.com/Continentalbinly/nunstock/releases/latest"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer"
+                            style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-text-secondary)" }}
+                            onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#22C55E60"; e.currentTarget.style.color = "#22C55E"; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--t-input-border)"; e.currentTarget.style.color = "var(--t-text-secondary)"; }}
+                        >
+                            <Download className="w-4 h-4" />
+                            Windows (.exe)
+                        </a>
+                        {/* PWA Install */}
+                        <button
+                            onClick={installPrompt ? handleInstall : undefined}
+                            disabled={!installPrompt}
+                            className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                            style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-text-secondary)" }}
+                            onMouseEnter={(e) => { if (installPrompt) { e.currentTarget.style.borderColor = "#3b82f660"; e.currentTarget.style.color = "#3b82f6"; } }}
+                            onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--t-input-border)"; e.currentTarget.style.color = "var(--t-text-secondary)"; }}
+                            title={installPrompt ? "ติดตั้งเป็นเว็บแอป" : "เปิดใน Chrome/Edge เพื่อติดตั้ง"}
+                        >
+                            <Download className="w-4 h-4" />
+                            {installPrompt ? "ติดตั้ง PWA" : "PWA (ใช้ Chrome)"}
+                        </button>
+                    </div>
+                </div>
+
+                <p className="text-center text-xs mt-4" style={{ color: "var(--t-text-dim)" }}>© 2026 นันการช่าง • ร้านซ่อมรถยนต์</p>
             </div>
         </div>
     );
