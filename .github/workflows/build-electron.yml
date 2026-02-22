@@ -21,6 +21,14 @@ jobs:
         with:
           node-version: 22
 
+      # Auto-increment version: 1.0.{run_number}
+      - name: Set version
+        working-directory: ./electron
+        shell: bash
+        run: |
+          npm pkg set version="1.0.${{ github.run_number }}"
+          echo ">>> Building version 1.0.${{ github.run_number }}"
+
       - name: Install dependencies
         working-directory: ./electron
         run: npm install
@@ -34,7 +42,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: NunMechanic-Windows
+          name: NunMechanic-Windows-v1.0.${{ github.run_number }}
           path: electron/dist/*.exe
 
       # Always update the "latest" release on every push
@@ -42,9 +50,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
-          name: "📥 นันการช่าง - ดาวน์โหลดล่าสุด"
+          name: "📥 นันการช่าง v1.0.${{ github.run_number }}"
           body: |
-            ## ดาวน์โหลด นันการช่าง Desktop
+            ## ดาวน์โหลด นันการช่าง Desktop v1.0.${{ github.run_number }}
 
             ### Windows
             📥 คลิกไฟล์ `.exe` ด้านล่างเพื่อดาวน์โหลดและติดตั้ง

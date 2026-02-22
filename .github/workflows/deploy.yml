@@ -96,8 +96,10 @@ jobs:
             EOF
             sed -i 's/^[[:space:]]*//' /var/www/nunstock/backend/.env
 
-            cat > /var/www/nunstock/frontend/.env.local << 'ENVEOF'
+            APP_VER="1.0.$(git rev-list --count HEAD)"
+            cat > /var/www/nunstock/frontend/.env.local << ENVEOF
             NEXT_PUBLIC_API_URL=http://localhost:1100
+            NEXT_PUBLIC_APP_VERSION=$APP_VER
             ENVEOF
             sed -i 's/^[[:space:]]*//' /var/www/nunstock/frontend/.env.local
 

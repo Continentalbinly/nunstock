@@ -46,12 +46,23 @@
             "artifactName": "NunMechanic-Setup-${version}.${ext}"
         },
         "nsis": {
-            "oneClick": true,
-            "perMachine": false,
-            "allowToChangeInstallationDirectory": false,
+            "oneClick": false,
+            "perMachine": true,
+            "allowToChangeInstallationDirectory": true,
             "createDesktopShortcut": true,
             "createStartMenuShortcut": true,
-            "shortcutName": "นันการช่าง"
+            "shortcutName": "นันการช่าง",
+            "installerIcon": "icon.png",
+            "uninstallerIcon": "icon.png",
+            "installerHeaderIcon": "icon.png",
+            "installerSidebar": null,
+            "license": "LICENSE.txt",
+            "deleteAppDataOnUninstall": true,
+            "runAfterFinish": true,
+            "installerLanguages": [
+                "English",
+                "Thai"
+            ]
         },
         "mac": {
             "target": "dmg",

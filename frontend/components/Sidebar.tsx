@@ -130,7 +130,7 @@ export function Sidebar() {
                     <LogOut className="w-4 h-4 shrink-0" />
                     ออกจากระบบ
                 </button>
-                <p style={{ color: "var(--t-text-dim)" }} className="text-[10px] text-center mt-3">v1.0.0 • นันการช่าง</p>
+                <p style={{ color: "var(--t-text-dim)" }} className="text-[10px] text-center mt-3">v{process.env.NEXT_PUBLIC_APP_VERSION || "1.0.0"} • นันการช่าง</p>
             </div>
         </aside>
     );

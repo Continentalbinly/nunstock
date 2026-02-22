@@ -193,7 +193,7 @@ export default function LoginPage() {
                     </div>
                 )}
 
-                <p className="text-center text-xs mt-4" style={{ color: "var(--t-text-dim)" }}>© 2026 นันการช่าง • ร้านซ่อมรถยนต์</p>
+                <p className="text-center text-xs mt-4" style={{ color: "var(--t-text-dim)" }}>© 2026 นันการช่าง v{process.env.NEXT_PUBLIC_APP_VERSION || "1.0.0"}</p>
             </div>
         </div>
     );
