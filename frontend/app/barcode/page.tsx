@@ -161,7 +161,8 @@ export default function BarcodePage() {
         document.body.appendChild(container);
         setTimeout(async () => {
             if (isElectron()) {
-                await silentPrint();
+                const savedPrinter = localStorage.getItem("nunmechanic-printer") || undefined;
+                await silentPrint({ printerName: savedPrinter });
             } else {
                 window.print();
             }

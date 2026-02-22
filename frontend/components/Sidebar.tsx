@@ -13,6 +13,7 @@ import {
     LogOut,
     Sun,
     Moon,
+    Printer,
 } from "lucide-react";
 
 const navItems = [
@@ -30,6 +31,7 @@ const managementItems = [
     { href: "/withdraw", icon: History, label: "ประวัติสต็อก" },
     { href: "/claims", icon: ShieldCheck, label: "เคลมประกัน" },
     { href: "/notifications", icon: Bell, label: "แจ้งเตือน" },
+    { href: "/printer-settings", icon: Printer, label: "เครื่องปริ้น" },
 ];
 
 function NavLink({ href, icon: Icon, label, pathname }: { href: string; icon: any; label: string; pathname: string }) {
