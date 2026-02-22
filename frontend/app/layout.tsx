@@ -14,13 +14,13 @@ const notoSansThai = Noto_Sans_Thai({
 });
 
 export const metadata: Metadata = {
-  title: "NunStock - ระบบคลังอะไหล่ร้านซ่อมรถยนต์",
-  description: "ระบบจัดการคลังอะไหล่ร้านซ่อมรถยนต์ครบวงจร",
+  title: "นันการช่าง - ระบบจัดการอะไหล่ร้านซ่อมรถยนต์",
+  description: "ระบบจัดการอะไหล่ร้านซ่อมรถยนต์ นันการช่าง ครบวงจร",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "NunStock",
+    title: "นันการช่าง",
   },
   icons: {
     icon: "/icons/icon-192x192.png",

@@ -41,7 +41,7 @@ export default function DashboardPage() {
     <div className="p-6 lg:p-8">
       <div className="mb-8">
         <h1 className="text-xl font-bold" style={{ color: "var(--t-text)" }}>แดชบอร์ด</h1>
-        <p className="mt-1 text-sm" style={{ color: "var(--t-text-muted)" }}>ภาพรวมคลังอะไหล่ร้านซ่อมรถยนต์</p>
+        <p className="mt-1 text-sm" style={{ color: "var(--t-text-muted)" }}>ภาพรวมระบบจัดการอะไหล่ นันการช่าง</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">

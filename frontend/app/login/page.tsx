@@ -67,7 +67,7 @@ export default function LoginPage() {
                         }}
                         onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#22C55E60"; e.currentTarget.style.color = "#22C55E"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(34,197,94,0.15)"; }}
                         onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--t-border-subtle)"; e.currentTarget.style.color = "var(--t-text-secondary)"; e.currentTarget.style.boxShadow = "none"; }}
-                        title="ติดตั้งแอป NunStock"
+                        title="ติดตั้งแอป นันการช่าง"
                     >
                         <Download className="w-4 h-4" />
                         ติดตั้งแอป
@@ -101,8 +101,8 @@ export default function LoginPage() {
                     <div className="w-16 h-16 bg-linear-to-br from-emerald-500 to-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xl shadow-emerald-500/25">
                         <Wrench className="w-8 h-8 text-white" />
                     </div>
-                    <h1 className="text-2xl font-bold tracking-tight" style={{ color: "var(--t-text)" }}>NunStock</h1>
-                    <p className="mt-1 text-sm" style={{ color: "var(--t-text-muted)" }}>ระบบคลังอะไหล่ร้านซ่อมรถยนต์</p>
+                    <h1 className="text-2xl font-bold tracking-tight" style={{ color: "var(--t-text)" }}>นันการช่าง</h1>
+                    <p className="mt-1 text-sm" style={{ color: "var(--t-text-muted)" }}>ระบบจัดการอะไหล่ร้านซ่อมรถยนต์</p>
                 </div>
 
                 {/* Card */}
@@ -169,7 +169,7 @@ export default function LoginPage() {
                     </form>
                 </div>
 
-                <p className="text-center text-xs mt-6" style={{ color: "var(--t-text-dim)" }}>© 2026 NunStock • ระบบคลังอะไหล่</p>
+                <p className="text-center text-xs mt-6" style={{ color: "var(--t-text-dim)" }}>© 2026 นันการช่าง • ร้านซ่อมรถยนต์</p>
             </div>
         </div>
     );

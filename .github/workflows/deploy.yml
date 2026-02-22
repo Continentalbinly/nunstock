@@ -17,7 +17,7 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           password: ${{ secrets.VPS_PASSWORD }}
           command_timeout: 30m
-          envs: DB_PASSWORD,DATABASE_URL,JWT_SECRET
+          envs: DB_PASSWORD,DATABASE_URL,JWT_SECRET,CF_ORIGIN_CERT,CF_ORIGIN_KEY
           script: |
             set -e
             echo "======================================"
@@ -53,7 +53,16 @@ jobs:
               echo ">>> PostgreSQL ready"
             fi
 
-            # ── 4. Setup DB (safe idempotent) ──────
+            # ── 4. Nginx ────────────────────────────
+            if ! command -v nginx &>/dev/null; then
+              echo ">>> Installing Nginx..."
+              sudo apt install -y nginx
+              sudo systemctl enable nginx
+            else
+              echo ">>> Nginx ready"
+            fi
+
+            # ── 5. Setup DB (safe idempotent) ──────
             echo ">>> Setting up database..."
             sudo -u postgres psql -tc "SELECT 1 FROM pg_roles WHERE rolname='nunstock'" \
               | grep -q 1 \
@@ -64,7 +73,7 @@ jobs:
               sudo -u postgres psql -c "CREATE DATABASE nunstock OWNER nunstock"
             echo ">>> Database ready"
 
-            # ── 5. Clone or Pull ────────────────────
+            # ── 6. Clone or Pull ────────────────────
             if [ ! -d "/var/www/nunstock/.git" ]; then
               echo ">>> Cloning project..."
               sudo mkdir -p /var/www/nunstock
@@ -77,7 +86,7 @@ jobs:
               git reset --hard origin/main
             fi
 
-            # ── 6. Create .env files ────────────────
+            # ── 7. Create .env files ────────────────
             echo ">>> Creating .env files..."
             cat > /var/www/nunstock/backend/.env << EOF
             DATABASE_URL=$DATABASE_URL
@@ -85,7 +94,6 @@ jobs:
             NODE_ENV=production
             JWT_SECRET=$JWT_SECRET
             EOF
-            # Trim leading whitespace from heredoc
             sed -i 's/^[[:space:]]*//' /var/www/nunstock/backend/.env
 
             cat > /var/www/nunstock/frontend/.env.local << 'ENVEOF'
@@ -93,7 +101,24 @@ jobs:
             ENVEOF
             sed -i 's/^[[:space:]]*//' /var/www/nunstock/frontend/.env.local
 
-            # ── 7. Deploy Backend ───────────────────
+            # ── 8. SSL Certificates (Cloudflare Origin) ──
+            echo ">>> Setting up SSL certificates..."
+            sudo mkdir -p /etc/ssl/nunmechanic
+            echo "$CF_ORIGIN_CERT" | sudo tee /etc/ssl/nunmechanic/origin.pem > /dev/null
+            echo "$CF_ORIGIN_KEY" | sudo tee /etc/ssl/nunmechanic/origin-key.pem > /dev/null
+            sudo chmod 600 /etc/ssl/nunmechanic/origin-key.pem
+            sudo chmod 644 /etc/ssl/nunmechanic/origin.pem
+
+            # ── 9. Nginx Config ─────────────────────
+            echo ">>> Configuring Nginx..."
+            sudo cp /var/www/nunstock/nginx/nunmechanic.conf /etc/nginx/sites-available/nunmechanic
+            sudo cp /var/www/nunstock/nginx/api.nunmechanic.conf /etc/nginx/sites-available/api.nunmechanic
+            sudo ln -sf /etc/nginx/sites-available/nunmechanic /etc/nginx/sites-enabled/
+            sudo ln -sf /etc/nginx/sites-available/api.nunmechanic /etc/nginx/sites-enabled/
+            sudo rm -f /etc/nginx/sites-enabled/default
+            sudo nginx -t && sudo systemctl reload nginx
+
+            # ── 10. Deploy Backend ───────────────────
             echo ">>> Deploy Backend (port 1100)..."
             cd /var/www/nunstock/backend
             npm ci
@@ -106,7 +131,7 @@ jobs:
             pm2 reload nunstock-backend --update-env 2>/dev/null \
               || pm2 start dist/index.js --name nunstock-backend
 
-            # ── 8. Deploy Frontend ──────────────────
+            # ── 11. Deploy Frontend ──────────────────
             echo ">>> Deploy Frontend (port 9090)..."
             cd /var/www/nunstock/frontend
             rm -rf .next
@@ -118,10 +143,12 @@ jobs:
             pm2 save
             echo "======================================"
             echo "  Deploy complete!"
-            echo "  http://${{ secrets.VPS_HOST }}:9090"
+            echo "  https://nunmechanic.com"
+            echo "  https://api.nunmechanic.com"
             echo "======================================"
         env:
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
-
+          CF_ORIGIN_CERT: ${{ secrets.CF_ORIGIN_CERT }}
+          CF_ORIGIN_KEY: ${{ secrets.CF_ORIGIN_KEY }}

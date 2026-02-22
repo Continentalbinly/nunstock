@@ -1,7 +1,7 @@
 {
-    "name": "NunStock - ระบบคลังอะไหล่",
-    "short_name": "NunStock",
-    "description": "ระบบจัดการคลังอะไหล่ร้านซ่อมรถยนต์ครบวงจร",
+    "name": "นันการช่าง - ระบบจัดการอะไหล่",
+    "short_name": "นันการช่าง",
+    "description": "ระบบจัดการอะไหล่ร้านซ่อมรถยนต์ นันการช่าง ครบวงจร",
     "start_url": "/",
     "display": "standalone",
     "background_color": "#0f172a",

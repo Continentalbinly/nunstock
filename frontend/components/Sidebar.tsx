@@ -74,8 +74,8 @@ export function Sidebar() {
                     <WrenchIcon className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                    <h1 style={{ color: "var(--t-text)" }} className="font-bold text-base leading-tight tracking-tight">NunStock</h1>
-                    <p style={{ color: "var(--t-text-muted)" }} className="text-[11px]">ระบบคลังอะไหล่</p>
+                    <h1 style={{ color: "var(--t-text)" }} className="font-bold text-base leading-tight tracking-tight">นันการช่าง</h1>
+                    <p style={{ color: "var(--t-text-muted)" }} className="text-[11px]">ร้านซ่อมรถยนต์</p>
                 </div>
             </div>
 
@@ -128,7 +128,7 @@ export function Sidebar() {
                     <LogOut className="w-4 h-4 shrink-0" />
                     ออกจากระบบ
                 </button>
-                <p style={{ color: "var(--t-text-dim)" }} className="text-[10px] text-center mt-3">v1.0.0 • NunStock</p>
+                <p style={{ color: "var(--t-text-dim)" }} className="text-[10px] text-center mt-3">v1.0.0 • นันการช่าง</p>
             </div>
         </aside>
     );
