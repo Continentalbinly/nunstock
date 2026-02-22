@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "@/components/ThemeProvider";
 import { Wrench, Eye, EyeOff, LogIn, Sun, Moon, Download } from "lucide-react";
+import { isElectron } from "@/lib/electron";
 
 export default function LoginPage() {
     const router = useRouter();
@@ -13,6 +14,11 @@ export default function LoginPage() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const [installPrompt, setInstallPrompt] = useState<any>(null);
+    const [isElectronApp, setIsElectronApp] = useState(false);
+
+    useEffect(() => {
+        setIsElectronApp(isElectron());
+    }, []);
 
     useEffect(() => {
         const handler = (e: any) => { e.preventDefault(); setInstallPrompt(e); };
@@ -152,38 +158,40 @@ export default function LoginPage() {
                     </form>
                 </div>
 
-                {/* Download Section */}
-                <div className="mt-6 rounded-xl p-4 text-center" style={{ background: "var(--t-card)", border: "1px solid var(--t-border-subtle)" }}>
-                    <p className="text-xs font-medium mb-3" style={{ color: "var(--t-text-muted)" }}>📥 ดาวน์โหลดแอปนันการช่าง</p>
-                    <div className="flex gap-2">
-                        {/* Desktop .exe */}
-                        <a
-                            href="https://github.com/Continentalbinly/nunstock/releases/tag/latest"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer"
-                            style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-text-secondary)" }}
-                            onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#22C55E60"; e.currentTarget.style.color = "#22C55E"; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--t-input-border)"; e.currentTarget.style.color = "var(--t-text-secondary)"; }}
-                        >
-                            <Download className="w-4 h-4" />
-                            Windows (.exe)
-                        </a>
-                        {/* PWA Install */}
-                        <button
-                            onClick={installPrompt ? handleInstall : undefined}
-                            disabled={!installPrompt}
-                            className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                            style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-text-secondary)" }}
-                            onMouseEnter={(e) => { if (installPrompt) { e.currentTarget.style.borderColor = "#3b82f660"; e.currentTarget.style.color = "#3b82f6"; } }}
-                            onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--t-input-border)"; e.currentTarget.style.color = "var(--t-text-secondary)"; }}
-                            title={installPrompt ? "ติดตั้งเป็นเว็บแอป" : "เปิดใน Chrome/Edge เพื่อติดตั้ง"}
-                        >
-                            <Download className="w-4 h-4" />
-                            {installPrompt ? "ติดตั้ง PWA" : "PWA (ใช้ Chrome)"}
-                        </button>
+                {/* Download Section - hide in Electron */}
+                {!isElectronApp && (
+                    <div className="mt-6 rounded-xl p-4 text-center" style={{ background: "var(--t-card)", border: "1px solid var(--t-border-subtle)" }}>
+                        <p className="text-xs font-medium mb-3" style={{ color: "var(--t-text-muted)" }}>📥 ดาวน์โหลดแอปนันการช่าง</p>
+                        <div className="flex gap-2">
+                            {/* Desktop .exe */}
+                            <a
+                                href="https://github.com/Continentalbinly/nunstock/releases/tag/latest"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer"
+                                style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-text-secondary)" }}
+                                onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#22C55E60"; e.currentTarget.style.color = "#22C55E"; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--t-input-border)"; e.currentTarget.style.color = "var(--t-text-secondary)"; }}
+                            >
+                                <Download className="w-4 h-4" />
+                                Windows (.exe)
+                            </a>
+                            {/* PWA Install */}
+                            <button
+                                onClick={installPrompt ? handleInstall : undefined}
+                                disabled={!installPrompt}
+                                className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                                style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-text-secondary)" }}
+                                onMouseEnter={(e) => { if (installPrompt) { e.currentTarget.style.borderColor = "#3b82f660"; e.currentTarget.style.color = "#3b82f6"; } }}
+                                onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--t-input-border)"; e.currentTarget.style.color = "var(--t-text-secondary)"; }}
+                                title={installPrompt ? "ติดตั้งเป็นเว็บแอป" : "เปิดใน Chrome/Edge เพื่อติดตั้ง"}
+                            >
+                                <Download className="w-4 h-4" />
+                                {installPrompt ? "ติดตั้ง PWA" : "PWA (ใช้ Chrome)"}
+                            </button>
+                        </div>
                     </div>
-                </div>
+                )}
 
                 <p className="text-center text-xs mt-4" style={{ color: "var(--t-text-dim)" }}>© 2026 นันการช่าง • ร้านซ่อมรถยนต์</p>
             </div>

@@ -4,7 +4,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { getPartsAll, getCategories } from "@/lib/api";
 import { getCarLogoUrl } from "@/lib/carLogos";
 import { Barcode, Search, Package, X, Printer, ScanBarcode, Car, Wrench, ChevronLeft } from "lucide-react";
-import { isElectron, silentPrint } from "@/lib/electron";
+import { isElectron, printBarcode } from "@/lib/electron";
 
 type TabType = "shop" | "consumables";
 
@@ -152,24 +152,27 @@ export default function BarcodePage() {
         }
     }, [search, scannerMode, parts]);
 
-    const handlePrint = () => {
+    const handlePrint = async () => {
         if (!barcodeRef.current || !selectedPart) return;
         const dataUrl = barcodeRef.current.toDataURL("image/png");
-        const container = document.createElement("div");
-        container.id = "barcode-print";
-        container.innerHTML = `<img src="${dataUrl}" />`;
-        document.body.appendChild(container);
-        setTimeout(async () => {
-            if (isElectron()) {
-                const savedPrinter = localStorage.getItem("nunmechanic-printer") || undefined;
-                await silentPrint({ printerName: savedPrinter });
-            } else {
-                window.print();
-            }
+
+        if (isElectron()) {
+            // Electron: send barcode image to dedicated print window
+            const savedPrinter = localStorage.getItem("nunmechanic-printer") || undefined;
+            await printBarcode({ imageDataUrl: dataUrl, printerName: savedPrinter });
+        } else {
+            // Web: append to DOM and use window.print()
+            const container = document.createElement("div");
+            container.id = "barcode-print";
+            container.innerHTML = `<img src="${dataUrl}" />`;
+            document.body.appendChild(container);
             setTimeout(() => {
-                if (container.parentNode) container.parentNode.removeChild(container);
-            }, 500);
-        }, 100);
+                window.print();
+                setTimeout(() => {
+                    if (container.parentNode) container.parentNode.removeChild(container);
+                }, 500);
+            }, 100);
+        }
     };
 
     const tabs: { key: TabType; label: string; icon: any; color: string; count: number }[] = [

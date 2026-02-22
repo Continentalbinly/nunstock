@@ -8,8 +8,11 @@ contextBridge.exposeInMainWorld("electronAPI", {
     // Get list of available printers
     getPrinters: () => ipcRenderer.invoke("get-printers"),
 
-    // Silent print (no preview dialog)
+    // Silent print (for test print on settings page)
     silentPrint: (options) => ipcRenderer.invoke("silent-print", options),
+
+    // Print barcode image directly (uses hidden window for clean output)
+    printBarcode: (options) => ipcRenderer.invoke("print-barcode", options),
 
     // Print to PDF
     printToPDF: () => ipcRenderer.invoke("print-to-pdf"),

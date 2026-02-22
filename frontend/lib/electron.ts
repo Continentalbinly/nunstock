@@ -7,6 +7,7 @@ interface ElectronAPI {
     isElectron: boolean;
     getPrinters: () => Promise<any[]>;
     silentPrint: (options?: { printerName?: string; copies?: number }) => Promise<{ success: boolean }>;
+    printBarcode: (options: { imageDataUrl: string; printerName?: string; width?: number; height?: number }) => Promise<{ success: boolean }>;
     printToPDF: () => Promise<Buffer>;
     onUpdateAvailable: (callback: () => void) => void;
 }
@@ -49,6 +50,30 @@ export async function silentPrint(options?: {
         }
     }
 
+    // Fallback: normal browser print
+    window.print();
+    return true;
+}
+
+/**
+ * ปริ้นบาร์โค้ดตรงเลย — ใช้หน้าต่างแยกเฉพาะบาร์โค้ด
+ * จะไม่ปริ้นหน้าเว็บทั้งหมด แก้ปัญหากระดาษเปล่า
+ */
+export async function printBarcode(options: {
+    imageDataUrl: string;
+    printerName?: string;
+    width?: number;
+    height?: number;
+}): Promise<boolean> {
+    if (isElectron()) {
+        try {
+            const result = await window.electronAPI!.printBarcode(options);
+            return result.success;
+        } catch (err) {
+            console.error("Barcode print failed:", err);
+            return false;
+        }
+    }
     // Fallback: normal browser print
     window.print();
     return true;

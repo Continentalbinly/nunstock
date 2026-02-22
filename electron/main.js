@@ -80,6 +80,61 @@ ipcMain.handle("get-printers", async () => {
     return printers;
 });
 
+// Print barcode using a dedicated hidden window (fixes blank page issue)
+ipcMain.handle("print-barcode", async (event, { imageDataUrl, printerName, width, height }) => {
+    return new Promise((resolve, reject) => {
+        const printWindow = new BrowserWindow({
+            width: width || 280,
+            height: height || 150,
+            show: false,
+            webPreferences: { contextIsolation: true },
+        });
+
+        const html = `
+            <html>
+            <head>
+                <style>
+                    * { margin: 0; padding: 0; }
+                    body { display: flex; align-items: center; justify-content: center; }
+                    img { max-width: 100%; height: auto; }
+                    @media print {
+                        @page { margin: 0; size: auto; }
+                        body { margin: 0; }
+                    }
+                </style>
+            </head>
+            <body>
+                <img src="${imageDataUrl}" />
+            </body>
+            </html>
+        `;
+
+        printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+
+        printWindow.webContents.on("did-finish-load", () => {
+            const printOptions = {
+                silent: true,
+                printBackground: true,
+                margins: { marginType: "none" },
+            };
+
+            if (printerName) {
+                printOptions.deviceName = printerName;
+            }
+
+            printWindow.webContents.print(printOptions, (success, failureReason) => {
+                printWindow.close();
+                if (success) {
+                    resolve({ success: true });
+                } else {
+                    reject(new Error(failureReason || "Print failed"));
+                }
+            });
+        });
+    });
+});
+
+// Silent print for test/general use
 ipcMain.handle("silent-print", async (event, options = {}) => {
     return new Promise((resolve, reject) => {
         const printOptions = {
@@ -87,12 +142,9 @@ ipcMain.handle("silent-print", async (event, options = {}) => {
             printBackground: true,
             ...options,
         };
-
-        // If specific printer name provided
         if (options.printerName) {
             printOptions.deviceName = options.printerName;
         }
-
         mainWindow.webContents.print(printOptions, (success, failureReason) => {
             if (success) {
                 resolve({ success: true });
@@ -101,13 +153,6 @@ ipcMain.handle("silent-print", async (event, options = {}) => {
             }
         });
     });
-});
-
-ipcMain.handle("print-to-pdf", async () => {
-    const data = await mainWindow.webContents.printToPDF({
-        printBackground: true,
-    });
-    return data;
 });
 
 // ═══════════════════════════════════════════════
