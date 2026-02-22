@@ -80,78 +80,128 @@ ipcMain.handle("get-printers", async () => {
     return printers;
 });
 
-// Print barcode using a dedicated hidden window (fixes blank page issue)
+// Print barcode using a dedicated hidden window
+// Uses base64 HTML to avoid double-encoding of the barcode data URL
 ipcMain.handle("print-barcode", async (event, { imageDataUrl, printerName, width, height }) => {
     return new Promise((resolve, reject) => {
-        const printWindow = new BrowserWindow({
-            width: width || 280,
-            height: height || 150,
-            show: false,
-            webPreferences: { contextIsolation: true },
-        });
-
-        const html = `
-            <html>
-            <head>
-                <style>
-                    * { margin: 0; padding: 0; }
-                    body { display: flex; align-items: center; justify-content: center; }
-                    img { max-width: 100%; height: auto; }
-                    @media print {
-                        @page { margin: 0; size: auto; }
-                        body { margin: 0; }
-                    }
-                </style>
-            </head>
-            <body>
-                <img src="${imageDataUrl}" />
-            </body>
-            </html>
-        `;
-
-        printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
-
-        printWindow.webContents.on("did-finish-load", () => {
-            const printOptions = {
-                silent: true,
-                printBackground: true,
-                margins: { marginType: "none" },
-            };
-
-            if (printerName) {
-                printOptions.deviceName = printerName;
-            }
-
-            printWindow.webContents.print(printOptions, (success, failureReason) => {
-                printWindow.close();
-                if (success) {
-                    resolve({ success: true });
-                } else {
-                    reject(new Error(failureReason || "Print failed"));
-                }
+        try {
+            const printWindow = new BrowserWindow({
+                width: width || 280,
+                height: height || 150,
+                show: false,
+                webPreferences: { contextIsolation: true },
             });
-        });
+
+            const htmlContent = `<!DOCTYPE html>
+<html><head><style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{display:flex;align-items:center;justify-content:center;width:100%;height:100%}
+img{max-width:100%;height:auto}
+@media print{@page{margin:0;size:auto}body{margin:0}}
+</style></head>
+<body><img src="${imageDataUrl}"/></body></html>`;
+
+            // Use base64 encoding to avoid URL encoding issues with data URLs
+            const base64Html = Buffer.from(htmlContent).toString("base64");
+            printWindow.loadURL(`data:text/html;base64,${base64Html}`);
+
+            printWindow.webContents.on("did-finish-load", () => {
+                // Wait a bit for the image to render
+                setTimeout(() => {
+                    const printOptions = {
+                        silent: true,
+                        printBackground: true,
+                        margins: { marginType: "none" },
+                    };
+                    if (printerName) {
+                        printOptions.deviceName = printerName;
+                    }
+
+                    printWindow.webContents.print(printOptions, (success, failureReason) => {
+                        printWindow.close();
+                        if (success) {
+                            resolve({ success: true });
+                        } else {
+                            reject(new Error(failureReason || "Print failed"));
+                        }
+                    });
+                }, 300);
+            });
+
+            // Timeout safety
+            setTimeout(() => {
+                if (!printWindow.isDestroyed()) {
+                    printWindow.close();
+                    reject(new Error("Print timeout"));
+                }
+            }, 10000);
+        } catch (err) {
+            reject(err);
+        }
     });
 });
 
-// Silent print for test/general use
-ipcMain.handle("silent-print", async (event, options = {}) => {
+// Test print - prints a test pattern (not the current page)
+ipcMain.handle("test-print", async (event, { printerName }) => {
     return new Promise((resolve, reject) => {
-        const printOptions = {
-            silent: true,
-            printBackground: true,
-            ...options,
-        };
-        if (options.printerName) {
-            printOptions.deviceName = options.printerName;
+        try {
+            const printWindow = new BrowserWindow({
+                width: 280,
+                height: 150,
+                show: false,
+                webPreferences: { contextIsolation: true },
+            });
+
+            const testHtml = `<!DOCTYPE html>
+<html><head><style>
+*{margin:0;padding:0}
+body{display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-family:sans-serif}
+.box{border:2px solid #000;padding:10px 20px;text-align:center}
+.title{font-size:14px;font-weight:bold}
+.sub{font-size:10px;color:#666;margin-top:4px}
+@media print{@page{margin:0;size:auto}}
+</style></head>
+<body>
+<div class="box">
+<div class="title">นันการช่าง</div>
+<div class="sub">ทดสอบเครื่องปริ้น ✓</div>
+</div>
+</body></html>`;
+
+            const base64Html = Buffer.from(testHtml).toString("base64");
+            printWindow.loadURL(`data:text/html;base64,${base64Html}`);
+
+            printWindow.webContents.on("did-finish-load", () => {
+                setTimeout(() => {
+                    const printOptions = {
+                        silent: true,
+                        printBackground: true,
+                        margins: { marginType: "none" },
+                    };
+                    if (printerName) {
+                        printOptions.deviceName = printerName;
+                    }
+
+                    printWindow.webContents.print(printOptions, (success, failureReason) => {
+                        printWindow.close();
+                        if (success) {
+                            resolve({ success: true });
+                        } else {
+                            reject(new Error(failureReason || "Print failed"));
+                        }
+                    });
+                }, 300);
+            });
+
+            setTimeout(() => {
+                if (!printWindow.isDestroyed()) {
+                    printWindow.close();
+                    reject(new Error("Print timeout"));
+                }
+            }, 10000);
+        } catch (err) {
+            reject(err);
         }
-        mainWindow.webContents.print(printOptions, (success, failureReason) => {
-            if (success) {
-                resolve({ success: true });
-            } else {
-                reject(new Error(failureReason || "Print failed"));
-            }
-        });
     });
 });
 

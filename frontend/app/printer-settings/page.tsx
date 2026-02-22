@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { isElectron, getAvailablePrinters } from "@/lib/electron";
+import { isElectron, getAvailablePrinters, testPrint as electronTestPrint } from "@/lib/electron";
 import { Printer, CheckCircle, XCircle, RefreshCw, Zap } from "lucide-react";
 import { toast } from "sonner";
 
@@ -50,14 +50,14 @@ export default function PrinterSettingsPage() {
         toast.success(`เลือกเครื่องปริ้น: ${name}`);
     };
 
-    const testPrint = async () => {
+    const handleTestPrint = async () => {
         if (!selectedPrinter || !isElectronApp) return;
         setTestPrinting(true);
-        try {
-            await window.electronAPI!.silentPrint({ printerName: selectedPrinter });
+        const result = await electronTestPrint(selectedPrinter);
+        if (result.success) {
             toast.success("ปริ้นทดสอบสำเร็จ!");
-        } catch (err: any) {
-            toast.error(`ปริ้นไม่สำเร็จ: ${err.message}`);
+        } else {
+            toast.error(`ปริ้นไม่สำเร็จ: ${result.error || "ไม่ทราบสาเหตุ"}`);
         }
         setTestPrinting(false);
     };
@@ -183,7 +183,7 @@ export default function PrinterSettingsPage() {
             {selectedPrinter && (
                 <div className="mt-6">
                     <button
-                        onClick={testPrint}
+                        onClick={handleTestPrint}
                         disabled={testPrinting}
                         className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold transition-all cursor-pointer disabled:opacity-50"
                         style={{ background: "#10B981", color: "white" }}

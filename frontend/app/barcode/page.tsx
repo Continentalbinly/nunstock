@@ -5,6 +5,7 @@ import { getPartsAll, getCategories } from "@/lib/api";
 import { getCarLogoUrl } from "@/lib/carLogos";
 import { Barcode, Search, Package, X, Printer, ScanBarcode, Car, Wrench, ChevronLeft } from "lucide-react";
 import { isElectron, printBarcode } from "@/lib/electron";
+import { toast } from "sonner";
 
 type TabType = "shop" | "consumables";
 
@@ -159,7 +160,16 @@ export default function BarcodePage() {
         if (isElectron()) {
             // Electron: send barcode image to dedicated print window
             const savedPrinter = localStorage.getItem("nunmechanic-printer") || undefined;
-            await printBarcode({ imageDataUrl: dataUrl, printerName: savedPrinter });
+            if (!savedPrinter) {
+                toast.error("กรุณาเลือกเครื่องปริ้นก่อนที่หน้า 'เครื่องปริ้น'");
+                return;
+            }
+            const result = await printBarcode({ imageDataUrl: dataUrl, printerName: savedPrinter });
+            if (result.success) {
+                toast.success("ปริ้นบาร์โค้ดสำเร็จ!");
+            } else {
+                toast.error(`ปริ้นไม่สำเร็จ: ${result.error || "ไม่ทราบสาเหตุ"}`);
+            }
         } else {
             // Web: append to DOM and use window.print()
             const container = document.createElement("div");
