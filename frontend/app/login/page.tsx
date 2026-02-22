@@ -158,7 +158,7 @@ export default function LoginPage() {
                     <div className="flex gap-2">
                         {/* Desktop .exe */}
                         <a
-                            href="https://github.com/Continentalbinly/nunstock/releases/latest"
+                            href="https://github.com/Continentalbinly/nunstock/releases/tag/latest"
                             target="_blank"
                             rel="noopener noreferrer"
                             className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer"

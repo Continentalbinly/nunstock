@@ -35,19 +35,23 @@ jobs:
           name: NunMechanic-Windows
           path: electron/dist/*.exe
 
-      - name: Release
+      # Always update the "latest" release on every push
+      - name: Update Latest Release
         uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: electron/dist/*.exe
-          name: "นันการช่าง ${{ github.ref_name }}"
+          tag_name: latest
+          name: "📥 นันการช่าง - ดาวน์โหลดล่าสุด"
           body: |
             ## ดาวน์โหลด นันการช่าง Desktop
 
             ### Windows
-            📥 ดาวน์โหลดไฟล์ `.exe` ด้านล่างแล้วติดตั้งได้เลย
+            📥 คลิกไฟล์ `.exe` ด้านล่างเพื่อดาวน์โหลดและติดตั้ง
 
-            ### มีอะไรใหม่
-            - อัพเดตล่าสุดจาก web version
+            > ⚠️ ครั้งแรกอาจจะเจอ Windows SmartScreen — กด "More info" → "Run anyway"
+
+            🕐 อัพเดตล่าสุด: ${{ github.event.head_commit.timestamp }}
+          files: electron/dist/*.exe
+          prerelease: false
+          make_latest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
