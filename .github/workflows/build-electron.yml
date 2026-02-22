@@ -33,7 +33,7 @@ jobs:
         working-directory: ./electron
         run: npm install
 
-      # Build only (no publish) — we handle the release ourselves
+      # Build only — we handle the release ourselves
       - name: Build Windows .exe
         working-directory: ./electron
         run: npm run build:win
@@ -46,30 +46,33 @@ jobs:
           name: NunMechanic-Windows-v1.0.${{ github.run_number }}
           path: electron/dist/*.exe
 
-      # Delete old "latest" release so files don't pile up
-      - name: Delete old latest release
-        uses: cb80/delrel@latest
-        with:
-          tag: latest
+      # Clean up: delete ALL old releases (versioned + latest)
+      - name: Delete all old releases
+        shell: bash
+        run: |
+          echo ">>> Deleting all old releases..."
+          gh release list --limit 50 --json tagName -q '.[].tagName' | while read tag; do
+            echo "Deleting release: $tag"
+            gh release delete "$tag" -y --cleanup-tag || true
+          done
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # Create fresh "latest" release with only new files
+      # Create fresh "latest" release with only the new .exe
       - name: Create Latest Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
-          name: "📥 NunMechanic v1.0.${{ github.run_number }}"
+          name: "NunMechanic v1.0.${{ github.run_number }}"
           body: |
             ## Download NunMechanic Desktop v1.0.${{ github.run_number }}
 
             ### Windows
-            📥 Click the `.exe` file below to download and install.
+            Click the `.exe` file below to download and install.
 
-            > ⚠️ First time: Windows SmartScreen may appear — click "More info" → "Run anyway"
-            > 🔄 Future updates will install automatically!
+            > First time: Windows SmartScreen may appear — click "More info" then "Run anyway"
 
-            🕐 Updated: ${{ github.event.head_commit.timestamp }}
+            Updated: ${{ github.event.head_commit.timestamp }}
           files: |
             electron/dist/*.exe
             electron/dist/latest.yml
