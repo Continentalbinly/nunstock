@@ -1,8 +1,8 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "@/components/ThemeProvider";
-import { Wrench, Eye, EyeOff, LogIn, Sun, Moon } from "lucide-react";
+import { Wrench, Eye, EyeOff, LogIn, Sun, Moon, Download } from "lucide-react";
 
 export default function LoginPage() {
     const router = useRouter();
@@ -12,6 +12,20 @@ export default function LoginPage() {
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
+    const [installPrompt, setInstallPrompt] = useState<any>(null);
+
+    useEffect(() => {
+        const handler = (e: any) => { e.preventDefault(); setInstallPrompt(e); };
+        window.addEventListener("beforeinstallprompt", handler);
+        return () => window.removeEventListener("beforeinstallprompt", handler);
+    }, []);
+
+    const handleInstall = async () => {
+        if (!installPrompt) return;
+        installPrompt.prompt();
+        const { outcome } = await installPrompt.userChoice;
+        if (outcome === "accepted") setInstallPrompt(null);
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -40,21 +54,40 @@ export default function LoginPage() {
             className="min-h-screen flex items-center justify-center p-4 relative transition-colors duration-300"
             style={{ background: isDark ? "linear-gradient(135deg, #020617 0%, #0F172A 50%, #020617 100%)" : "linear-gradient(135deg, #F1F5F9 0%, #E2E8F0 50%, #F1F5F9 100%)" }}
         >
-            {/* Theme Toggle - top right */}
-            <button
-                onClick={toggleTheme}
-                className="absolute top-6 right-6 p-2.5 rounded-xl transition-all duration-200 cursor-pointer z-20"
-                style={{
-                    background: "var(--t-card)",
-                    border: "1px solid var(--t-border-subtle)",
-                    color: "var(--t-text-secondary)",
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = "var(--t-card-hover)"; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = "var(--t-card)"; }}
-                title={isDark ? "เปลี่ยนเป็นธีมสว่าง" : "เปลี่ยนเป็นธีมมืด"}
-            >
-                {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-            </button>
+            {/* Top right buttons */}
+            <div className="absolute top-6 right-6 flex items-center gap-2 z-20">
+                {installPrompt && (
+                    <button
+                        onClick={handleInstall}
+                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all duration-200 cursor-pointer text-sm font-medium"
+                        style={{
+                            background: "var(--t-card)",
+                            border: "1px solid var(--t-border-subtle)",
+                            color: "var(--t-text-secondary)",
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#22C55E60"; e.currentTarget.style.color = "#22C55E"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(34,197,94,0.15)"; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--t-border-subtle)"; e.currentTarget.style.color = "var(--t-text-secondary)"; e.currentTarget.style.boxShadow = "none"; }}
+                        title="ติดตั้งแอป NunStock"
+                    >
+                        <Download className="w-4 h-4" />
+                        ติดตั้งแอป
+                    </button>
+                )}
+                <button
+                    onClick={toggleTheme}
+                    className="p-2.5 rounded-xl transition-all duration-200 cursor-pointer"
+                    style={{
+                        background: "var(--t-card)",
+                        border: "1px solid var(--t-border-subtle)",
+                        color: "var(--t-text-secondary)",
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = "var(--t-card-hover)"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = "var(--t-card)"; }}
+                    title={isDark ? "เปลี่ยนเป็นธีมสว่าง" : "เปลี่ยนเป็นธีมมืด"}
+                >
+                    {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+                </button>
+            </div>
 
             {/* Background glow */}
             <div className="fixed inset-0 overflow-hidden pointer-events-none">

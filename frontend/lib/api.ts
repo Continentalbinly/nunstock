@@ -55,6 +55,10 @@ export const createPart = (data: any) =>
 export const getCategories = () => apiFetch<any[]>("/api/categories");
 export const createCategory = (data: any) =>
     apiFetch<any>("/api/categories", { method: "POST", body: JSON.stringify(data) });
+export const updateCategory = (id: string, data: { name: string }) =>
+    apiFetch<any>(`/api/categories/${id}`, { method: "PUT", body: JSON.stringify(data) });
+export const deleteCategory = (id: string) =>
+    apiFetch<any>(`/api/categories/${id}`, { method: "DELETE" });
 
 // ---- การเบิก (paginated) ----
 export const getWithdrawals = (params?: Record<string, string>) =>

@@ -1,4 +1,5 @@
 "use client";
+import { toast } from "sonner";
 import { useEffect, useState } from "react";
 import { getClaimsAll, notifyClaimCustomer } from "@/lib/api";
 import { Bell, BellRing, Send, CheckCircle2, Clock, Phone, Car } from "lucide-react";
@@ -19,7 +20,7 @@ export default function NotificationsPage() {
     const notifiedClaims = claims.filter((c) => c.status === "NOTIFIED");
     const pendingClaims = claims.filter((c) => c.status === "PENDING" || c.status === "ORDERED");
 
-    const handleNotify = async (id: string) => { setSending(id); try { await notifyClaimCustomer(id); setSuccess("ส่งแจ้งเตือนสำเร็จ!"); fetchData(); setTimeout(() => setSuccess(""), 3000); } catch (err: any) { alert(err.message); } finally { setSending(null); } };
+    const handleNotify = async (id: string) => { setSending(id); try { await notifyClaimCustomer(id); setSuccess("ส่งแจ้งเตือนสำเร็จ!"); fetchData(); setTimeout(() => setSuccess(""), 3000); } catch (err: any) { toast.error(err.message); } finally { setSending(null); } };
 
     if (loading) return <div className="p-8 flex items-center justify-center min-h-screen"><div className="text-center"><div className="w-10 h-10 border-3 rounded-full animate-spin mx-auto mb-4" style={{ borderColor: "var(--t-border)", borderTopColor: "#22C55E" }} /><p style={{ color: "var(--t-text-muted)" }} className="text-sm">กำลังโหลดข้อมูล...</p></div></div>;
 

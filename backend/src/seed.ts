@@ -1,7 +1,33 @@
 import { prisma } from "./lib/prisma.js";
 
+// ─── Brand → Models mapping (รุ่นรถยอดนิยมในไทย) ───────────
+const BRAND_MODELS: Record<string, string[]> = {
+    // Japanese
+    "Toyota": ["Hilux Revo", "Hilux Vigo", "Fortuner", "Yaris", "Vios", "Camry", "Corolla Cross", "C-HR"],
+    "Honda": ["City", "Civic", "CR-V", "HR-V", "Accord", "Jazz", "BR-V"],
+    "Isuzu": ["D-Max", "MU-X"],
+    "Mitsubishi": ["Triton", "Pajero Sport", "Xpander", "Attrage", "Mirage"],
+    "Mazda": ["CX-5", "CX-30", "Mazda2", "Mazda3", "BT-50"],
+    "Nissan": ["Navara", "March", "Almera", "Kicks", "X-Trail"],
+    "Suzuki": ["Swift", "Ciaz", "Ertiga", "XL7", "Carry"],
+    // Korean
+    "Hyundai": ["Creta", "H-1", "Stargazer"],
+    "Kia": ["Seltos", "Sonet", "EV6"],
+    // Chinese / New EV
+    "MG": ["ZS", "HS", "EP", "MG5"],
+    "BYD": ["Atto 3", "Dolphin", "Seal"],
+    // American
+    "Ford": ["Ranger", "Everest"],
+    "Chevrolet": ["Colorado", "Trailblazer", "Captiva"],
+    // European
+    "BMW": ["Series 3", "Series 5", "X1", "X3"],
+    "Mercedes-Benz": ["C-Class", "E-Class", "GLA", "GLC"],
+    "Volvo": ["XC40", "XC60", "XC90"],
+    "Subaru": ["Forester", "XV", "BRZ"],
+};
+
 async function seed() {
-    console.log("🌱 Seeding database...\n");
+    console.log("🌱 Seeding database…\n");
 
     // 1. Clear existing data
     await prisma.stockMovement.deleteMany();
@@ -24,54 +50,66 @@ async function seed() {
     });
     console.log("[OK] Created 3 top-level categories");
 
-    // ─── Car Brands (5 ยี่ห้อยอดนิยมในไทย) ─────────────────────
-    const brands = ["Toyota", "Honda", "Isuzu", "Mitsubishi", "Mazda"];
+    // ─── Helper: create brands + models under a parent ──────────
+    async function createBrandsWithModels(parentId: string, color: string) {
+        const brandsMap: Record<string, any> = {};
+        const modelsMap: Record<string, Record<string, any>> = {};
 
-    // Level 2: Brands under รถหน้าร้าน
-    const shopBrands: Record<string, any> = {};
-    for (const brand of brands) {
-        shopBrands[brand] = await prisma.partCategory.create({
-            data: { name: brand, color: "#10b981", icon: "car", parentId: shopCat.id }
-        });
+        for (const [brand, models] of Object.entries(BRAND_MODELS)) {
+            // Create brand category
+            const brandCat = await prisma.partCategory.create({
+                data: { name: brand, color, icon: "car", parentId }
+            });
+            brandsMap[brand] = brandCat;
+            modelsMap[brand] = {};
+
+            // Create model sub-categories under brand
+            for (const model of models) {
+                const modelCat = await prisma.partCategory.create({
+                    data: { name: model, color, icon: "car", parentId: brandCat.id }
+                });
+                modelsMap[brand][model] = modelCat;
+            }
+        }
+        return { brandsMap, modelsMap };
     }
-    console.log(`[OK] Created ${brands.length} brands under รถหน้าร้าน`);
 
-    // Level 2: Insurance Company under รถประกัน
+    // ─── Shop: Brands + Models ──────────────────────────────────
+    const shop = await createBrandsWithModels(shopCat.id, "#10b981");
+    const totalShopModels = Object.values(BRAND_MODELS).reduce((sum, m) => sum + m.length, 0);
+    console.log(`[OK] Created ${Object.keys(BRAND_MODELS).length} brands × models (${totalShopModels} total) under รถหน้าร้าน`);
+
+    // ─── Insurance Company ──────────────────────────────────────
     const samukkee = await prisma.partCategory.create({
         data: { name: "ศามัคคีประกันภัย", color: "#6366f1", icon: "building", parentId: insuranceCat.id }
     });
     console.log("[OK] Created insurance company: ศามัคคีประกันภัย");
 
-    // Level 3: Brands under ศามัคคีประกันภัย
-    const insuranceBrands: Record<string, any> = {};
-    for (const brand of brands) {
-        insuranceBrands[brand] = await prisma.partCategory.create({
-            data: { name: brand, color: "#8b5cf6", icon: "car", parentId: samukkee.id }
-        });
-    }
-    console.log(`[OK] Created ${brands.length} brands under ศามัคคีประกันภัย`);
+    // ─── Insurance: Brands + Models under company ───────────────
+    const insurance = await createBrandsWithModels(samukkee.id, "#8b5cf6");
+    console.log(`[OK] Created ${Object.keys(BRAND_MODELS).length} brands × models under ศามัคคีประกันภัย`);
 
-    // ─── Sample Parts ───────────────────────────────────────────
+    // ─── Sample Parts (now under model level) ───────────────────
     const parts = [
-        // รถหน้าร้าน > Toyota
-        { code: "SH-TYT-001", name: "กันชนหน้า Revo", brand: "OEM", quantity: 3, minStock: 1, unit: "ชิ้น", categoryId: shopBrands["Toyota"].id },
-        { code: "SH-TYT-002", name: "ฝากระโปรง Hilux", brand: "OEM", quantity: 2, minStock: 1, unit: "ชิ้น", categoryId: shopBrands["Toyota"].id },
+        // รถหน้าร้าน > Toyota > Hilux Revo
+        { code: "SH-TYT-001", name: "กันชนหน้า Revo", brand: "OEM", quantity: 3, minStock: 1, unit: "ชิ้น", categoryId: shop.modelsMap["Toyota"]["Hilux Revo"].id },
+        { code: "SH-TYT-002", name: "ฝากระโปรง Revo", brand: "OEM", quantity: 2, minStock: 1, unit: "ชิ้น", categoryId: shop.modelsMap["Toyota"]["Hilux Revo"].id },
 
-        // รถหน้าร้าน > Honda
-        { code: "SH-HND-001", name: "ไฟหน้า Civic", brand: "Stanley", quantity: 4, minStock: 2, unit: "ดวง", categoryId: shopBrands["Honda"].id },
+        // รถหน้าร้าน > Honda > Civic
+        { code: "SH-HND-001", name: "ไฟหน้า Civic", brand: "Stanley", quantity: 4, minStock: 2, unit: "ดวง", categoryId: shop.modelsMap["Honda"]["Civic"].id },
 
-        // รถหน้าร้าน > Isuzu
-        { code: "SH-ISZ-001", name: "ไฟท้าย D-Max", brand: "OEM", quantity: 2, minStock: 1, unit: "ดวง", categoryId: shopBrands["Isuzu"].id },
+        // รถหน้าร้าน > Isuzu > D-Max
+        { code: "SH-ISZ-001", name: "ไฟท้าย D-Max", brand: "OEM", quantity: 2, minStock: 1, unit: "ดวง", categoryId: shop.modelsMap["Isuzu"]["D-Max"].id },
 
-        // ประกัน > ศามัคคี > Toyota
-        { code: "IN-TYT-001", name: "กันชนหน้า Yaris", brand: "OEM", quantity: 1, minStock: 1, unit: "ชิ้น", categoryId: insuranceBrands["Toyota"].id },
-        { code: "IN-TYT-002", name: "บังโคลนหน้า Vios", brand: "OEM", quantity: 2, minStock: 1, unit: "ชิ้น", categoryId: insuranceBrands["Toyota"].id },
+        // ประกัน > ศามัคคี > Toyota > Yaris
+        { code: "IN-TYT-001", name: "กันชนหน้า Yaris", brand: "OEM", quantity: 1, minStock: 1, unit: "ชิ้น", categoryId: insurance.modelsMap["Toyota"]["Yaris"].id },
+        { code: "IN-TYT-002", name: "บังโคลนหน้า Vios", brand: "OEM", quantity: 2, minStock: 1, unit: "ชิ้น", categoryId: insurance.modelsMap["Toyota"]["Vios"].id },
 
-        // ประกัน > ศามัคคี > Honda
-        { code: "IN-HND-001", name: "กระจกข้าง City", brand: "OEM", quantity: 2, minStock: 1, unit: "ชิ้น", categoryId: insuranceBrands["Honda"].id },
+        // ประกัน > ศามัคคี > Honda > City
+        { code: "IN-HND-001", name: "กระจกข้าง City", brand: "OEM", quantity: 2, minStock: 1, unit: "ชิ้น", categoryId: insurance.modelsMap["Honda"]["City"].id },
 
-        // ประกัน > ศามัคคี > Isuzu
-        { code: "IN-ISZ-001", name: "กันชนหลัง D-Max", brand: "OEM", quantity: 1, minStock: 1, unit: "ชิ้น", categoryId: insuranceBrands["Isuzu"].id },
+        // ประกัน > ศามัคคี > Isuzu > D-Max
+        { code: "IN-ISZ-001", name: "กันชนหลัง D-Max", brand: "OEM", quantity: 1, minStock: 1, unit: "ชิ้น", categoryId: insurance.modelsMap["Isuzu"]["D-Max"].id },
 
         // อุปกรณ์สิ้นเปลือง
         { code: "CON-001", name: "น้ำมันเครื่อง 5W-30", brand: "Castrol", quantity: 48, minStock: 10, unit: "ลิตร", categoryId: consumableCat.id },

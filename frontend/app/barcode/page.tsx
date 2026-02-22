@@ -2,6 +2,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { getPartsAll, getCategories } from "@/lib/api";
+import { getCarLogoUrl } from "@/lib/carLogos";
 import { Barcode, Search, Package, X, Printer, ScanBarcode, Car, Wrench, ChevronLeft } from "lucide-react";
 
 type TabType = "shop" | "consumables";
@@ -15,6 +16,9 @@ export default function BarcodePage() {
     const [search, setSearch] = useState("");
     const [activeTab, setActiveTab] = useState<TabType>((searchParams.get("tab") as TabType) || "shop");
     const [selectedBrandId, setSelectedBrandId] = useState<string>(searchParams.get("brand") || "");
+    const [selectedModelId, setSelectedModelId] = useState<string>(searchParams.get("model") || "");
+    const [brandSearch, setBrandSearch] = useState("");
+    const [modelSearch, setModelSearch] = useState("");
     const [selectedPart, setSelectedPart] = useState<any>(null);
     const barcodeRef = useRef<HTMLCanvasElement>(null);
     const searchRef = useRef<HTMLInputElement>(null);
@@ -31,8 +35,10 @@ export default function BarcodePage() {
     // Car brands under shop root
     const shopBrands = categories.filter(c => c.parentId === shopRoot?.id);
 
-    // Selected brand object
+    // Selected brand and model objects
     const selectedBrand = shopBrands.find(b => b.id === selectedBrandId) || null;
+    const shopModels = selectedBrand ? categories.filter((c: any) => c.parentId === selectedBrand.id) : [];
+    const selectedModel = shopModels.find((m: any) => m.id === selectedModelId) || null;
 
     useEffect(() => {
         Promise.all([getPartsAll(), getCategories()])
@@ -45,8 +51,10 @@ export default function BarcodePage() {
     useEffect(() => {
         const tabParam = (searchParams.get("tab") as TabType) || "shop";
         const brandParam = searchParams.get("brand") || "";
+        const modelParam = searchParams.get("model") || "";
         if (tabParam !== activeTab) setActiveTab(tabParam);
         if (brandParam !== selectedBrandId) setSelectedBrandId(brandParam);
+        if (modelParam !== selectedModelId) setSelectedModelId(modelParam);
     }, [searchParams]);
 
     useEffect(() => {
@@ -61,10 +69,11 @@ export default function BarcodePage() {
     }, [selectedPart]);
 
     // Helper: update URL params
-    const updateUrl = (tab: TabType, brandId?: string) => {
+    const updateUrl = (tab: TabType, brandId?: string, modelId?: string) => {
         const params = new URLSearchParams();
         params.set("tab", tab);
         if (brandId) params.set("brand", brandId);
+        if (modelId) params.set("model", modelId);
         router.push(`/barcode?${params.toString()}`);
     };
 
@@ -88,8 +97,8 @@ export default function BarcodePage() {
                 const partRootId = getRootCategoryId(p);
                 if (partRootId !== rootId) return false;
             }
-            // Brand filter (for shop tab when a brand is selected)
-            if (activeTab === "shop" && selectedBrandId && p.categoryId !== selectedBrandId) return false;
+            // Brand filter — now filter by model (for shop tab when a model is selected)
+            if (activeTab === "shop" && selectedModelId && p.categoryId !== selectedModelId) return false;
             // Search filter
             if (!search) return true;
             const s = search.toLowerCase();
@@ -172,7 +181,7 @@ export default function BarcodePage() {
 
     const activeColor = tabs.find(t => t.key === activeTab)?.color || "#22C55E";
 
-    // ─── Shop Tab: Brand Selection View ─────────────────────────
+    // ─── Shop Tab: Brand Selection View ─────────────────────
     if (activeTab === "shop" && !selectedBrandId) {
         return (
             <div className="p-6 lg:p-8">
@@ -186,7 +195,7 @@ export default function BarcodePage() {
                     {tabs.map(tab => (
                         <button
                             key={tab.key}
-                            onClick={() => { setActiveTab(tab.key); setSelectedBrandId(""); setSearch(""); updateUrl(tab.key); }}
+                            onClick={() => { setActiveTab(tab.key); setSelectedBrandId(""); setSelectedModelId(""); setSearch(""); updateUrl(tab.key); }}
                             className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer"
                             style={{
                                 background: activeTab === tab.key ? `${tab.color}15` : "var(--t-input-bg)",
@@ -204,25 +213,33 @@ export default function BarcodePage() {
                     ))}
                 </div>
 
-                {/* Brand Cards (like shop page) */}
-                <p className="text-sm mb-4 font-medium" style={{ color: "var(--t-text-muted)" }}>เลือกยี่ห้อรถเพื่อดูบาร์โค้ดอะไหล่</p>
+                {/* Brand Cards */}
+                <p className="text-sm mb-2 font-medium" style={{ color: "var(--t-text-muted)" }}>เลือกยี่ห้อรถเพื่อดูบาร์โค้ดอะไหล่</p>
+                <div className="relative mb-4">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--t-text-muted)" }} />
+                    <input value={brandSearch} onChange={(e) => setBrandSearch(e.target.value)} placeholder="ค้นหายี่ห้อรถ..." className="w-full rounded-xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500/30" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} />
+                </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-                    {shopBrands.map((brand) => {
-                        const brandPartCount = parts.filter(p => p.categoryId === brand.id).length;
+                    {shopBrands.filter((b: any) => !brandSearch || b.name.toLowerCase().includes(brandSearch.toLowerCase())).map((brand: any) => {
+                        const modelCount = categories.filter((c: any) => c.parentId === brand.id).length;
                         return (
                             <button
                                 key={brand.id}
-                                onClick={() => { setSelectedBrandId(brand.id); updateUrl("shop", brand.id); }}
+                                onClick={() => { setSelectedBrandId(brand.id); setSelectedModelId(""); setSearch(""); updateUrl("shop", brand.id); }}
                                 className="group rounded-2xl p-6 transition-all duration-200 cursor-pointer text-center"
                                 style={{ background: "var(--t-card)", border: "1px solid var(--t-border-subtle)" }}
                                 onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#22C55E80"; e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 8px 25px rgba(34,197,94,0.12)"; }}
                                 onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--t-border-subtle)"; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; }}
                             >
                                 <div className="w-14 h-14 rounded-xl mx-auto mb-3 flex items-center justify-center" style={{ background: "var(--t-badge-bg)" }}>
-                                    <Car className="w-7 h-7" style={{ color: "#22C55E" }} />
+                                    {getCarLogoUrl(brand.name) ? (
+                                        <img src={getCarLogoUrl(brand.name)!} alt={brand.name} className="w-10 h-10 object-contain" loading="lazy" />
+                                    ) : (
+                                        <Car className="w-7 h-7" style={{ color: "#22C55E" }} />
+                                    )}
                                 </div>
                                 <p className="font-bold text-base" style={{ color: "var(--t-text)" }}>{brand.name}</p>
-                                <p className="text-xs mt-1" style={{ color: "var(--t-text-muted)" }}>{brandPartCount} รายการ</p>
+                                <p className="text-xs mt-1" style={{ color: "var(--t-text-muted)" }}>{modelCount} รุ่น</p>
                             </button>
                         );
                     })}
@@ -238,14 +255,13 @@ export default function BarcodePage() {
         );
     }
 
-    // ─── Parts List View (after selecting brand for shop, or consumables tab) ──
-    return (
-        <div className="p-6 lg:p-8">
-            <div className="mb-8">
-                {/* Back button for shop tab with brand selected */}
-                {activeTab === "shop" && selectedBrandId && (
+    // ─── Shop Tab: Model Selection View (after brand) ───────────
+    if (activeTab === "shop" && selectedBrandId && !selectedModelId) {
+        return (
+            <div className="p-6 lg:p-8">
+                <div className="mb-8">
                     <button
-                        onClick={() => { setSelectedBrandId(""); setSearch(""); updateUrl("shop"); }}
+                        onClick={() => { setSelectedBrandId(""); setSelectedModelId(""); setSearch(""); updateUrl("shop"); }}
                         className="flex items-center gap-2 text-sm font-medium mb-3 transition-colors cursor-pointer rounded-lg px-3 py-1.5"
                         style={{ color: "var(--t-text-muted)" }}
                         onMouseEnter={(e) => { e.currentTarget.style.background = "var(--t-hover-overlay)"; e.currentTarget.style.color = "#22C55E"; }}
@@ -253,9 +269,77 @@ export default function BarcodePage() {
                     >
                         <ChevronLeft className="w-4 h-4" /> กลับไปเลือกยี่ห้อ
                     </button>
+                    <div className="flex items-center gap-3">
+                        {selectedBrand && getCarLogoUrl(selectedBrand.name) && (
+                            <img src={getCarLogoUrl(selectedBrand.name)!} alt={selectedBrand.name} className="w-10 h-10 object-contain" />
+                        )}
+                        <div>
+                            <h1 className="text-xl font-bold" style={{ color: "var(--t-text)" }}>บาร์โค้ด — {selectedBrand?.name}</h1>
+                            <p className="mt-0.5 text-sm" style={{ color: "var(--t-text-muted)" }}>เลือกรุ่นรถเพื่อดูบาร์โค้ดอะไหล่</p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Search */}
+                <div className="relative mb-4">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--t-text-muted)" }} />
+                    <input value={modelSearch} onChange={(e) => setModelSearch(e.target.value)} placeholder="ค้นหารุ่นรถ..." className="w-full rounded-xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500/30" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} />
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+                    {shopModels.filter((m: any) => !modelSearch || m.name.toLowerCase().includes(modelSearch.toLowerCase())).map((model: any) => {
+                        const modelPartCount = parts.filter(p => p.categoryId === model.id).length;
+                        return (
+                            <button
+                                key={model.id}
+                                onClick={() => { setSelectedModelId(model.id); setSearch(""); updateUrl("shop", selectedBrandId, model.id); }}
+                                className="group rounded-2xl p-5 transition-all duration-200 cursor-pointer text-center"
+                                style={{ background: "var(--t-card)", border: "1px solid var(--t-border-subtle)" }}
+                                onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#22C55E80"; e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 8px 25px rgba(34,197,94,0.12)"; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--t-border-subtle)"; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; }}
+                            >
+                                <div className="w-10 h-10 rounded-lg mx-auto mb-2 flex items-center justify-center" style={{ background: "var(--t-badge-bg)" }}>
+                                    {selectedBrand && getCarLogoUrl(selectedBrand.name) ? (
+                                        <img src={getCarLogoUrl(selectedBrand.name)!} alt={selectedBrand.name} className="w-7 h-7 object-contain opacity-60" loading="lazy" />
+                                    ) : (
+                                        <Car className="w-5 h-5" style={{ color: "#22C55E" }} />
+                                    )}
+                                </div>
+                                <p className="font-bold text-sm" style={{ color: "var(--t-text)" }}>{model.name}</p>
+                                <p className="text-xs mt-0.5" style={{ color: "var(--t-text-muted)" }}>{modelPartCount} อะไหล่</p>
+                            </button>
+                        );
+                    })}
+                </div>
+
+                {shopModels.length === 0 && (
+                    <div className="rounded-xl text-center py-16" style={{ background: "var(--t-card)", border: "1px solid var(--t-border-subtle)" }}>
+                        <Car className="w-10 h-10 mx-auto mb-3" style={{ color: "var(--t-text-dim)" }} />
+                        <p style={{ color: "var(--t-text-muted)" }}>ยังไม่มีรุ่นรถ</p>
+                    </div>
+                )}
+            </div>
+        );
+    }
+
+    // ─── Parts List View (after selecting brand for shop, or consumables tab) ──
+    return (
+        <div className="p-6 lg:p-8">
+            <div className="mb-8">
+                {/* Back button for shop tab with model selected */}
+                {activeTab === "shop" && selectedModelId && (
+                    <button
+                        onClick={() => { setSelectedModelId(""); setSearch(""); updateUrl("shop", selectedBrandId); }}
+                        className="flex items-center gap-2 text-sm font-medium mb-3 transition-colors cursor-pointer rounded-lg px-3 py-1.5"
+                        style={{ color: "var(--t-text-muted)" }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = "var(--t-hover-overlay)"; e.currentTarget.style.color = "#22C55E"; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--t-text-muted)"; }}
+                    >
+                        <ChevronLeft className="w-4 h-4" /> กลับไปเลือกรุ่น {selectedBrand?.name}
+                    </button>
                 )}
                 <h1 className="text-xl font-bold" style={{ color: "var(--t-text)" }}>
-                    บาร์โค้ด{activeTab === "shop" && selectedBrand ? ` — ${selectedBrand.name}` : ""}
+                    บาร์โค้ด{activeTab === "shop" && selectedBrand ? ` — ${selectedBrand.name}${selectedModel ? ` ${selectedModel.name}` : ""}` : ""}
                 </h1>
                 <p className="mt-1 text-sm" style={{ color: "var(--t-text-muted)" }}>คลิกที่อะไหล่หรือสแกนบาร์โค้ดเพื่อแสดงและพิมพ์</p>
             </div>
@@ -265,7 +349,7 @@ export default function BarcodePage() {
                 {tabs.map(tab => (
                     <button
                         key={tab.key}
-                        onClick={() => { setActiveTab(tab.key); setSelectedBrandId(""); setSearch(""); updateUrl(tab.key); }}
+                        onClick={() => { setActiveTab(tab.key); setSelectedBrandId(""); setSelectedModelId(""); setSearch(""); updateUrl(tab.key); }}
                         className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer"
                         style={{
                             background: activeTab === tab.key ? `${tab.color}15` : "var(--t-input-bg)",

@@ -39,3 +39,52 @@ categoriesRouter.post("/", zValidator("json", categorySchema), async (c) => {
         return c.json({ success: false, error: "ไม่สามารถเพิ่มประเภทได้" }, 500);
     }
 });
+
+const updateCategorySchema = z.object({
+    name: z.string().min(1, "กรุณาระบุชื่อประเภท"),
+});
+
+categoriesRouter.put("/:id", zValidator("json", updateCategorySchema), async (c) => {
+    try {
+        const id = c.req.param("id");
+        const body = c.req.valid("json");
+        const category = await prisma.partCategory.update({ where: { id }, data: { name: body.name } });
+        return c.json({ success: true, data: category });
+    } catch (error: any) {
+        if (error?.code === "P2002") {
+            return c.json({ success: false, error: "ชื่อนี้มีอยู่แล้ว" }, 400);
+        }
+        if (error?.code === "P2025") {
+            return c.json({ success: false, error: "ไม่พบประเภทที่ต้องการแก้ไข" }, 404);
+        }
+        return c.json({ success: false, error: "ไม่สามารถแก้ไขประเภทได้" }, 500);
+    }
+});
+
+categoriesRouter.delete("/:id", async (c) => {
+    try {
+        const id = c.req.param("id");
+        // Recursively collect all descendant category IDs
+        const allIds: string[] = [id];
+        const collectChildren = async (parentId: string) => {
+            const children = await prisma.partCategory.findMany({ where: { parentId }, select: { id: true } });
+            for (const child of children) {
+                allIds.push(child.id);
+                await collectChildren(child.id);
+            }
+        };
+        await collectChildren(id);
+        // Delete all parts in those categories, then delete categories bottom-up
+        await prisma.part.deleteMany({ where: { categoryId: { in: allIds } } });
+        // Delete from deepest to shallowest to avoid FK constraint
+        for (let i = allIds.length - 1; i >= 0; i--) {
+            await prisma.partCategory.delete({ where: { id: allIds[i] } });
+        }
+        return c.json({ success: true });
+    } catch (error: any) {
+        if (error?.code === "P2025") {
+            return c.json({ success: false, error: "ไม่พบประเภทที่ต้องการลบ" }, 404);
+        }
+        return c.json({ success: false, error: "ไม่สามารถลบประเภทได้" }, 500);
+    }
+});

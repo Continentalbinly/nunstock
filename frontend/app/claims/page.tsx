@@ -1,4 +1,5 @@
 "use client";
+import { toast } from "sonner";
 import { useEffect, useState } from "react";
 import { getClaims, createClaim, updateClaimStatus, deleteClaim, notifyClaimCustomer, getPartsAll } from "@/lib/api";
 import { ShieldCheck, Plus, X, Search, ChevronRight, Bell, Trash2, CheckCircle2 } from "lucide-react";
@@ -33,9 +34,9 @@ export default function ClaimsPage() {
 
 
     const handleCreate = async () => { setSaving(true); setError(""); try { const items = form.items.filter((i: any) => i.partName.trim()).map((i: any) => ({ partName: i.partName, quantity: Number(i.quantity), ...(i.partId ? { partId: i.partId } : {}) })); if (items.length === 0) { setError("กรุณาเพิ่มอะไหล่อย่างน้อย 1 รายการ"); setSaving(false); return; } await createClaim({ ...form, items }); setShowModal(false); setForm({ ...emptyForm }); fetchData(); } catch (err: any) { setError(err.message || "ไม่สามารถสร้างเคลมได้"); } finally { setSaving(false); } };
-    const handleStatusChange = async (id: string, s: string) => { try { await updateClaimStatus(id, s); fetchData(); } catch (err: any) { alert(err.message); } };
-    const handleNotify = async (id: string) => { try { await notifyClaimCustomer(id); setMsg("ส่งแจ้งเตือนสำเร็จ!"); fetchData(); setTimeout(() => setMsg(""), 3000); } catch (err: any) { alert(err.message); } };
-    const handleDelete = async (id: string) => { if (!confirm("ยืนยันลบ?")) return; try { await deleteClaim(id); fetchData(); } catch (err: any) { alert(err.message); } };
+    const handleStatusChange = async (id: string, s: string) => { try { await updateClaimStatus(id, s); fetchData(); } catch (err: any) { toast.error(err.message); } };
+    const handleNotify = async (id: string) => { try { await notifyClaimCustomer(id); setMsg("ส่งแจ้งเตือนสำเร็จ!"); fetchData(); setTimeout(() => setMsg(""), 3000); } catch (err: any) { toast.error(err.message); } };
+    const handleDelete = async (id: string) => { if (!confirm("ยืนยันลบ?")) return; try { await deleteClaim(id); fetchData(); } catch (err: any) { toast.error(err.message); } };
     const addItem = () => setForm({ ...form, items: [...form.items, { partName: "", quantity: 1, partId: "" }] });
     const removeItem = (i: number) => setForm({ ...form, items: form.items.filter((_: any, idx: number) => idx !== i) });
     const updateItem = (i: number, f: string, v: any) => { const items = [...form.items]; items[i] = { ...items[i], [f]: v }; setForm({ ...form, items }); };
