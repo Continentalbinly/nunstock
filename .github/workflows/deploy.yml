@@ -121,11 +121,25 @@ jobs:
             # ── 10. Deploy Backend ───────────────────
             echo ">>> Deploy Backend (port 1100)..."
             cd /var/www/nunstock/backend
-            npm ci
+            npm install --prefer-offline
             npx prisma generate
-            npx prisma db push --accept-data-loss
-            npx tsx src/seed.ts
-            npx tsx src/seed-admin.ts
+
+            # Only push schema if it changed
+            if git diff HEAD~1 --name-only | grep -q "backend/prisma/schema"; then
+              echo ">>> Schema changed, pushing..."
+              npx prisma db push --accept-data-loss
+            else
+              echo ">>> Schema unchanged, skipping db push"
+            fi
+
+            # Only seed if seed files changed
+            if git diff HEAD~1 --name-only | grep -q "backend/src/seed"; then
+              echo ">>> Seed files changed, running seeds..."
+              npx tsx src/seed.ts 2>/dev/null || true
+              npx tsx src/seed-admin.ts 2>/dev/null || true
+            else
+              echo ">>> Seed files unchanged, skipping"
+            fi
             rm -rf dist
             npx tsc
             pm2 reload nunstock-backend --update-env 2>/dev/null \
@@ -134,8 +148,7 @@ jobs:
             # ── 11. Deploy Frontend ──────────────────
             echo ">>> Deploy Frontend (port 9090)..."
             cd /var/www/nunstock/frontend
-            rm -rf .next
-            npm ci
+            npm install --prefer-offline
             npm run build
             pm2 reload nunstock-frontend --update-env 2>/dev/null \
               || PORT=9090 pm2 start npm --name nunstock-frontend -- start
