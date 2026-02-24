@@ -1,34 +1,31 @@
 import { readFileSync } from "fs";
 import { resolve } from "path";
-import { fileURLToPath } from "url";
+
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 
-// โหลด .env ด้วย fs — ทำงานได้ทุกวิธีที่ PM2 start (ไม่ต้องพึ่ง --env-file หรือ dotenv)
+// โหลด .env ด้วย fs — ทำงานได้ทุกวิธี (PM2, tsx, node)
 (function loadEnv() {
     try {
-        const __dirname = fileURLToPath(new URL(".", import.meta.url));
-        const envPath = resolve(__dirname, "../.env"); // dist/index.js → backend/.env ✅
-
-        const lines = readFileSync(envPath, "utf-8").split("\n");
-        for (const line of lines) {
+        const envPath = resolve(process.cwd(), ".env");
+        const content = readFileSync(envPath, "utf-8");
+        for (const line of content.split("\n")) {
             const trimmed = line.trim();
             if (!trimmed || trimmed.startsWith("#")) continue;
             const eqIdx = trimmed.indexOf("=");
             if (eqIdx === -1) continue;
             const key = trimmed.slice(0, eqIdx).trim();
             const val = trimmed.slice(eqIdx + 1).trim();
-            if (key && !(key in process.env)) { // ไม่ override ถ้ามีอยู่แล้ว
+            if (key && !(key in process.env)) {
                 process.env[key] = val;
             }
         }
-        console.log("✅ .env loaded from file");
-    } catch {
-        console.log("ℹ️  .env not found, using system env");
-    }
+    } catch { }
 })();
+
+
 
 import { partsRouter } from "./routes/parts.js";
 import { categoriesRouter } from "./routes/categories.js";
