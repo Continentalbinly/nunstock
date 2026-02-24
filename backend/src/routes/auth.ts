@@ -7,6 +7,7 @@ import { prisma } from "../lib/prisma.js";
 export const authRouter = new Hono();
 
 const JWT_SECRET = process.env.JWT_SECRET || "nunstock-secret-key-2025";
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
 const COOKIE_NAME = "nunstock_token";
 
 // POST /api/auth/login
@@ -31,7 +32,7 @@ authRouter.post("/login", async (c) => {
         );
         setCookie(c, COOKIE_NAME, token, {
             httpOnly: true,
-            secure: false,
+            secure: IS_PRODUCTION,
             sameSite: "Lax",
             maxAge: 60 * 60 * 24 * 7,
             path: "/",

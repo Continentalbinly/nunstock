@@ -50,6 +50,12 @@ export const getPartByBarcode = (code: string) =>
     apiFetch<any>(`/api/parts/barcode/${code}`);
 export const createPart = (data: any) =>
     apiFetch<any>("/api/parts", { method: "POST", body: JSON.stringify(data) });
+export const updatePart = (id: string, data: any) =>
+    apiFetch<any>(`/api/parts/${id}`, { method: "PATCH", body: JSON.stringify(data) });
+export const deletePart = (id: string) =>
+    fetch(`${API_BASE}/api/parts/${id}`, { method: "DELETE", credentials: "include" }).then((r) => r.json());
+export const deletePartForce = (id: string) =>
+    apiFetch<any>(`/api/parts/${id}/force`, { method: "DELETE" });
 
 // ---- ประเภท ----
 export const getCategories = () => apiFetch<any[]>("/api/categories");
@@ -86,8 +92,13 @@ export const updateClaimStatus = (id: string, status: string) =>
         method: "PATCH",
         body: JSON.stringify({ status }),
     });
-export const notifyClaimCustomer = (id: string) =>
-    apiFetch<any>(`/api/claims/${id}/notify`, { method: "POST" });
+export const notifyClaimCustomer = (id: string, lineUserId?: string) =>
+    fetch(`${API_BASE}/api/claims/${id}/notify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ lineUserId }),
+    }).then((r) => r.json());
 export const deleteClaim = (id: string) =>
     apiFetch<any>(`/api/claims/${id}`, { method: "DELETE" });
 

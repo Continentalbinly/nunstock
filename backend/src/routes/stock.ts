@@ -6,20 +6,15 @@ export const stockRouter = new Hono();
 // GET /api/stock/summary - สรุปสต็อกสำหรับ Dashboard
 stockRouter.get("/summary", async (c) => {
     try {
-        const [totalParts, totalCategories, lowStockParts, recentWithdrawals, recentClaims, recentMovements] =
+        const [totalParts, totalCategories, lowStockParts, recentClaims, recentMovements] =
             await Promise.all([
                 prisma.part.count(),
                 prisma.partCategory.count(),
                 prisma.part.findMany({
-                    where: { quantity: { lte: 5 } }, // low stock
+                    where: { quantity: { lte: 5 } },
                     include: { category: true },
                     orderBy: { quantity: "asc" },
                     take: 10,
-                }),
-                prisma.withdrawal.findMany({
-                    include: { part: { include: { category: true } } },
-                    orderBy: { createdAt: "desc" },
-                    take: 5,
                 }),
                 prisma.insuranceClaim.findMany({
                     where: { status: { in: ["PENDING", "ORDERED", "ARRIVED"] } },
@@ -64,7 +59,6 @@ stockRouter.get("/summary", async (c) => {
                 lowStockCount: actualLowStock.length,
                 pendingClaimsCount: recentClaims.length,
                 lowStockParts: actualLowStock,
-                recentWithdrawals,
                 pendingClaims: recentClaims,
                 recentMovements,
                 categorySummary,

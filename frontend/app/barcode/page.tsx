@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { getPartsAll, getCategories } from "@/lib/api";
+import { getParts, getCategories } from "@/lib/api";
 import { getCarLogoUrl } from "@/lib/carLogos";
 import { Barcode, Search, Package, X, Printer, ScanBarcode, Car, Wrench, ChevronLeft } from "lucide-react";
 import { isElectron, printBarcode } from "@/lib/electron";
@@ -13,9 +13,12 @@ export default function BarcodePage() {
     const searchParams = useSearchParams();
     const router = useRouter();
     const [parts, setParts] = useState<any[]>([]);
+    const [pagination, setPagination] = useState({ page: 1, pageSize: 24, total: 0, totalPages: 1 });
+    const [page, setPage] = useState(1);
     const [categories, setCategories] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
+    const [pendingSearch, setPendingSearch] = useState("");
     const [activeTab, setActiveTab] = useState<TabType>((searchParams.get("tab") as TabType) || "shop");
     const [selectedBrandId, setSelectedBrandId] = useState<string>(searchParams.get("brand") || "");
     const [selectedModelId, setSelectedModelId] = useState<string>(searchParams.get("model") || "");
@@ -43,21 +46,40 @@ export default function BarcodePage() {
     const selectedModel = shopModels.find((m: any) => m.id === selectedModelId) || null;
 
     useEffect(() => {
-        Promise.all([getPartsAll(), getCategories()])
-            .then(([p, c]) => { setParts(p); setCategories(c); })
+        getCategories()
+            .then((c) => setCategories(c))
             .catch(console.error)
             .finally(() => setLoading(false));
     }, []);
 
-    // Sync state with URL on back/forward navigation
+    const fetchParts = async (currentPage = 1, currentSearch = search) => {
+        setLoading(true);
+        try {
+            const params: Record<string, string> = { page: String(currentPage), pageSize: "24" };
+            if (currentSearch) params.search = currentSearch;
+            // filter by category
+            if (activeTab === "shop" && selectedModelId) {
+                params.categoryId = selectedModelId;
+            } else if (activeTab === "consumables" && consumableRoot) {
+                params.categoryId = consumableRoot.id;
+            }
+            const result = await getParts(params);
+            setParts(result.data);
+            setPagination(result.pagination);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Re-fetch when tab, model, consumable root, or page changes
     useEffect(() => {
-        const tabParam = (searchParams.get("tab") as TabType) || "shop";
-        const brandParam = searchParams.get("brand") || "";
-        const modelParam = searchParams.get("model") || "";
-        if (tabParam !== activeTab) setActiveTab(tabParam);
-        if (brandParam !== selectedBrandId) setSelectedBrandId(brandParam);
-        if (modelParam !== selectedModelId) setSelectedModelId(modelParam);
-    }, [searchParams]);
+        if (!loading || categories.length > 0) {
+            fetchParts(page, search);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeTab, selectedModelId, page, consumableRoot?.id]);
 
     useEffect(() => {
         if (selectedPart && barcodeRef.current) {
@@ -87,28 +109,7 @@ export default function BarcodePage() {
         return current.id || null;
     };
 
-    // Filter parts by tab + brand
-    const getFilteredParts = () => {
-        let rootId: string | null = null;
-        if (activeTab === "shop") rootId = shopRoot?.id || null;
-        else if (activeTab === "consumables") rootId = consumableRoot?.id || null;
-
-        return parts.filter(p => {
-            // Root category filter
-            if (rootId) {
-                const partRootId = getRootCategoryId(p);
-                if (partRootId !== rootId) return false;
-            }
-            // Brand filter — now filter by model (for shop tab when a model is selected)
-            if (activeTab === "shop" && selectedModelId && p.categoryId !== selectedModelId) return false;
-            // Search filter
-            if (!search) return true;
-            const s = search.toLowerCase();
-            return p.name.toLowerCase().includes(s) || p.code.toLowerCase().includes(s) || (p.brand && p.brand.toLowerCase().includes(s));
-        });
-    };
-
-    const filtered = getFilteredParts();
+    const filtered = parts; // server กรองมาให้แล้ว
 
     // Get category label
     const getCategoryLabel = (part: any): string => {
@@ -125,7 +126,7 @@ export default function BarcodePage() {
             e.preventDefault();
             if (keyBuffer.current.length >= 3) {
                 const match = parts.find((p) => p.code.toLowerCase() === keyBuffer.current.toLowerCase());
-                if (match) { setSelectedPart(match); setSearch(""); setScannerMode(false); keyBuffer.current = ""; return; }
+                if (match) { setSelectedPart(match); setPendingSearch(""); setScannerMode(false); keyBuffer.current = ""; return; }
             }
             if (filtered.length === 1) { setSelectedPart(filtered[0]); }
             keyBuffer.current = "";
@@ -142,23 +143,22 @@ export default function BarcodePage() {
         lastKeyTime.current = now;
     };
 
-    // Auto-select on scanner complete
+    // Auto-select on scanner complete (barcode scanner fires chars fast then 'Enter')
     useEffect(() => {
-        if (scannerMode && search.length >= 3) {
+        if (scannerMode && pendingSearch.length >= 3) {
             const timer = setTimeout(() => {
-                const match = parts.find((p) => p.code.toLowerCase() === search.toLowerCase());
-                if (match) { setSelectedPart(match); setSearch(""); setScannerMode(false); }
+                const match = parts.find((p) => p.code.toLowerCase() === pendingSearch.toLowerCase());
+                if (match) { setSelectedPart(match); setPendingSearch(""); setScannerMode(false); }
             }, 200);
             return () => clearTimeout(timer);
         }
-    }, [search, scannerMode, parts]);
+    }, [pendingSearch, scannerMode, parts]);
 
     const handlePrint = async () => {
         if (!barcodeRef.current || !selectedPart) return;
         const dataUrl = barcodeRef.current.toDataURL("image/png");
 
         if (isElectron()) {
-            // Electron: send barcode image to dedicated print window
             const savedPrinter = localStorage.getItem("nunmechanic-printer") || undefined;
             if (!savedPrinter) {
                 toast.error("กรุณาเลือกเครื่องปริ้นก่อนที่หน้า 'เครื่องปริ้น'");
@@ -171,7 +171,6 @@ export default function BarcodePage() {
                 toast.error(`ปริ้นไม่สำเร็จ: ${result.error || "ไม่ทราบสาเหตุ"}`);
             }
         } else {
-            // Web: append to DOM and use window.print()
             const container = document.createElement("div");
             container.id = "barcode-print";
             container.innerHTML = `<img src="${dataUrl}" />`;
@@ -186,19 +185,15 @@ export default function BarcodePage() {
     };
 
     const tabs: { key: TabType; label: string; icon: any; color: string; count: number }[] = [
-        {
-            key: "shop", label: "อะไหล่หน้าร้าน", icon: Car, color: "#22C55E",
-            count: parts.filter(p => getRootCategoryId(p) === shopRoot?.id).length
-        },
-        {
-            key: "consumables", label: "วัสดุสิ้นเปลือง", icon: Wrench, color: "#F59E0B",
-            count: parts.filter(p => getRootCategoryId(p) === consumableRoot?.id).length
-        },
+        { key: "shop", label: "อะไหล่หน้าร้าน", icon: Car, color: "#22C55E", count: pagination.total },
+        { key: "consumables", label: "วัสดุสิ้นเปลือง", icon: Wrench, color: "#F59E0B", count: pagination.total },
     ];
 
-    if (loading) return <div className="p-8 flex items-center justify-center min-h-screen"><div className="text-center"><div className="w-10 h-10 border-3 rounded-full animate-spin mx-auto mb-4" style={{ borderColor: "var(--t-border)", borderTopColor: "#22C55E" }} /><p style={{ color: "var(--t-text-muted)" }} className="text-sm">กำลังโหลดข้อมูล...</p></div></div>;
+    if (loading && categories.length === 0) return <div className="p-8 flex items-center justify-center min-h-screen"><div className="text-center"><div className="w-10 h-10 border-3 rounded-full animate-spin mx-auto mb-4" style={{ borderColor: "var(--t-border)", borderTopColor: "#22C55E" }} /><p style={{ color: "var(--t-text-muted)" }} className="text-sm">กำลังโหลดข้อมูล...</p></div></div>;
 
     const activeColor = tabs.find(t => t.key === activeTab)?.color || "#22C55E";
+
+
 
     // ─── Shop Tab: Brand Selection View ─────────────────────
     if (activeTab === "shop" && !selectedBrandId) {
@@ -396,9 +391,17 @@ export default function BarcodePage() {
                         ref={searchRef}
                         type="text"
                         placeholder="ค้นหาหรือสแกนบาร์โค้ด... (ชื่อ, รหัส, ยี่ห้อ)"
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        onKeyDown={handleSearchKeyDown}
+                        value={pendingSearch}
+                        onChange={(e) => setPendingSearch(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                                setSearch(pendingSearch);
+                                setPage(1);
+                                fetchParts(1, pendingSearch);
+                            } else {
+                                handleSearchKeyDown(e);
+                            }
+                        }}
                         className="w-full rounded-lg pl-10 pr-10 py-2.5 text-sm transition-colors focus:outline-none focus:ring-1 focus:ring-emerald-500/30"
                         style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }}
                     />

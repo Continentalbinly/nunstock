@@ -76,6 +76,17 @@ export default function ClaimsPage() {
                                         <div className="flex items-center gap-2 mb-1">
                                             <span className="font-mono text-sm" style={{ color: "var(--t-text-secondary)" }}>{c.claimNo}</span>
                                             <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${statusBadge[c.status]}`}>{statusLabel[c.status]}</span>
+                                            {/* LINE linked badge */}
+                                            <span
+                                                title={c.lineUserId ? `เชื่อมต่อ LINE แล้ว (${c.lineLinkedAt ? new Date(c.lineLinkedAt).toLocaleDateString('th-TH') : ''})` : 'ลูกค้ายังไม่ได้ส่งทะเบียนมาใน LINE OA'}
+                                                className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium"
+                                                style={c.lineUserId
+                                                    ? { background: "rgba(0,179,112,0.12)", color: "#00B370" }
+                                                    : { background: "var(--t-badge-bg)", color: "var(--t-text-dim)" }}
+                                            >
+                                                <span className="text-[10px]">LINE</span>
+                                                {c.lineUserId ? '✓' : '–'}
+                                            </span>
                                         </div>
                                         <p className="font-medium" style={{ color: "var(--t-text)" }}>{c.customerName}</p>
                                         <p className="text-sm" style={{ color: "var(--t-text-muted)" }}>{c.customerPhone} • {c.carBrand} {c.carModel} • {c.plateNo}</p>

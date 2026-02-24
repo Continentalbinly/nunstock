@@ -23,7 +23,7 @@ partsRouter.get("/", async (c) => {
             ...(categoryId && { categoryId }),
         };
 
-        // Low stock needs manual filtering, so fetch all matching first
+        // Low stock: filter manually เพราะ minStock เป็น field ของ row เดียวกัน
         if (lowStock === "true") {
             const allParts = await prisma.part.findMany({
                 where,
@@ -53,6 +53,21 @@ partsRouter.get("/", async (c) => {
     }
 });
 
+// GET /api/parts/barcode/:code - ค้นหาด้วยบาร์โค้ด
+partsRouter.get("/barcode/:code", async (c) => {
+    try {
+        const { code } = c.req.param();
+        const part = await prisma.part.findUnique({
+            where: { code },
+            include: { category: true },
+        });
+        if (!part) return c.json({ success: false, error: "ไม่พบอะไหล่นี้" }, 404);
+        return c.json({ success: true, data: part });
+    } catch (error) {
+        return c.json({ success: false, error: "เกิดข้อผิดพลาด" }, 500);
+    }
+});
+
 // GET /api/parts/:id - ดึงอะไหล่เดี่ยว
 partsRouter.get("/:id", async (c) => {
     try {
@@ -63,21 +78,6 @@ partsRouter.get("/:id", async (c) => {
                 category: true,
                 withdrawals: { orderBy: { createdAt: "desc" }, take: 10 },
             },
-        });
-        if (!part) return c.json({ success: false, error: "ไม่พบอะไหล่นี้" }, 404);
-        return c.json({ success: true, data: part });
-    } catch (error) {
-        return c.json({ success: false, error: "เกิดข้อผิดพลาด" }, 500);
-    }
-});
-
-// GET /api/parts/barcode/:code - ค้นหาด้วยบาร์โค้ด
-partsRouter.get("/barcode/:code", async (c) => {
-    try {
-        const { code } = c.req.param();
-        const part = await prisma.part.findUnique({
-            where: { code },
-            include: { category: true },
         });
         if (!part) return c.json({ success: false, error: "ไม่พบอะไหล่นี้" }, 404);
         return c.json({ success: true, data: part });
@@ -97,6 +97,16 @@ const partSchema = z.object({
     categoryId: z.string().min(1, "กรุณาเลือกประเภท"),
 });
 
+const partUpdateSchema = z.object({
+    code: z.string().min(1, "กรุณาระบุรหัสอะไหล่").optional(),
+    name: z.string().min(1, "กรุณาระบุชื่ออะไหล่").optional(),
+    description: z.string().optional().nullable(),
+    brand: z.string().optional().nullable(),
+    unit: z.string().optional(),
+    minStock: z.number().int().min(0).optional(),
+    categoryId: z.string().min(1).optional(),
+});
+
 // POST /api/parts - เพิ่มอะไหล่ใหม่
 partsRouter.post("/", zValidator("json", partSchema), async (c) => {
     try {
@@ -114,4 +124,75 @@ partsRouter.post("/", zValidator("json", partSchema), async (c) => {
     }
 });
 
+// PATCH /api/parts/:id - แก้ไขข้อมูลอะไหล่
+partsRouter.patch("/:id", zValidator("json", partUpdateSchema), async (c) => {
+    try {
+        const { id } = c.req.param();
+        const body = c.req.valid("json");
 
+        const existing = await prisma.part.findUnique({ where: { id } });
+        if (!existing) return c.json({ success: false, error: "ไม่พบอะไหล่นี้" }, 404);
+
+        const part = await prisma.part.update({
+            where: { id },
+            data: body,
+            include: { category: { include: { parent: { include: { parent: true } } } } },
+        });
+        return c.json({ success: true, data: part });
+    } catch (error: any) {
+        if (error?.code === "P2002") {
+            return c.json({ success: false, error: "รหัสอะไหล่นี้มีอยู่แล้ว" }, 400);
+        }
+        return c.json({ success: false, error: "ไม่สามารถแก้ไขอะไหล่ได้" }, 500);
+    }
+});
+
+// DELETE /api/parts/:id - ลบอะไหล่
+partsRouter.delete("/:id", async (c) => {
+    try {
+        const { id } = c.req.param();
+
+        const existing = await prisma.part.findUnique({
+            where: { id },
+            include: {
+                _count: { select: { movements: true, withdrawals: true, claimItems: true } },
+            },
+        });
+        if (!existing) return c.json({ success: false, error: "ไม่พบอะไหล่นี้" }, 404);
+
+        // ถ้ามีประวัติการใช้งาน ให้แจ้งจำนวนด้วย
+        const totalUsage = existing._count.movements + existing._count.withdrawals + existing._count.claimItems;
+        if (totalUsage > 0) {
+            return c.json({
+                success: false,
+                error: `ไม่สามารถลบได้ อะไหล่นี้มีประวัติการใช้งาน ${totalUsage} รายการ (สต็อก ${existing._count.movements}, เบิก ${existing._count.withdrawals}, เคลม ${existing._count.claimItems})`,
+                canForce: true,
+            }, 409);
+        }
+
+        await prisma.part.delete({ where: { id } });
+        return c.json({ success: true, message: "ลบอะไหล่เรียบร้อย" });
+    } catch (error) {
+        return c.json({ success: false, error: "ไม่สามารถลบอะไหล่ได้" }, 500);
+    }
+});
+
+// DELETE /api/parts/:id/force - ลบอะไหล่พร้อมประวัติทั้งหมด (force)
+partsRouter.delete("/:id/force", async (c) => {
+    try {
+        const { id } = c.req.param();
+        const existing = await prisma.part.findUnique({ where: { id } });
+        if (!existing) return c.json({ success: false, error: "ไม่พบอะไหล่นี้" }, 404);
+
+        // ลบ dependency ก่อน แล้วค่อยลบ part
+        await prisma.$transaction([
+            prisma.claimItem.deleteMany({ where: { partId: id } }),
+            prisma.withdrawal.deleteMany({ where: { partId: id } }),
+            prisma.stockMovement.deleteMany({ where: { partId: id } }),
+            prisma.part.delete({ where: { id } }),
+        ]);
+        return c.json({ success: true, message: "ลบอะไหล่และประวัติทั้งหมดเรียบร้อย" });
+    } catch (error) {
+        return c.json({ success: false, error: "ไม่สามารถลบอะไหล่ได้" }, 500);
+    }
+});

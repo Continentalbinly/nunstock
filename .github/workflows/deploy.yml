@@ -17,7 +17,7 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           password: ${{ secrets.VPS_PASSWORD }}
           command_timeout: 30m
-          envs: DB_PASSWORD,DATABASE_URL,JWT_SECRET,CF_ORIGIN_CERT,CF_ORIGIN_KEY
+          envs: DB_PASSWORD,DATABASE_URL,JWT_SECRET,CF_ORIGIN_CERT,CF_ORIGIN_KEY,LINE_CHANNEL_ACCESS_TOKEN,LINE_CHANNEL_SECRET
           script: |
             set -e
             echo "======================================"
@@ -93,6 +93,9 @@ jobs:
             PORT=1100
             NODE_ENV=production
             JWT_SECRET=$JWT_SECRET
+            LINE_CHANNEL_ACCESS_TOKEN=$LINE_CHANNEL_ACCESS_TOKEN
+            LINE_CHANNEL_SECRET=$LINE_CHANNEL_SECRET
+            CORS_ORIGINS=https://nunmechanic.com,https://api.nunmechanic.com
             EOF
             sed -i 's/^[[:space:]]*//' /var/www/nunstock/backend/.env
 
@@ -126,13 +129,9 @@ jobs:
             npm install --prefer-offline
             npx prisma generate
 
-            # Only push schema if it changed
-            if git diff HEAD~1 --name-only | grep -q "backend/prisma/schema"; then
-              echo ">>> Schema changed, pushing..."
-              npx prisma db push --accept-data-loss
-            else
-              echo ">>> Schema unchanged, skipping db push"
-            fi
+            # Run migrations (safe for production, supports rollback)
+            echo ">>> Running database migrations..."
+            npx prisma migrate deploy
 
             # Only seed if seed files changed
             if git diff HEAD~1 --name-only | grep -q "backend/src/seed"; then
@@ -167,3 +166,5 @@ jobs:
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           CF_ORIGIN_CERT: ${{ secrets.CF_ORIGIN_CERT }}
           CF_ORIGIN_KEY: ${{ secrets.CF_ORIGIN_KEY }}
+          LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
+          LINE_CHANNEL_SECRET: ${{ secrets.LINE_CHANNEL_SECRET }}

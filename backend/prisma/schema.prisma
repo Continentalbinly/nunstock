@@ -87,12 +87,15 @@ model InsuranceClaim {
   arrivedAt     DateTime?
   notifiedAt    DateTime?
   notifyChannel String?
+  lineUserId    String?     // LINE User ID ของลูกค้า (จาก webhook)
+  lineLinkedAt  DateTime?   // เวลาที่ลูกค้าลิงก์ LINE
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
   items         ClaimItem[]
 
   @@map("insurance_claims")
 }
+
 
 model ClaimItem {
   id       String         @id @default(cuid())

@@ -3,8 +3,11 @@ import { prisma } from "../lib/prisma.js";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import { parsePagination, paginatedJson } from "../lib/pagination.js";
+import { buildStatusMessage, sendLinePush } from "./webhook.js";
 
 export const claimsRouter = new Hono();
+
+const LINE_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN;
 
 const claimItemSchema = z.object({
     partId: z.string().optional(),
@@ -24,6 +27,7 @@ const claimSchema = z.object({
     notes: z.string().optional(),
     items: z.array(claimItemSchema).min(1, "กรุณาเพิ่มอะไหล่อย่างน้อย 1 รายการ"),
 });
+
 
 // GET /api/claims - ดึงรายการเคลมทั้งหมด (paginated)
 claimsRouter.get("/", async (c) => {
@@ -95,7 +99,7 @@ claimsRouter.post("/", zValidator("json", claimSchema), async (c) => {
     }
 });
 
-// PATCH /api/claims/:id/status - อัพเดตสถานะ
+// PATCH /api/claims/:id/status - อัพเดตสถานะ (auto LINE push ถ้ามี lineUserId)
 claimsRouter.patch("/:id/status", async (c) => {
     try {
         const { id } = c.req.param();
@@ -115,16 +119,38 @@ claimsRouter.patch("/:id/status", async (c) => {
             data: updateData,
             include: { items: { include: { part: true } } },
         });
+
+        // Auto LINE push ถ้า claim มี lineUserId
+        const lineUserId = (claim as any).lineUserId;
+        if (lineUserId && ["ORDERED", "ARRIVED", "COMPLETED"].includes(status)) {
+            const msg = buildStatusMessage(status, {
+                claimNo: claim.claimNo,
+                customerName: claim.customerName,
+                carBrand: claim.carBrand,
+                carModel: claim.carModel,
+                plateNo: claim.plateNo,
+                items: claim.items.map((i) => ({ partName: i.partName, quantity: i.quantity })),
+            });
+            if (msg) {
+                sendLinePush(lineUserId, msg).catch((e) =>
+                    console.error("[LINE Auto Push] Error:", e?.message)
+                );
+            }
+        }
+
         return c.json({ success: true, data: claim });
     } catch (error) {
         return c.json({ success: false, error: "ไม่สามารถอัพเดตสถานะได้" }, 500);
     }
+
 });
 
-// POST /api/claims/:id/notify - แจ้งเตือนลูกค้า (LINE OA placeholder)
+// POST /api/claims/:id/notify - แจ้งเตือนลูกค้าผ่าน LINE OA
 claimsRouter.post("/:id/notify", async (c) => {
     try {
         const { id } = c.req.param();
+        const { lineUserId } = await c.req.json().catch(() => ({})) as any;
+
         const claim = await prisma.insuranceClaim.findUnique({
             where: { id },
             include: { items: true },
@@ -134,19 +160,47 @@ claimsRouter.post("/:id/notify", async (c) => {
             return c.json({ success: false, error: "ยังไม่สามารถแจ้งเตือนได้ อะไหล่ยังไม่มาถึง" }, 400);
         }
 
+        let lineResult: { ok: boolean; error?: string } = { ok: true };
+        let notifyChannel = "MANUAL";
+
+        // ส่ง LINE OA ถ้ามี token และ lineUserId
+        if (LINE_TOKEN && lineUserId) {
+            const itemsText = claim.items.map((i) => `• ${i.partName} x${i.quantity}`).join("\n");
+            const message = [
+                `🔔 แจ้งเตือนจาก นันการช่าง`,
+                ``,
+                `เรียนคุณ ${claim.customerName}`,
+                `อะไหล่ของคุณมาถึงแล้วครับ/ค่ะ`,
+                ``,
+                `📋 เลขเคลม: ${claim.claimNo}`,
+                `🚗 รถ: ${claim.carBrand} ${claim.carModel} (${claim.plateNo})`,
+                `📦 อะไหล่:`,
+                itemsText,
+                ``,
+                `กรุณาติดต่อร้านเพื่อนัดรับรถ 🙏`,
+            ].join("\n");
+
+            lineResult = await sendLinePush(lineUserId, message);
+            if (lineResult.ok) notifyChannel = "LINE_OA";
+        }
+
         const updated = await prisma.insuranceClaim.update({
             where: { id },
             data: {
                 status: "NOTIFIED",
                 notifiedAt: new Date(),
-                notifyChannel: "LINE_OA",
+                notifyChannel,
             },
+            include: { items: { include: { part: true } } },
         });
 
         return c.json({
             success: true,
             data: updated,
-            message: `[พร้อมส่ง LINE OA] แจ้งเตือน ${claim.customerName} (${claim.customerPhone}) ว่าอะไหล่มาถึงแล้ว`,
+            lineOA: lineResult,
+            message: lineResult.ok && notifyChannel === "LINE_OA"
+                ? `ส่ง LINE แจ้งเตือน ${claim.customerName} สำเร็จ`
+                : `อัพเดตสถานะแจ้งเตือนแล้ว (ไม่มี LINE_TOKEN หรือ lineUserId — บันทึกเป็น MANUAL)`,
         });
     } catch (error) {
         return c.json({ success: false, error: "ไม่สามารถส่งการแจ้งเตือนได้" }, 500);
@@ -157,7 +211,10 @@ claimsRouter.post("/:id/notify", async (c) => {
 claimsRouter.delete("/:id", async (c) => {
     try {
         const { id } = c.req.param();
-        await prisma.insuranceClaim.delete({ where: { id } });
+        await prisma.$transaction([
+            prisma.claimItem.deleteMany({ where: { claimId: id } }),
+            prisma.insuranceClaim.delete({ where: { id } }),
+        ]);
         return c.json({ success: true, message: "ลบเคลมเรียบร้อย" });
     } catch (error) {
         return c.json({ success: false, error: "ไม่สามารถลบเคลมได้" }, 500);
