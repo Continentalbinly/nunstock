@@ -86,45 +86,34 @@ export default function LineOperationsPage() {
                     <MessageSquare className="w-4 h-4" style={{ color: "#00B370" }} />
                     สถานะการเชื่อมต่อ LINE OA
                 </h2>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    {/* Token */}
-                    <div className="rounded-lg p-4 flex items-center gap-3" style={{ background: "var(--t-badge-bg)", border: "1px solid var(--t-border-subtle)" }}>
-                        {cfg?.tokenValid ? <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" /> : cfg?.hasToken ? <AlertCircle className="w-5 h-5 text-amber-500 shrink-0" /> : <XCircle className="w-5 h-5 text-red-500 shrink-0" />}
-                        <div>
-                            <p className="text-xs font-medium" style={{ color: "var(--t-text-muted)" }}>Channel Access Token</p>
-                            <p className="text-sm font-semibold" style={{ color: cfg?.tokenValid ? "#22C55E" : cfg?.hasToken ? "#F59E0B" : "#EF4444" }}>
-                                {cfg?.tokenValid ? "ใช้งานได้ ✓" : cfg?.hasToken ? "มีแต่ไม่ valid" : "ยังไม่ได้ตั้งค่า"}
-                            </p>
-                        </div>
+
+                {/* สถานะรวม */}
+                <div className={`rounded-xl p-4 mb-4 flex items-center gap-3`} style={{
+                    background: cfg?.tokenValid ? "rgba(0,179,112,0.08)" : "rgba(239,68,68,0.08)",
+                    border: `1px solid ${cfg?.tokenValid ? "rgba(0,179,112,0.25)" : "rgba(239,68,68,0.25)"}`,
+                }}>
+                    {cfg?.tokenValid
+                        ? <CheckCircle2 className="w-6 h-6 shrink-0" style={{ color: "#00B370" }} />
+                        : <XCircle className="w-6 h-6 shrink-0" style={{ color: "#EF4444" }} />}
+                    <div>
+                        <p className="font-semibold" style={{ color: cfg?.tokenValid ? "#00B370" : "#EF4444" }}>
+                            {cfg?.tokenValid ? "เชื่อมต่อ LINE OA สำเร็จ ✓" : "ยังไม่ได้เชื่อมต่อ LINE OA"}
+                        </p>
+                        <p className="text-xs mt-0.5" style={{ color: "var(--t-text-muted)" }}>
+                            {cfg?.tokenValid
+                                ? `Bot: ${cfg?.botProfile?.displayName || "LINE Bot"}`
+                                : "ตรวจสอบ LINE_CHANNEL_ACCESS_TOKEN และ LINE_CHANNEL_SECRET ใน .env บน server"}
+                        </p>
                     </div>
-                    {/* Secret */}
-                    <div className="rounded-lg p-4 flex items-center gap-3" style={{ background: "var(--t-badge-bg)", border: "1px solid var(--t-border-subtle)" }}>
-                        {cfg?.hasSecret ? <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" /> : <XCircle className="w-5 h-5 text-red-500 shrink-0" />}
-                        <div>
-                            <p className="text-xs font-medium" style={{ color: "var(--t-text-muted)" }}>Channel Secret</p>
-                            <p className="text-sm font-semibold" style={{ color: cfg?.hasSecret ? "#22C55E" : "#EF4444" }}>
-                                {cfg?.hasSecret ? "ตั้งค่าแล้ว ✓" : "ยังไม่ได้ตั้งค่า"}
-                            </p>
-                        </div>
-                    </div>
-                    {/* Bot Profile */}
-                    <div className="rounded-lg p-4 flex items-center gap-3" style={{ background: "var(--t-badge-bg)", border: "1px solid var(--t-border-subtle)" }}>
-                        {cfg?.botProfile?.pictureUrl && (
-                            <img src={cfg.botProfile.pictureUrl} alt="bot" className="w-8 h-8 rounded-full shrink-0" />
-                        )}
-                        <div className="min-w-0">
-                            <p className="text-xs font-medium" style={{ color: "var(--t-text-muted)" }}>Bot Name</p>
-                            <p className="text-sm font-semibold truncate" style={{ color: "var(--t-text)" }}>
-                                {cfg?.botProfile?.displayName || "—"}
-                            </p>
-                        </div>
-                    </div>
+                    {cfg?.botProfile?.pictureUrl && (
+                        <img src={cfg.botProfile.pictureUrl} alt="bot" className="w-10 h-10 rounded-full shrink-0 ml-auto" />
+                    )}
                 </div>
 
                 {/* Webhook URL */}
-                <div className="mt-4 rounded-lg p-3 flex items-center justify-between gap-3" style={{ background: "var(--t-hover-overlay)", border: "1px solid var(--t-border-subtle)" }}>
+                <div className="rounded-lg p-3 flex items-center justify-between gap-3" style={{ background: "var(--t-hover-overlay)", border: "1px solid var(--t-border-subtle)" }}>
                     <div className="min-w-0">
-                        <p className="text-xs font-medium mb-0.5" style={{ color: "var(--t-text-muted)" }}>Webhook URL (ตั้งใน LINE Developers Console)</p>
+                        <p className="text-xs font-medium mb-0.5" style={{ color: "var(--t-text-muted)" }}>Webhook URL</p>
                         <p className="text-sm font-mono truncate" style={{ color: "var(--t-text)" }}>{cfg?.webhookUrl}</p>
                     </div>
                     <button onClick={() => copy(cfg?.webhookUrl)} className="shrink-0 p-2 rounded-lg transition-colors cursor-pointer" style={{ background: "var(--t-input-bg)", color: "var(--t-text-secondary)", border: "1px solid var(--t-input-border)" }}>
@@ -132,6 +121,7 @@ export default function LineOperationsPage() {
                     </button>
                 </div>
             </div>
+
 
             {/* ── Stats ── */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">

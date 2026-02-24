@@ -160,7 +160,9 @@ jobs:
             rm -rf dist
             npx tsc
             pm2 reload nunstock-backend --update-env 2>/dev/null \
-              || pm2 start dist/index.js --name nunstock-backend
+              || NODE_ARGS='--env-file=/var/www/nunstock/backend/.env' \
+                 pm2 start dist/index.js --name nunstock-backend \
+                 --node-args='--env-file=/var/www/nunstock/backend/.env'
 
             # ── 11. Deploy Frontend ──────────────────
             echo ">>> Deploy Frontend (port 9090)..."
