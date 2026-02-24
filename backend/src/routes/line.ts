@@ -4,12 +4,14 @@ import { requireAuth } from "./auth.js";
 
 export const lineRouter = new Hono();
 
-const LINE_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN;
-const LINE_SECRET = process.env.LINE_CHANNEL_SECRET;
 
 // GET /api/line/status — ภาพรวม LINE OA
 lineRouter.get("/status", requireAuth, async (c) => {
     try {
+        // อ่าน env ทุก request เพื่อไม่ติดปัญหา module-level cache
+        const LINE_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+        const LINE_SECRET = process.env.LINE_CHANNEL_SECRET;
+
         // ตรวจสอบ token กับ LINE API
         let botProfile: any = null;
         let tokenValid = false;
@@ -100,11 +102,13 @@ lineRouter.get("/status", requireAuth, async (c) => {
 // POST /api/line/test-push — ส่ง test message ไปหา lineUserId ที่ระบุ
 lineRouter.post("/test-push", requireAuth, async (c) => {
     try {
+        const LINE_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN; // อ่านทุก request
         const { lineUserId, message } = await c.req.json();
         if (!lineUserId) return c.json({ success: false, error: "กรุณาระบุ lineUserId" }, 400);
         if (!LINE_TOKEN) return c.json({ success: false, error: "ไม่มี LINE_CHANNEL_ACCESS_TOKEN" }, 400);
 
         const text = message || "🔔 ทดสอบระบบแจ้งเตือน LINE OA จาก นันการช่าง ✅";
+
 
         const res = await fetch("https://api.line.me/v2/bot/message/push", {
             method: "POST",
