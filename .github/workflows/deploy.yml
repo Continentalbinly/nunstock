@@ -129,7 +129,23 @@ jobs:
             npm install --prefer-offline
             npx prisma generate
 
-            # Run migrations (safe for production, supports rollback)
+            # Run migrations — baseline if DB was created via db push (no migration history)
+            echo ">>> Checking migration state..."
+            MIGRATED=$(sudo -u postgres psql -U postgres -d nunstock -tc \
+              "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name='_prisma_migrations')" \
+              2>/dev/null | tr -d '[:space:]')
+
+            if [ "$MIGRATED" = "f" ]; then
+              echo ">>> Baseline: marking existing migrations as applied (first-time migrate)..."
+              npx prisma migrate resolve --applied "20260220154116_init"
+              npx prisma migrate resolve --applied "20260220160655_add_users"
+              npx prisma migrate resolve --applied "20260220180933_add_stock_movements"
+              npx prisma migrate resolve --applied "20260221142318_add_category_hierarchy"
+              npx prisma migrate resolve --applied "20260221152905_allow_duplicate_category_names"
+            else
+              echo ">>> Migration history found, skipping baseline"
+            fi
+
             echo ">>> Running database migrations..."
             npx prisma migrate deploy
 
