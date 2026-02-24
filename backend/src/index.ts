@@ -10,7 +10,8 @@ import { logger } from "hono/logger";
 (function loadEnv() {
     try {
         const __dirname = fileURLToPath(new URL(".", import.meta.url));
-        const envPath = resolve(__dirname, "../../.env"); // dist/index.js → backend/.env
+        const envPath = resolve(__dirname, "../.env"); // dist/index.js → backend/.env ✅
+
         const lines = readFileSync(envPath, "utf-8").split("\n");
         for (const line of lines) {
             const trimmed = line.trim();
