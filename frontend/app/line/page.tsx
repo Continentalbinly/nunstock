@@ -206,7 +206,7 @@ export default function LineOperationsPage() {
                 {[
                     {
                         label: "ภาษาไทย",
-                        text: `📱 รับการแจ้งเตือนสถานะอะไหล่ผ่าน LINE!\n\n1. Add LINE OA: @นันการช่าง\n2. ส่งข้อความ: "ทะเบียนรถของคุณ" (เช่น กข 1234)\n3. ระบบจะแจ้งเตือนเมื่ออะไหล่มาถึง 🎉`,
+                        text: `📱 รับการแจ้งเตือนสถานะอะไหล่ผ่าน LINE!\n\n1. Add LINE OA: @นันการช่าง\n2. ส่งข้อความ: "ชื่อ / ทะเบียนรถ" (เช่น สมชาย / กข1234)\n3. ระบบจะแจ้งเตือนเมื่ออะไหล่มาถึงและซ่อมเสร็จ 🎉`,
                     },
                 ].map((item) => (
                     <div key={item.label} className="relative rounded-lg p-4" style={{ background: "var(--t-badge-bg)", border: "1px solid var(--t-border-subtle)" }}>
