@@ -9,7 +9,7 @@ export const partsRouter = new Hono();
 // GET /api/parts - ดึงอะไหล่ทั้งหมด (paginated)
 partsRouter.get("/", async (c) => {
     try {
-        const { search, categoryId, lowStock } = c.req.query();
+        const { search, categoryId } = c.req.query();
         const pag = parsePagination(c);
 
         const where: any = {
@@ -22,19 +22,6 @@ partsRouter.get("/", async (c) => {
             }),
             ...(categoryId && { categoryId }),
         };
-
-        // Low stock: filter manually เพราะ minStock เป็น field ของ row เดียวกัน
-        if (lowStock === "true") {
-            const allParts = await prisma.part.findMany({
-                where,
-                include: { category: { include: { parent: { include: { parent: true } } } } },
-                orderBy: { createdAt: "desc" },
-            });
-            const filtered = allParts.filter((p) => p.quantity <= p.minStock);
-            const total = filtered.length;
-            const data = filtered.slice(pag.skip, pag.skip + pag.take);
-            return c.json(paginatedJson(data, total, pag));
-        }
 
         const [parts, total] = await Promise.all([
             prisma.part.findMany({
@@ -53,31 +40,13 @@ partsRouter.get("/", async (c) => {
     }
 });
 
-// GET /api/parts/barcode/:code - ค้นหาด้วยบาร์โค้ด
-partsRouter.get("/barcode/:code", async (c) => {
-    try {
-        const { code } = c.req.param();
-        const part = await prisma.part.findUnique({
-            where: { code },
-            include: { category: true },
-        });
-        if (!part) return c.json({ success: false, error: "ไม่พบอะไหล่นี้" }, 404);
-        return c.json({ success: true, data: part });
-    } catch (error) {
-        return c.json({ success: false, error: "เกิดข้อผิดพลาด" }, 500);
-    }
-});
-
 // GET /api/parts/:id - ดึงอะไหล่เดี่ยว
 partsRouter.get("/:id", async (c) => {
     try {
         const { id } = c.req.param();
         const part = await prisma.part.findUnique({
             where: { id },
-            include: {
-                category: true,
-                withdrawals: { orderBy: { createdAt: "desc" }, take: 10 },
-            },
+            include: { category: true },
         });
         if (!part) return c.json({ success: false, error: "ไม่พบอะไหล่นี้" }, 404);
         return c.json({ success: true, data: part });

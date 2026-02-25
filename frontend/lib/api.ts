@@ -46,8 +46,6 @@ export const getParts = (params?: Record<string, string>) =>
     apiFetchPaginated<any>(`/api/parts?${new URLSearchParams(params)}`);
 export const getPartsAll = (params?: Record<string, string>) =>
     apiFetchPaginated<any>(`/api/parts?pageSize=999&${new URLSearchParams(params)}`).then((r) => r.data);
-export const getPartByBarcode = (code: string) =>
-    apiFetch<any>(`/api/parts/barcode/${code}`);
 export const createPart = (data: any) =>
     apiFetch<any>("/api/parts", { method: "POST", body: JSON.stringify(data) });
 export const updatePart = (id: string, data: any) =>
@@ -65,13 +63,6 @@ export const updateCategory = (id: string, data: { name: string }) =>
     apiFetch<any>(`/api/categories/${id}`, { method: "PUT", body: JSON.stringify(data) });
 export const deleteCategory = (id: string) =>
     apiFetch<any>(`/api/categories/${id}`, { method: "DELETE" });
-
-// ---- การเบิก (paginated) ----
-export const getWithdrawals = (params?: Record<string, string>) =>
-    apiFetchPaginated<any>(`/api/withdrawals?${new URLSearchParams(params)}`);
-
-export const createWithdrawal = (data: any) =>
-    apiFetch<any>("/api/withdrawals", { method: "POST", body: JSON.stringify(data) });
 
 // ---- เคลื่อนไหวสต็อก (paginated) ----
 export const getMovements = (params?: Record<string, string>) =>

@@ -1,11 +1,13 @@
 "use client";
 import { toast } from "sonner";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { getParts, getCategories, createMovement, createPart, updatePart, deletePart, deletePartForce, createCategory, deleteCategory, updateCategory } from "@/lib/api";
+import { getParts, getCategories, createPart, updatePart, deletePart, deletePartForce, createCategory, deleteCategory, updateCategory } from "@/lib/api";
 import { getCarLogoUrl } from "@/lib/carLogos";
-import { Package, Search, Filter, TrendingDown, CheckCircle2, ScanBarcode, ArrowDownToLine, ArrowUpFromLine, Minus, Plus, X, AlertCircle, ChevronLeft, Car, Building2, PackagePlus, Trash2, Pencil } from "lucide-react";
+import { Package, Search, Plus, X, AlertCircle, ChevronLeft, Car, Building2, PackagePlus, Trash2, Pencil, ChevronRight } from "lucide-react";
 import { Pagination } from "@/components/Pagination";
+
+
 
 export default function InsurancePage() {
     const searchParams = useSearchParams();
@@ -21,19 +23,7 @@ export default function InsurancePage() {
     const [page, setPage] = useState(1);
     const [pagination, setPagination] = useState({ page: 1, pageSize: 20, total: 0, totalPages: 1 });
 
-    // Modal
-    const [selectedPart, setSelectedPart] = useState<any>(null);
-    const [actionType, setActionType] = useState<"IN" | "OUT">("IN");
-    const [qty, setQty] = useState(1);
-    const [reason, setReason] = useState("");
-    const [submitting, setSubmitting] = useState(false);
-    const [success, setSuccess] = useState("");
-    const [error, setError] = useState("");
 
-    // Scanner
-    const lastKeyTime = useRef(0);
-    const [scannerMode, setScannerMode] = useState(false);
-    const keyBuffer = useRef("");
 
     // Create modals
     const [showAddCompany, setShowAddCompany] = useState(false);
@@ -54,7 +44,7 @@ export default function InsurancePage() {
 
     // Edit/Delete Part
     const [editingPart, setEditingPart] = useState<any>(null);
-    const [editPartForm, setEditPartForm] = useState({ code: "", name: "", description: "", brand: "", unit: "ชิ้น", minStock: 5 });
+    const [editPartForm, setEditPartForm] = useState({ code: "", name: "", description: "", brand: "" });
     const [editPartSaving, setEditPartSaving] = useState(false);
     const [editPartError, setEditPartError] = useState("");
     const [confirmDeletePart, setConfirmDeletePart] = useState<any>(null);
@@ -144,36 +134,8 @@ export default function InsurancePage() {
         setter(value);
     };
 
-    const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        const now = Date.now();
-        const timeDiff = now - lastKeyTime.current;
-        if (timeDiff < 50 && e.key.length === 1) { setScannerMode(true); keyBuffer.current += e.key; }
-        else if (e.key.length === 1) { keyBuffer.current = e.key; setScannerMode(false); }
-        lastKeyTime.current = now;
-    };
 
-    useEffect(() => {
-        if (scannerMode && search.length >= 3) {
-            const timer = setTimeout(() => setScannerMode(false), 500);
-            return () => clearTimeout(timer);
-        }
-    }, [search, scannerMode]);
 
-    const openModal = (part: any, type: "IN" | "OUT") => { setSelectedPart(part); setActionType(type); setQty(1); setReason(""); setError(""); setSuccess(""); };
-    const closeModal = () => { setSelectedPart(null); setSuccess(""); setError(""); };
-
-    const handleSubmit = async () => {
-        if (!selectedPart) return;
-        if (actionType === "OUT" && qty > selectedPart.quantity) { setError(`สต็อกไม่เพียงพอ (เหลือ ${selectedPart.quantity} ${selectedPart.unit})`); return; }
-        setSubmitting(true); setError("");
-        try {
-            await createMovement({ partId: selectedPart.id, type: actionType, quantity: qty, reason: reason || undefined });
-            setSuccess(actionType === "IN" ? `เพิ่ม ${selectedPart.name} จำนวน ${qty} ${selectedPart.unit} สำเร็จ!` : `เบิก ${selectedPart.name} จำนวน ${qty} ${selectedPart.unit} สำเร็จ!`);
-            fetchParts();
-            setTimeout(() => closeModal(), 2000);
-        } catch (err: any) { setError(err.message || "ไม่สามารถดำเนินการได้"); }
-        finally { setSubmitting(false); }
-    };
 
     if (loading && !selectedCompany)
         return (
@@ -185,8 +147,7 @@ export default function InsurancePage() {
             </div>
         );
 
-    const isIn = actionType === "IN";
-    const accentColor = isIn ? "#22C55E" : "#F97316";
+
 
     // ─── Shared Modals (rendered in all views) ────────────────
     const sharedModals = (
@@ -459,175 +420,80 @@ export default function InsurancePage() {
         );
     }
 
-    // ─── Step 4: Parts List (after model) ────────────────────
+    // ─── Step 4: Parts + Claims (after model) ─────────────────
+    const inputStyle = { background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" };
+    const inputCls = "w-full rounded-lg px-3 py-2 text-sm transition-colors focus:outline-none focus:ring-1 focus:ring-blue-500/30";
+
     return (
         <div className="p-6 lg:p-8">
-            <div className="mb-8">
+            <div className="mb-6">
                 <button
                     onClick={() => { setSelectedModel(null); setParts([]); router.push(`/insurance?company=${selectedCompany.id}&brand=${selectedBrand.id}`); }}
                     className="inline-flex items-center gap-2 text-sm font-medium mb-4 transition-all duration-200 cursor-pointer rounded-xl px-4 py-2"
-                    style={{ background: "var(--t-card)", color: "var(--t-text-secondary)", border: "1px solid var(--t-border-subtle)", boxShadow: "0 1px 2px rgba(0,0,0,0.04)" }}
-                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#3b82f660"; e.currentTarget.style.color = "#3b82f6"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(59,130,246,0.1)"; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--t-border-subtle)"; e.currentTarget.style.color = "var(--t-text-secondary)"; e.currentTarget.style.boxShadow = "0 1px 2px rgba(0,0,0,0.04)"; }}
+                    style={{ background: "var(--t-card)", color: "var(--t-text-secondary)", border: "1px solid var(--t-border-subtle)" }}
+                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#3b82f660"; e.currentTarget.style.color = "#3b82f6"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--t-border-subtle)"; e.currentTarget.style.color = "var(--t-text-secondary)"; }}
                 >
                     <ChevronLeft className="w-4 h-4" /> กลับไปเลือกรุ่น {selectedBrand.name}
                 </button>
-                <h1 className="text-xl font-bold" style={{ color: "var(--t-text)" }}>
-                    {selectedCompany.name} — {selectedBrand.name} {selectedModel?.name}
-                </h1>
-                <p className="mt-1 text-sm" style={{ color: "var(--t-text-muted)" }}>ค้นหา, เพิ่ม, เบิกอะไหล่</p>
-                <button onClick={() => { setCreateForm({ code: "", name: "", description: "", brand: "", unit: "ชิ้น", quantity: 0, minStock: 5 }); setCreateError(""); setShowCreate(true); }} className="mt-3 flex items-center gap-2 bg-blue-500 hover:bg-blue-400 text-white font-semibold rounded-lg px-4 py-2 text-sm transition-colors cursor-pointer"><Plus className="w-4 h-4" /> สร้างอะไหล่ใหม่</button>
-            </div>
-
-            {/* Search */}
-            <div className="rounded-xl p-4 mb-6" style={{ background: "var(--t-card)", border: "1px solid var(--t-border-subtle)" }}>
-                <div className="flex flex-wrap items-center gap-3">
-                    <div className="relative flex-1 min-w-[200px]">
-                        <div className="absolute left-3 top-1/2 -translate-y-1/2">
-                            {scannerMode ? <ScanBarcode className="w-4 h-4 text-blue-500 animate-pulse" /> : <Search className="w-4 h-4" style={{ color: "var(--t-text-muted)" }} />}
-                        </div>
-                        <input type="text" placeholder="ค้นหาอะไหล่... (ชื่อ, รหัส, ยี่ห้อ)" value={search} onChange={(e) => handleFilterChange(setSearch, e.target.value)} onKeyDown={handleSearchKeyDown} className="w-full rounded-lg pl-10 pr-4 py-2.5 text-sm transition-colors focus:outline-none focus:ring-1 focus:ring-blue-500/30" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} />
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                    <div>
+                        <h1 className="text-xl font-bold" style={{ color: "var(--t-text)" }}>{selectedCompany.name} — {selectedBrand.name} {selectedModel?.name}</h1>
+                        <p className="mt-1 text-sm" style={{ color: "var(--t-text-muted)" }}>รายการอะไหล่ประกัน</p>
                     </div>
-                    <button onClick={() => handleFilterChange(setLowStockOnly, !lowStockOnly)} className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors cursor-pointer ${lowStockOnly ? "bg-amber-500/15 text-amber-500 border border-amber-500/30" : ""}`} style={lowStockOnly ? {} : { background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-text-secondary)" }}>
-                        <Filter className="w-4 h-4" /> {lowStockOnly ? "ของใกล้หมด" : "ทั้งหมด"}
-                    </button>
+                    <button onClick={() => { setCreateForm({ code: "", name: "", description: "", brand: "", unit: "ชิ้น", quantity: 0, minStock: 5 }); setCreateError(""); setShowCreate(true); }} className="flex items-center gap-2 bg-blue-500 hover:bg-blue-400 text-white font-semibold rounded-lg px-4 py-2 text-sm transition-colors cursor-pointer"><Plus className="w-4 h-4" /> สร้างอะไหล่</button>
                 </div>
             </div>
 
-            <p className="text-sm mb-4" style={{ color: "var(--t-text-muted)" }}>พบ <span className="font-medium" style={{ color: "var(--t-text)" }}>{pagination.total}</span> รายการ</p>
-
-            {/* Table */}
+            {/* Parts List */}
+            <div className="rounded-xl p-4 mb-4" style={{ background: "var(--t-card)", border: "1px solid var(--t-border-subtle)" }}>
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--t-text-muted)" }} />
+                    <input type="text" placeholder="ค้นหาอะไหล่..." value={search} onChange={(e) => handleFilterChange(setSearch, e.target.value)} className="w-full rounded-lg pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500/30" style={inputStyle} />
+                </div>
+            </div>
             <div className="rounded-xl overflow-hidden" style={{ background: "var(--t-card)", border: "1px solid var(--t-border-subtle)" }}>
                 {parts.length === 0 ? (
                     <div className="text-center py-16"><Package className="w-10 h-10 mx-auto mb-3" style={{ color: "var(--t-text-dim)" }} /><p style={{ color: "var(--t-text-muted)" }}>ไม่พบอะไหล่</p></div>
                 ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead><tr style={{ borderBottom: "1px solid var(--t-border-subtle)" }}>
-                                {["รหัส", "ชื่ออะไหล่", "ยี่ห้อ", "จำนวน", "สถานะ", "จัดการ"].map((h) => (
-                                    <th key={h} className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-left" style={{ color: "var(--t-text-muted)" }}>{h}</th>
-                                ))}
-                            </tr></thead>
-                            <tbody>
-                                {parts.map((p) => {
-                                    const isLow = p.quantity <= p.minStock;
-                                    return (
-                                        <tr key={p.id} className="transition-colors" style={{ borderBottom: "1px solid var(--t-border-subtle)" }} onMouseEnter={(e) => (e.currentTarget.style.background = "var(--t-hover-overlay)")} onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
-                                            <td className="px-4 py-3 font-mono text-xs" style={{ color: "var(--t-text-secondary)" }}>{p.code}</td>
-                                            <td className="px-4 py-3 text-sm font-medium" style={{ color: "var(--t-text)" }}>{p.name}</td>
-                                            <td className="px-4 py-3 text-sm" style={{ color: "var(--t-text-secondary)" }}>{p.brand || "-"}</td>
-                                            <td className={`px-4 py-3 text-sm font-bold ${isLow ? "text-red-500" : ""}`} style={isLow ? {} : { color: "var(--t-text)" }}>{p.quantity} <span className="font-normal text-xs" style={{ color: "var(--t-text-muted)" }}>{p.unit}</span></td>
-                                            <td className="px-4 py-3">
-                                                {isLow ? <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-red-500/15 text-red-500 font-medium"><TrendingDown className="w-3 h-3" /> ใกล้หมด</span> : <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-500 font-medium"><CheckCircle2 className="w-3 h-3" /> ปกติ</span>}
-                                            </td>
-                                            <td className="px-4 py-2">
-                                                <div className="flex items-center gap-1.5">
-                                                    <button onClick={() => openModal(p, "IN")} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer bg-emerald-500 hover:bg-emerald-400 text-white shadow-sm"><ArrowDownToLine className="w-3.5 h-3.5" /> เพิ่ม</button>
-                                                    <button onClick={() => openModal(p, "OUT")} disabled={p.quantity === 0} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer bg-orange-500 hover:bg-orange-400 text-white shadow-sm disabled:opacity-30 disabled:cursor-not-allowed"><ArrowUpFromLine className="w-3.5 h-3.5" /> เบิก</button>
-                                                    <button onClick={() => { setEditingPart(p); setEditPartForm({ code: p.code, name: p.name, description: p.description || "", brand: p.brand || "", unit: p.unit, minStock: p.minStock }); setEditPartError(""); }} className="p-2 rounded-lg cursor-pointer" style={{ background: "rgba(59,130,246,0.1)", color: "#3b82f6" }} title="แก้ไข"><Pencil className="w-3.5 h-3.5" /></button>
-                                                    <button onClick={() => { setDeletePartMsg(""); setDeletePartCanForce(false); setConfirmDeletePart(p); }} className="p-2 rounded-lg cursor-pointer" style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }} title="ลบ"><Trash2 className="w-3.5 h-3.5" /></button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
+                    <div className="overflow-x-auto"><table className="w-full">
+                        <thead><tr style={{ borderBottom: "1px solid var(--t-border-subtle)" }}>
+                            {["รหัส", "ชื่ออะไหล่", "ยี่ห้อ", "รายละเอียด", "จัดการ"].map((h) => (<th key={h} className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-left" style={{ color: "var(--t-text-muted)" }}>{h}</th>))}
+                        </tr></thead>
+                        <tbody>{parts.map((p) => {
+                            return (<tr key={p.id} className="transition-colors" style={{ borderBottom: "1px solid var(--t-border-subtle)" }} onMouseEnter={(e) => (e.currentTarget.style.background = "var(--t-hover-overlay)")} onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
+                                <td className="px-4 py-3 font-mono text-xs" style={{ color: "var(--t-text-secondary)" }}>{p.code}</td>
+                                <td className="px-4 py-3 text-sm font-medium" style={{ color: "var(--t-text)" }}>{p.name}</td>
+                                <td className="px-4 py-3 text-sm" style={{ color: "var(--t-text-secondary)" }}>{p.brand || "-"}</td>
+                                <td className="px-4 py-3 text-sm" style={{ color: "var(--t-text-muted)" }}>{p.description || "-"}</td>
+                                <td className="px-4 py-2"><div className="flex items-center gap-1.5">
+                                    <button onClick={() => { setEditingPart(p); setEditPartForm({ code: p.code, name: p.name, description: p.description || "", brand: p.brand || "" }); setEditPartError(""); }} className="p-2 rounded-lg cursor-pointer" style={{ background: "rgba(59,130,246,0.1)", color: "#3b82f6" }} title="แก้ไข"><Pencil className="w-3.5 h-3.5" /></button>
+                                    <button onClick={() => { setDeletePartMsg(""); setDeletePartCanForce(false); setConfirmDeletePart(p); }} className="p-2 rounded-lg cursor-pointer" style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }} title="ลบ"><Trash2 className="w-3.5 h-3.5" /></button>
+                                </div></td>
+                            </tr>);
+                        })}</tbody>
+                    </table></div>
                 )}
                 <Pagination page={pagination.page} totalPages={pagination.totalPages} total={pagination.total} pageSize={pagination.pageSize} onPageChange={setPage} />
             </div>
-
-            {/* Action Modal */}
-            {selectedPart && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "var(--t-modal-overlay)", animation: "fadeIn 150ms ease" }} onClick={() => !submitting && !success && closeModal()}>
-                    <div className="rounded-2xl w-[90%] max-w-md shadow-2xl overflow-hidden" style={{ background: "var(--t-modal-bg)", border: `1px solid var(--t-modal-border)`, animation: "slideUp 200ms ease" }} onClick={(e) => e.stopPropagation()}>
-                        <div className="p-5 flex items-center justify-between" style={{ borderBottom: `2px solid ${accentColor}20` }}>
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: `${accentColor}15` }}>
-                                    {isIn ? <ArrowDownToLine className="w-5 h-5" style={{ color: accentColor }} /> : <ArrowUpFromLine className="w-5 h-5" style={{ color: accentColor }} />}
-                                </div>
-                                <div>
-                                    <h3 className="font-bold" style={{ color: "var(--t-text)" }}>{isIn ? "เพิ่มสต็อก" : "เบิกอะไหล่"}</h3>
-                                    <p className="text-xs" style={{ color: "var(--t-text-muted)" }}>{isIn ? "เพิ่มจำนวนเข้าคลัง" : "เบิกออกจากคลัง"}</p>
-                                </div>
-                            </div>
-                            <button onClick={closeModal} className="p-1.5 rounded-lg transition-colors cursor-pointer" style={{ color: "var(--t-text-muted)" }}><X className="w-5 h-5" /></button>
-                        </div>
-                        {success ? (
-                            <div className="p-8 text-center" style={{ animation: "slideUp 200ms ease" }}>
-                                <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: `${accentColor}15` }}>
-                                    <CheckCircle2 className="w-8 h-8" style={{ color: accentColor }} />
-                                </div>
-                                <p className="font-bold text-lg" style={{ color: accentColor }}>{success}</p>
-                            </div>
-                        ) : (
-                            <div className="p-5 space-y-5">
-                                <div className="rounded-xl p-4" style={{ background: "var(--t-badge-bg)", border: "1px solid var(--t-border-subtle)" }}>
-                                    <p className="font-bold text-base" style={{ color: "var(--t-text)" }}>{selectedPart.name}</p>
-                                    <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                        <span className="font-mono text-xs px-2 py-0.5 rounded" style={{ background: "var(--t-input-bg)", color: "var(--t-text-secondary)" }}>{selectedPart.code}</span>
-                                        {selectedPart.brand && <span className="text-xs" style={{ color: "var(--t-text-muted)" }}>{selectedPart.brand}</span>}
-                                    </div>
-                                    <div className="flex items-center gap-2 mt-2">
-                                        <span className="text-xs" style={{ color: "var(--t-text-muted)" }}>สต็อกปัจจุบัน:</span>
-                                        <span className={`text-sm font-bold ${selectedPart.quantity <= selectedPart.minStock ? "text-red-500" : "text-emerald-500"}`}>{selectedPart.quantity} {selectedPart.unit}</span>
-                                    </div>
-                                </div>
-                                {error && <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center gap-2"><AlertCircle className="w-4 h-4 text-red-500 shrink-0" /><p className="text-sm text-red-500">{error}</p></div>}
-                                <div>
-                                    <label className="text-sm font-semibold mb-2 block" style={{ color: "var(--t-text)" }}>{isIn ? "จำนวนที่เพิ่ม" : "จำนวนที่เบิก"}</label>
-                                    <div className="flex items-center gap-2">
-                                        <button type="button" onClick={() => setQty(Math.max(1, qty - 1))} disabled={qty <= 1} className="w-12 h-12 rounded-xl flex items-center justify-center transition-colors cursor-pointer disabled:opacity-30" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-text)" }}><Minus className="w-5 h-5" /></button>
-                                        <input type="number" value={qty} onChange={(e) => setQty(Math.max(1, Number(e.target.value)))} className="flex-1 rounded-xl text-center text-3xl font-bold py-2 focus:outline-none" style={{ background: "var(--t-input-bg)", border: `2px solid ${accentColor}40`, color: "var(--t-text)" }} min={1} />
-                                        <button type="button" onClick={() => setQty(actionType === "OUT" ? Math.min(qty + 1, selectedPart.quantity) : qty + 1)} disabled={actionType === "OUT" && qty >= selectedPart.quantity} className="w-12 h-12 rounded-xl flex items-center justify-center transition-colors cursor-pointer disabled:opacity-30" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-text)" }}><Plus className="w-5 h-5" /></button>
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="text-sm font-semibold mb-2 block" style={{ color: "var(--t-text)" }}>เหตุผล <span className="font-normal text-xs" style={{ color: "var(--t-text-dim)" }}>(ถ้ามี)</span></label>
-                                    <input type="text" value={reason} onChange={(e) => setReason(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") handleSubmit(); }} className="w-full rounded-lg px-4 py-2.5 text-sm focus:outline-none" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} placeholder={isIn ? "เช่น ประกันจัดส่งให้" : "เช่น ใช้ในงานเคลม"} />
-                                </div>
-                                <div className="flex gap-3 pt-1">
-                                    <button onClick={closeModal} className="flex-1 rounded-xl py-3 text-sm font-medium transition-colors cursor-pointer" style={{ background: "var(--t-input-bg)", color: "var(--t-text-secondary)", border: "1px solid var(--t-input-border)" }}>ยกเลิก</button>
-                                    <button onClick={handleSubmit} disabled={submitting || (actionType === "OUT" && qty > selectedPart.quantity)} className="flex-1 flex items-center justify-center gap-2 text-white font-bold rounded-xl py-3 text-sm transition-all cursor-pointer disabled:opacity-40 shadow-lg" style={{ background: accentColor, boxShadow: `0 8px 16px ${accentColor}30` }}>
-                                        {isIn ? <ArrowDownToLine className="w-4 h-4" /> : <ArrowUpFromLine className="w-4 h-4" />}
-                                        {submitting ? "กำลัง..." : isIn ? "เพิ่มสต็อก" : "เบิกอะไหล่"}
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            )}
 
             {/* Create Part Modal */}
             {showCreate && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "var(--t-modal-overlay)", animation: "fadeIn 150ms ease" }} onClick={() => setShowCreate(false)}>
                     <div className="rounded-2xl p-6 w-[90%] max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl" style={{ background: "var(--t-modal-bg)", border: "1px solid var(--t-modal-border)", animation: "slideUp 200ms ease" }} onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-between mb-6">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "rgba(59,130,246,0.15)" }}><PackagePlus className="w-5 h-5" style={{ color: "#3b82f6" }} /></div>
-                                <div><h3 className="font-bold" style={{ color: "var(--t-text)" }}>สร้างอะไหล่ใหม่</h3><p className="text-xs" style={{ color: "var(--t-text-muted)" }}>{selectedCompany.name} — {selectedBrand.name}</p></div>
-                            </div>
-                            <button onClick={() => setShowCreate(false)} className="p-1 rounded-lg transition-colors cursor-pointer" style={{ color: "var(--t-text-muted)" }}><X className="w-5 h-5" /></button>
+                            <div className="flex items-center gap-3"><div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "rgba(59,130,246,0.15)" }}><PackagePlus className="w-5 h-5" style={{ color: "#3b82f6" }} /></div><div><h3 className="font-bold" style={{ color: "var(--t-text)" }}>สร้างอะไหล่ใหม่</h3><p className="text-xs" style={{ color: "var(--t-text-muted)" }}>{selectedCompany.name} — {selectedBrand.name}</p></div></div>
+                            <button onClick={() => setShowCreate(false)} className="p-1 rounded-lg cursor-pointer" style={{ color: "var(--t-text-muted)" }}><X className="w-5 h-5" /></button>
                         </div>
                         {createError && <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-500 text-sm">{createError}</div>}
                         <div className="space-y-4">
-                            <div className="grid grid-cols-2 gap-3">
-                                <div><label className="text-sm mb-1 block" style={{ color: "var(--t-text-secondary)" }}>รหัส *</label><input value={createForm.code} onChange={(e) => setCreateForm({ ...createForm, code: e.target.value })} className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500/30" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} placeholder="IN-TYT-003" /></div>
-                                <div><label className="text-sm mb-1 block" style={{ color: "var(--t-text-secondary)" }}>ยี่ห้ออะไหล่</label><input value={createForm.brand} onChange={(e) => setCreateForm({ ...createForm, brand: e.target.value })} className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500/30" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} placeholder="OEM, Stanley" /></div>
-                            </div>
-                            <div><label className="text-sm mb-1 block" style={{ color: "var(--t-text-secondary)" }}>ชื่ออะไหล่ *</label><input value={createForm.name} onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })} className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500/30" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} /></div>
-                            <div><label className="text-sm mb-1 block" style={{ color: "var(--t-text-secondary)" }}>รายละเอียด</label><textarea value={createForm.description} onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })} className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500/30" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} rows={2} /></div>
-                            <div className="grid grid-cols-3 gap-3">
-                                <div><label className="text-sm mb-1 block" style={{ color: "var(--t-text-secondary)" }}>จำนวน</label><input type="number" value={createForm.quantity} onChange={(e) => setCreateForm({ ...createForm, quantity: Number(e.target.value) })} className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} min={0} /></div>
-                                <div><label className="text-sm mb-1 block" style={{ color: "var(--t-text-secondary)" }}>ขั้นต่ำ</label><input type="number" value={createForm.minStock} onChange={(e) => setCreateForm({ ...createForm, minStock: Number(e.target.value) })} className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} min={0} /></div>
-                                <div><label className="text-sm mb-1 block" style={{ color: "var(--t-text-secondary)" }}>หน่วย</label><input value={createForm.unit} onChange={(e) => setCreateForm({ ...createForm, unit: e.target.value })} className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} /></div>
-                            </div>
+                            <div className="grid grid-cols-2 gap-3"><div><label className="text-sm mb-1 block" style={{ color: "var(--t-text-secondary)" }}>รหัส *</label><input value={createForm.code} onChange={(e) => setCreateForm({ ...createForm, code: e.target.value })} className={inputCls} style={inputStyle} placeholder="IN-TYT-003" /></div><div><label className="text-sm mb-1 block" style={{ color: "var(--t-text-secondary)" }}>ยี่ห้ออะไหล่</label><input value={createForm.brand} onChange={(e) => setCreateForm({ ...createForm, brand: e.target.value })} className={inputCls} style={inputStyle} /></div></div>
+                            <div><label className="text-sm mb-1 block" style={{ color: "var(--t-text-secondary)" }}>ชื่ออะไหล่ *</label><input value={createForm.name} onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })} className={inputCls} style={inputStyle} /></div>
+                            <div><label className="text-sm mb-1 block" style={{ color: "var(--t-text-secondary)" }}>รายละเอียด</label><textarea value={createForm.description} onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })} className={inputCls} style={inputStyle} rows={2} /></div>
                         </div>
                         <div className="flex gap-3 mt-6 pt-4" style={{ borderTop: "1px solid var(--t-border-subtle)" }}>
                             <button onClick={() => setShowCreate(false)} className="flex-1 rounded-lg py-2.5 text-sm font-medium cursor-pointer" style={{ background: "var(--t-input-bg)", color: "var(--t-text-secondary)", border: "1px solid var(--t-input-border)" }}>ยกเลิก</button>
-                            <button onClick={async () => { if (!createForm.code || !createForm.name) { setCreateError("กรุณากรอกรหัสและชื่อ"); return; } setCreateSaving(true); setCreateError(""); try { await createPart({ ...createForm, quantity: Number(createForm.quantity), minStock: Number(createForm.minStock), categoryId: selectedModel.id }); setShowCreate(false); fetchParts(); } catch (err: any) { setCreateError(err.message || "เกิดข้อผิดพลาด"); } finally { setCreateSaving(false); } }} disabled={createSaving} className="flex-1 bg-blue-500 hover:bg-blue-400 text-white font-semibold rounded-lg py-2.5 text-sm cursor-pointer disabled:opacity-50">{createSaving ? "กำลังบันทึก..." : "สร้างอะไหล่"}</button>
+                            <button onClick={async () => { if (!createForm.code || !createForm.name) { setCreateError("กรุณากรอกรหัสและชื่อ"); return; } setCreateSaving(true); setCreateError(""); try { await createPart({ ...createForm, quantity: 0, minStock: 0, categoryId: selectedModel.id }); setShowCreate(false); fetchParts(); } catch (err: any) { setCreateError(err.message || "เกิดข้อผิดพลาด"); } finally { setCreateSaving(false); } }} disabled={createSaving} className="flex-1 bg-blue-500 hover:bg-blue-400 text-white font-semibold rounded-lg py-2.5 text-sm cursor-pointer disabled:opacity-50">{createSaving ? "กำลังบันทึก..." : "สร้างอะไหล่"}</button>
                         </div>
                     </div>
                 </div>
@@ -639,29 +505,16 @@ export default function InsurancePage() {
             {editingPart && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "var(--t-modal-overlay)", animation: "fadeIn 150ms ease" }} onClick={() => setEditingPart(null)}>
                     <div className="rounded-2xl p-6 w-[90%] max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl" style={{ background: "var(--t-modal-bg)", border: "1px solid var(--t-modal-border)", animation: "slideUp 200ms ease" }} onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-between mb-5">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "rgba(59,130,246,0.15)" }}><Pencil className="w-5 h-5" style={{ color: "#3b82f6" }} /></div>
-                                <div><h3 className="font-bold" style={{ color: "var(--t-text)" }}>แก้ไขอะไหล่</h3><p className="text-xs" style={{ color: "var(--t-text-muted)" }}>{editingPart.name}</p></div>
-                            </div>
-                            <button onClick={() => setEditingPart(null)} className="p-1 rounded-lg cursor-pointer" style={{ color: "var(--t-text-muted)" }}><X className="w-5 h-5" /></button>
-                        </div>
+                        <div className="flex items-center justify-between mb-5"><div className="flex items-center gap-3"><div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "rgba(59,130,246,0.15)" }}><Pencil className="w-5 h-5" style={{ color: "#3b82f6" }} /></div><div><h3 className="font-bold" style={{ color: "var(--t-text)" }}>แก้ไขอะไหล่</h3><p className="text-xs" style={{ color: "var(--t-text-muted)" }}>{editingPart.name}</p></div></div><button onClick={() => setEditingPart(null)} className="p-1 rounded-lg cursor-pointer" style={{ color: "var(--t-text-muted)" }}><X className="w-5 h-5" /></button></div>
                         {editPartError && <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-500 text-sm">{editPartError}</div>}
                         <div className="space-y-3">
-                            <div className="grid grid-cols-2 gap-3">
-                                <div><label className="text-sm mb-1 block" style={{ color: "var(--t-text-secondary)" }}>รหัส *</label><input value={editPartForm.code} onChange={(e) => setEditPartForm({ ...editPartForm, code: e.target.value })} className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500/30" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} /></div>
-                                <div><label className="text-sm mb-1 block" style={{ color: "var(--t-text-secondary)" }}>ยี่ห้ออะไหล่</label><input value={editPartForm.brand} onChange={(e) => setEditPartForm({ ...editPartForm, brand: e.target.value })} className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500/30" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} /></div>
-                            </div>
-                            <div><label className="text-sm mb-1 block" style={{ color: "var(--t-text-secondary)" }}>ชื่ออะไหล่ *</label><input value={editPartForm.name} onChange={(e) => setEditPartForm({ ...editPartForm, name: e.target.value })} className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500/30" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} /></div>
-                            <div><label className="text-sm mb-1 block" style={{ color: "var(--t-text-secondary)" }}>รายละเอียด</label><textarea value={editPartForm.description} onChange={(e) => setEditPartForm({ ...editPartForm, description: e.target.value })} className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500/30" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} rows={2} /></div>
-                            <div className="grid grid-cols-2 gap-3">
-                                <div><label className="text-sm mb-1 block" style={{ color: "var(--t-text-secondary)" }}>สต็อกขั้นต่ำ</label><input type="number" value={editPartForm.minStock} onChange={(e) => setEditPartForm({ ...editPartForm, minStock: Number(e.target.value) })} className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} min={0} /></div>
-                                <div><label className="text-sm mb-1 block" style={{ color: "var(--t-text-secondary)" }}>หน่วย</label><input value={editPartForm.unit} onChange={(e) => setEditPartForm({ ...editPartForm, unit: e.target.value })} className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} /></div>
-                            </div>
+                            <div className="grid grid-cols-2 gap-3"><div><label className="text-sm mb-1 block" style={{ color: "var(--t-text-secondary)" }}>รหัส *</label><input value={editPartForm.code} onChange={(e) => setEditPartForm({ ...editPartForm, code: e.target.value })} className={inputCls} style={inputStyle} /></div><div><label className="text-sm mb-1 block" style={{ color: "var(--t-text-secondary)" }}>ยี่ห้อ</label><input value={editPartForm.brand} onChange={(e) => setEditPartForm({ ...editPartForm, brand: e.target.value })} className={inputCls} style={inputStyle} /></div></div>
+                            <div><label className="text-sm mb-1 block" style={{ color: "var(--t-text-secondary)" }}>ชื่ออะไหล่ *</label><input value={editPartForm.name} onChange={(e) => setEditPartForm({ ...editPartForm, name: e.target.value })} className={inputCls} style={inputStyle} /></div>
+                            <div><label className="text-sm mb-1 block" style={{ color: "var(--t-text-secondary)" }}>รายละเอียด</label><textarea value={editPartForm.description} onChange={(e) => setEditPartForm({ ...editPartForm, description: e.target.value })} className={inputCls} style={inputStyle} rows={2} /></div>
                         </div>
                         <div className="flex gap-3 mt-5 pt-4" style={{ borderTop: "1px solid var(--t-border-subtle)" }}>
                             <button onClick={() => setEditingPart(null)} className="flex-1 rounded-lg py-2.5 text-sm font-medium cursor-pointer" style={{ background: "var(--t-input-bg)", color: "var(--t-text-secondary)", border: "1px solid var(--t-input-border)" }}>ยกเลิก</button>
-                            <button onClick={async () => { if (!editPartForm.code || !editPartForm.name) { setEditPartError("กรุณากรอกรหัสและชื่อ"); return; } setEditPartSaving(true); setEditPartError(""); try { await updatePart(editingPart.id, editPartForm); setEditingPart(null); toast.success("แก้ไขอะไหล่เรียบร้อย"); fetchParts(); } catch (err: any) { setEditPartError(err.message || "เกิดข้อผิดพลาด"); } finally { setEditPartSaving(false); } }} disabled={editPartSaving} className="flex-1 bg-blue-500 hover:bg-blue-400 text-white font-semibold rounded-lg py-2.5 text-sm cursor-pointer disabled:opacity-50">{editPartSaving ? "กำลังบันทึก..." : "บันทึก"}</button>
+                            <button onClick={async () => { if (!editPartForm.code || !editPartForm.name) { setEditPartError("กรุณากรอกรหัสและชื่อ"); return; } setEditPartSaving(true); setEditPartError(""); try { await updatePart(editingPart.id, editPartForm); setEditingPart(null); toast.success("แก้ไขเรียบร้อย"); fetchParts(); } catch (err: any) { setEditPartError(err.message || "เกิดข้อผิดพลาด"); } finally { setEditPartSaving(false); } }} disabled={editPartSaving} className="flex-1 bg-blue-500 hover:bg-blue-400 text-white font-semibold rounded-lg py-2.5 text-sm cursor-pointer disabled:opacity-50">{editPartSaving ? "กำลังบันทึก..." : "บันทึก"}</button>
                         </div>
                     </div>
                 </div>
@@ -671,16 +524,13 @@ export default function InsurancePage() {
             {confirmDeletePart && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "var(--t-modal-overlay)", animation: "fadeIn 150ms ease" }} onClick={() => setConfirmDeletePart(null)}>
                     <div className="rounded-2xl p-6 w-[90%] max-w-sm shadow-2xl" style={{ background: "var(--t-modal-bg)", border: "1px solid var(--t-modal-border)", animation: "slideUp 200ms ease" }} onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: "rgba(239,68,68,0.1)" }}><Trash2 className="w-5 h-5 text-red-500" /></div>
-                            <h3 className="font-bold" style={{ color: "var(--t-text)" }}>ลบอะไหล่</h3>
-                        </div>
+                        <div className="flex items-center gap-3 mb-4"><div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: "rgba(239,68,68,0.1)" }}><Trash2 className="w-5 h-5 text-red-500" /></div><h3 className="font-bold" style={{ color: "var(--t-text)" }}>ลบอะไหล่</h3></div>
                         <p className="text-sm mb-1" style={{ color: "var(--t-text-secondary)" }}>คุณต้องการลบ <strong>{confirmDeletePart.name}</strong> ใช่ไหม?</p>
                         {deletePartMsg && <div className={`text-xs mt-2 mb-3 p-2 rounded-lg ${deletePartCanForce ? "bg-amber-500/10 border border-amber-500/20 text-amber-600" : "bg-red-500/10 border border-red-500/20 text-red-500"}`}>{deletePartMsg}</div>}
                         <div className="flex gap-3 mt-4">
                             <button onClick={() => setConfirmDeletePart(null)} className="flex-1 rounded-lg py-2.5 text-sm font-medium cursor-pointer" style={{ background: "var(--t-input-bg)", color: "var(--t-text-secondary)", border: "1px solid var(--t-input-border)" }}>ยกเลิก</button>
-                            {deletePartCanForce && <button onClick={async () => { try { await deletePartForce(confirmDeletePart.id); setConfirmDeletePart(null); toast.success("ลบอะไหล่และประวัติเรียบร้อย"); fetchParts(); } catch (err: any) { toast.error(err.message); } }} className="flex-1 bg-amber-500 hover:bg-amber-400 text-white font-semibold rounded-lg py-2.5 text-sm cursor-pointer">ลบพร้อมประวัติ</button>}
-                            <button onClick={async () => { const r = await deletePart(confirmDeletePart.id); if (r.success) { setConfirmDeletePart(null); toast.success("ลบอะไหล่เรียบร้อย"); fetchParts(); } else { setDeletePartMsg(r.error || "ลบไม่ได้"); setDeletePartCanForce(r.canForce || false); } }} className="flex-1 bg-red-500 hover:bg-red-400 text-white font-semibold rounded-lg py-2.5 text-sm cursor-pointer">ลบ</button>
+                            {deletePartCanForce && <button onClick={async () => { try { await deletePartForce(confirmDeletePart.id); setConfirmDeletePart(null); toast.success("ลบเรียบร้อย"); fetchParts(); } catch (err: any) { toast.error(err.message); } }} className="flex-1 bg-amber-500 hover:bg-amber-400 text-white font-semibold rounded-lg py-2.5 text-sm cursor-pointer">ลบพร้อมประวัติ</button>}
+                            <button onClick={async () => { const r = await deletePart(confirmDeletePart.id); if (r.success) { setConfirmDeletePart(null); toast.success("ลบเรียบร้อย"); fetchParts(); } else { setDeletePartMsg(r.error || "ลบไม่ได้"); setDeletePartCanForce(r.canForce || false); } }} className="flex-1 bg-red-500 hover:bg-red-400 text-white font-semibold rounded-lg py-2.5 text-sm cursor-pointer">ลบ</button>
                         </div>
                     </div>
                 </div>
@@ -688,3 +538,4 @@ export default function InsurancePage() {
         </div>
     );
 }
+

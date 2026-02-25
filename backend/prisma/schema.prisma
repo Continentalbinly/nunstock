@@ -133,3 +133,17 @@ enum ClaimStatus {
   NOTIFIED
   COMPLETED
 }
+
+model LineRegistration {
+  id              String   @id @default(cuid())
+  lineUserId      String
+  customerName    String
+  plateNo         String
+  normalizedPlate String
+  matched         Boolean  @default(false)
+  matchedClaimId  String?
+  createdAt       DateTime @default(now())
+
+  @@unique([lineUserId, normalizedPlate])
+  @@map("line_registrations")
+}

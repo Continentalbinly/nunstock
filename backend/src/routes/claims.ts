@@ -3,7 +3,7 @@ import { prisma } from "../lib/prisma.js";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import { parsePagination, paginatedJson } from "../lib/pagination.js";
-import { buildStatusMessage, sendLinePush } from "./webhook.js";
+import { buildStatusMessage, sendLinePush, checkAndLinkPendingRegistration } from "./webhook.js";
 
 export const claimsRouter = new Hono();
 
@@ -90,6 +90,18 @@ claimsRouter.post("/", zValidator("json", claimSchema), async (c) => {
             },
             include: { items: { include: { part: true } } },
         });
+
+        // Auto-link pending LINE registration ถ้ามีคนรอผูกอยู่
+        await checkAndLinkPendingRegistration({
+            id: claim.id,
+            claimNo: claim.claimNo,
+            customerName: claim.customerName,
+            carBrand: claim.carBrand,
+            carModel: claim.carModel,
+            plateNo: claim.plateNo,
+            items: claim.items.map(i => ({ partName: i.partName, quantity: i.quantity })),
+        }).catch(e => console.error("[Auto Link] Error:", e?.message));
+
         return c.json({ success: true, data: claim }, 201);
     } catch (error: any) {
         if (error?.code === "P2002") {
@@ -122,7 +134,7 @@ claimsRouter.patch("/:id/status", async (c) => {
 
         // Auto LINE push ถ้า claim มี lineUserId
         const lineUserId = (claim as any).lineUserId;
-        if (lineUserId && ["ORDERED", "ARRIVED", "COMPLETED"].includes(status)) {
+        if (lineUserId && ["ARRIVED", "COMPLETED"].includes(status)) {
             const msg = buildStatusMessage(status, {
                 claimNo: claim.claimNo,
                 customerName: claim.customerName,

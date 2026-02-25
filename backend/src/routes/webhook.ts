@@ -59,7 +59,6 @@ async function sendLinePush(to: string, text: string): Promise<{ ok: boolean; er
     }
 }
 
-
 /** Normalize ทะเบียน: ลบ space, dash, ทำ uppercase */
 function normalizePlate(text: string): string {
     return text.replace(/[\s\-\.]/g, "").toUpperCase();
@@ -75,20 +74,7 @@ export function buildStatusMessage(
     const claimNo = claim.claimNo;
 
     switch (status) {
-        case "ORDERED":
-            return [
-                `📦 อัพเดตสถานะจาก นันการช่าง`,
-                ``,
-                `เรียนคุณ ${claim.customerName}`,
-                `ทางร้านได้ทำการสั่งอะไหล่ให้คุณแล้วครับ/ค่ะ`,
-                ``,
-                `📋 เลขเคลม: ${claimNo}`,
-                `🚗 รถ: ${car} (${plate})`,
-                ``,
-                `เราจะแจ้งเตือนอีกครั้งเมื่ออะไหล่มาถึง 🙏`,
-            ].join("\n");
-
-        case "ARRIVED":
+        case "ARRIVED": {
             const itemsText = claim.items.map((i) => `• ${i.partName} x${i.quantity}`).join("\n");
             return [
                 `🎉 อะไหล่มาถึงแล้ว! — นันการช่าง`,
@@ -103,6 +89,7 @@ export function buildStatusMessage(
                 ``,
                 `กรุณาติดต่อร้านเพื่อนัดรับรถ 📞`,
             ].join("\n");
+        }
 
         case "COMPLETED":
             return [
@@ -122,13 +109,73 @@ export function buildStatusMessage(
     }
 }
 
+/**
+ * ตรวจสอบว่ามี LineRegistration ที่ตรงกับเคลมนี้ไหม
+ * ถ้ามี → ผูก lineUserId เข้ากับ claim + push confirmation
+ */
+export async function checkAndLinkPendingRegistration(claim: {
+    id: string; claimNo: string; customerName: string; carBrand: string; carModel: string; plateNo: string;
+    items: { partName: string; quantity: number }[];
+}) {
+    const normalized = normalizePlate(claim.plateNo);
+
+    // หา registration ที่ยังไม่ matched โดยเทียบจาก normalizedPlate
+    const pending = await prisma.lineRegistration.findFirst({
+        where: {
+            normalizedPlate: normalized,
+            matched: false,
+        },
+        orderBy: { createdAt: "desc" },
+    });
+
+    if (!pending) return;
+
+    // ผูก registration กับ claim
+    await prisma.$transaction([
+        prisma.lineRegistration.update({
+            where: { id: pending.id },
+            data: { matched: true, matchedClaimId: claim.id },
+        }),
+        prisma.insuranceClaim.update({
+            where: { id: claim.id },
+            data: { lineUserId: pending.lineUserId, lineLinkedAt: new Date() },
+        }),
+    ]);
+
+    // Push confirmation ไปหาลูกค้า
+    const statusTh: Record<string, string> = {
+        PENDING: "รอดำเนินการ 🕐",
+        ORDERED: "สั่งอะไหล่แล้ว 📦",
+        ARRIVED: "อะไหล่มาถึง 🎉",
+        NOTIFIED: "แจ้งลูกค้าแล้ว ✅",
+    };
+
+    const msg = [
+        `✅ พบเคลมตรงกับข้อมูลของคุณ!`,
+        ``,
+        `📋 เลขเคลม: ${claim.claimNo}`,
+        `🚗 รถ: ${claim.carBrand} ${claim.carModel} (${claim.plateNo})`,
+        `สถานะ: ${statusTh["PENDING"] || "รอดำเนินการ"}`,
+        ``,
+        `เราจะแจ้งเตือนคุณผ่าน LINE เมื่อมีการอัพเดตสถานะ 🙏`,
+    ].join("\n");
+
+    await sendLinePush(pending.lineUserId, msg).catch(e =>
+        console.error("[LINE Auto Link Push] Error:", e?.message)
+    );
+
+    console.log(`[Auto Link] Linked registration ${pending.id} to claim ${claim.claimNo}`);
+}
+
+
 // POST /webhook/line — รับ event จาก LINE Platform
+// Format: "ชื่อ / ทะเบียน" เช่น "สมชาย / กข1234"
 webhookRouter.post("/line", async (c) => {
     try {
         const rawBody = await c.req.text();
         const signature = c.req.header("x-line-signature") || "";
 
-        // Verify signature (ข้ามใน dev mode ถ้าไม่มี secret)
+        // Verify signature
         if (LINE_SECRET) {
             if (!verifySignature(rawBody, signature)) {
                 console.warn("[LINE Webhook] Invalid signature");
@@ -143,7 +190,6 @@ webhookRouter.post("/line", async (c) => {
         const events = payload.events || [];
 
         for (const event of events) {
-            // รับเฉพาะ text message
             if (event.type !== "message" || event.message?.type !== "text") continue;
 
             const lineUserId: string = event.source?.userId;
@@ -152,89 +198,127 @@ webhookRouter.post("/line", async (c) => {
 
             if (!lineUserId) continue;
 
-            // Normalize text → ใช้เป็น search key
-            const normalized = normalizePlate(rawText);
+            // Parse format: "ชื่อ / ทะเบียน" หรือ "ชื่อ/ทะเบียน"
+            const parts = rawText.split(/[\/]/);
+            if (parts.length < 2) {
+                // Fallback: ลองใช้ rawText เป็นทะเบียนเลย (เหมือนระบบเดิม)
+                const normalized = normalizePlate(rawText);
 
-            // ค้นหาเคลมที่ยังเปิดอยู่ด้วยทะเบียนรถ
-            // ดึงทุก claim ที่ยังไม่ COMPLETED แล้วเปรียบเทียบ normalized plate
+                const activeClaim = (await prisma.insuranceClaim.findMany({
+                    where: { status: { not: "COMPLETED" } },
+                    include: { items: true },
+                    orderBy: { createdAt: "desc" },
+                })).find(c => normalizePlate(c.plateNo) === normalized);
+
+                if (activeClaim) {
+                    // เจอเคลมจากทะเบียน → ผูก lineUserId + ตอบสถานะ
+                    const isNewLink = (activeClaim as any).lineUserId !== lineUserId;
+                    await prisma.insuranceClaim.update({
+                        where: { id: activeClaim.id },
+                        data: { lineUserId, lineLinkedAt: isNewLink ? new Date() : undefined } as any,
+                    });
+
+                    const statusTh: Record<string, string> = { PENDING: "รอดำเนินการ 🕐", ORDERED: "สั่งอะไหล่แล้ว 📦", ARRIVED: "อะไหล่มาถึง 🎉", NOTIFIED: "แจ้งลูกค้าแล้ว ✅" };
+                    await sendLineReply(replyToken, [
+                        isNewLink ? `✅ ลงทะเบียนสำเร็จ!` : `📋 สถานะล่าสุด`,
+                        ``, `รถทะเบียน ${activeClaim.plateNo} (${activeClaim.carBrand} ${activeClaim.carModel})`,
+                        `สถานะ: ${statusTh[activeClaim.status] || activeClaim.status}`,
+                        ``, `เราจะแจ้งเตือนคุณผ่าน LINE เมื่อมีการอัพเดตสถานะ 🙏`,
+                    ].join("\n"));
+                } else {
+                    // ไม่เจอ → บอก format ที่ถูกต้อง
+                    await sendLineReply(replyToken,
+                        `📝 กรุณาส่งข้อมูลในรูปแบบ:\nชื่อ / ทะเบียนรถ\n\nตัวอย่าง: สมชาย / กข1234\n\nหรือพิมพ์เลขทะเบียนรถอย่างเดียวก็ได้ครับ`
+                    );
+                }
+                continue;
+            }
+
+            const customerName = parts[0].trim();
+            const plateRaw = parts.slice(1).join("/").trim();
+            const normalizedPlate = normalizePlate(plateRaw);
+
+            if (!customerName || !normalizedPlate) {
+                await sendLineReply(replyToken, `❌ กรุณาระบุทั้งชื่อและทะเบียนรถ\n\nตัวอย่าง: สมชาย / กข1234`);
+                continue;
+            }
+
+            // ค้นหาเคลมที่ตรงกับ ชื่อ + ทะเบียน
             const activeClaims = await prisma.insuranceClaim.findMany({
                 where: { status: { not: "COMPLETED" } },
                 include: { items: true },
                 orderBy: { createdAt: "desc" },
             });
 
-            // หา claim ที่ normalize plate ตรงกัน
             const matched = activeClaims.find(
-                (c) => normalizePlate(c.plateNo) === normalized
+                (c) => normalizePlate(c.plateNo) === normalizedPlate
             );
 
-            if (!matched) {
-                // ลองหาใน COMPLETED ด้วย
-                const completedClaims = await prisma.insuranceClaim.findMany({
-                    where: { status: "COMPLETED" },
-                    orderBy: { createdAt: "desc" },
-                    take: 50,
+            if (matched) {
+                // ✅ เจอเคลม → ผูก lineUserId
+                const isNewLink = (matched as any).lineUserId !== lineUserId;
+                await prisma.insuranceClaim.update({
+                    where: { id: matched.id },
+                    data: { lineUserId, lineLinkedAt: isNewLink ? new Date() : undefined } as any,
                 });
-                const completedMatch = completedClaims.find(
-                    (c) => normalizePlate(c.plateNo) === normalized
-                );
 
-                if (completedMatch) {
-                    await sendLineReply(
-                        replyToken,
-                        `✅ อะไหล่รถทะเบียน ${rawText} ของคุณดำเนินการเสร็จสิ้นแล้วครับ/ค่ะ\n\nหากมีข้อสงสัยกรุณาติดต่อเจ้าหน้าที่ 😊`
-                    );
-                } else {
-                    await sendLineReply(
-                        replyToken,
-                        `❌ ไม่พบทะเบียน "${rawText}" ในระบบครับ/ค่ะ\n\nกรุณาตรวจสอบทะเบียนรถและลองใหม่อีกครั้ง หรือติดต่อเจ้าหน้าที่`
-                    );
-                }
-                continue;
-            }
+                // Mark registration as matched if exists
+                await prisma.lineRegistration.updateMany({
+                    where: { lineUserId, normalizedPlate, matched: false },
+                    data: { matched: true, matchedClaimId: matched.id },
+                });
 
-            // Update lineUserId ใน claim
-            const isNewLink = (matched as any).lineUserId !== lineUserId;
-            await prisma.insuranceClaim.update({
-                where: { id: matched.id },
-                data: {
-                    ...(({ lineUserId, lineLinkedAt: isNewLink ? new Date() : undefined }) as any),
-                },
-            });
+                const statusTh: Record<string, string> = {
+                    PENDING: "รอดำเนินการ 🕐", ORDERED: "สั่งอะไหล่แล้ว 📦",
+                    ARRIVED: "อะไหล่มาถึง 🎉", NOTIFIED: "แจ้งลูกค้าแล้ว ✅",
+                };
 
-            // Reply ยืนยัน
-            const statusTh: Record<string, string> = {
-                PENDING: "รอดำเนินการ 🕐",
-                ORDERED: "สั่งอะไหล่แล้ว 📦",
-                ARRIVED: "อะไหล่มาถึง 🎉",
-                NOTIFIED: "แจ้งลูกค้าแล้ว ✅",
-            };
-
-            const replyText = isNewLink
-                ? [
+                await sendLineReply(replyToken, [
                     `✅ ลงทะเบียนสำเร็จ!`,
                     ``,
+                    `คุณ ${matched.customerName}`,
                     `รถทะเบียน ${matched.plateNo} (${matched.carBrand} ${matched.carModel})`,
                     `สถานะปัจจุบัน: ${statusTh[matched.status] || matched.status}`,
                     ``,
                     `เราจะแจ้งเตือนคุณผ่าน LINE เมื่อมีการอัพเดตสถานะ 🙏`,
-                ].join("\n")
-                : [
-                    `📋 สถานะล่าสุด`,
+                ].join("\n"));
+
+                console.log(`[LINE Webhook] Linked userId=${lineUserId} to claim ${matched.claimNo}`);
+            } else {
+                // ❌ ไม่เจอเคลม → เก็บเป็น pending registration
+                await prisma.lineRegistration.upsert({
+                    where: {
+                        lineUserId_normalizedPlate: { lineUserId, normalizedPlate },
+                    },
+                    create: {
+                        lineUserId,
+                        customerName,
+                        plateNo: plateRaw,
+                        normalizedPlate,
+                    },
+                    update: {
+                        customerName,
+                        plateNo: plateRaw,
+                    },
+                });
+
+                await sendLineReply(replyToken, [
+                    `📝 บันทึกข้อมูลเรียบร้อย`,
                     ``,
-                    `รถทะเบียน ${matched.plateNo} (${matched.carBrand} ${matched.carModel})`,
-                    `สถานะ: ${statusTh[matched.status] || matched.status}`,
-                ].join("\n");
+                    `คุณ ${customerName}`,
+                    `ทะเบียน ${plateRaw}`,
+                    ``,
+                    `ยังไม่พบเคลมในระบบตอนนี้ แต่เราได้บันทึกข้อมูลไว้แล้ว`,
+                    `เมื่อทางร้านสร้างเคลมที่ตรงกัน ระบบจะแจ้งเตือนคุณอัตโนมัติ 🙏`,
+                ].join("\n"));
 
-            await sendLineReply(replyToken, replyText);
-
-            console.log(`[LINE Webhook] Linked userId=${lineUserId} to claim ${matched.claimNo} (plate: ${matched.plateNo})`);
+                console.log(`[LINE Webhook] Stored pending registration for ${customerName} (${plateRaw})`);
+            }
         }
 
         return c.json({ ok: true });
     } catch (error: any) {
         console.error("[LINE Webhook] Error:", error?.message);
-        // LINE ต้องการ 200 เสมอ ไม่งั้นจะ retry
         return c.json({ ok: true });
     }
 });
