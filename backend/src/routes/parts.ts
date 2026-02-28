@@ -6,6 +6,21 @@ import { parsePagination, paginatedJson } from "../lib/pagination.js";
 
 export const partsRouter = new Hono();
 
+// GET /api/parts/lookup/:code - ค้นหาอะไหล่ด้วยรหัสบาร์โค้ด (exact match)
+partsRouter.get("/lookup/:code", async (c) => {
+    try {
+        const { code } = c.req.param();
+        const part = await prisma.part.findFirst({
+            where: { code: { equals: code, mode: "insensitive" } },
+            include: { category: { include: { parent: { include: { parent: true } } } } },
+        });
+        if (!part) return c.json({ success: false, error: "ไม่พบอะไหล่ที่ตรงกับรหัสนี้" }, 404);
+        return c.json({ success: true, data: part });
+    } catch (error) {
+        return c.json({ success: false, error: "เกิดข้อผิดพลาด" }, 500);
+    }
+});
+
 // GET /api/parts - ดึงอะไหล่ทั้งหมด (paginated)
 partsRouter.get("/", async (c) => {
     try {

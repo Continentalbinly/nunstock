@@ -16,6 +16,7 @@ export default function ShopPage() {
     const [parts, setParts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
+    const [debouncedSearch, setDebouncedSearch] = useState("");
     const [lowStockOnly, setLowStockOnly] = useState(false);
     const [page, setPage] = useState(1);
     const [pagination, setPagination] = useState({ page: 1, pageSize: 20, total: 0, totalPages: 1 });
@@ -100,12 +101,20 @@ export default function ShopPage() {
         }
     }, [searchParams, allCategories]);
 
+    // Debounce search input — gives barcode scanner time to finish
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(search);
+        }, 400);
+        return () => clearTimeout(timer);
+    }, [search]);
+
     const fetchParts = async () => {
         if (!selectedModel) return;
         setLoading(true);
         try {
             const params: Record<string, string> = { page: String(page), pageSize: "20", categoryId: selectedModel.id };
-            if (search) params.search = search;
+            if (debouncedSearch) params.search = debouncedSearch;
             if (lowStockOnly) params.lowStock = "true";
             const result = await getParts(params);
             setParts(result.data);
@@ -119,7 +128,7 @@ export default function ShopPage() {
 
     useEffect(() => {
         if (selectedModel) fetchParts();
-    }, [selectedModel, page, search, lowStockOnly]);
+    }, [selectedModel, page, debouncedSearch, lowStockOnly]);
 
     const handleFilterChange = (setter: (v: any) => void, value: any) => {
         setPage(1);

@@ -93,5 +93,15 @@ export const notifyClaimCustomer = (id: string, lineUserId?: string) =>
 export const deleteClaim = (id: string) =>
     apiFetch<any>(`/api/claims/${id}`, { method: "DELETE" });
 
+// ---- ค้นหาด้วยบาร์โค้ด ----
+export const lookupPartByCode = async (code: string) => {
+    const res = await fetch(`${API_BASE}/api/parts/lookup/${encodeURIComponent(code)}`, {
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+    });
+    const data = await res.json();
+    return data; // { success, data?, error? }
+};
+
 // ---- สต็อก Dashboard ----
 export const getStockSummary = () => apiFetch<any>("/api/stock/summary");
