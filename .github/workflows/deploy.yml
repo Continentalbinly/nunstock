@@ -142,6 +142,9 @@ jobs:
               npx prisma migrate resolve --applied "20260220180933_add_stock_movements"
               npx prisma migrate resolve --applied "20260221142318_add_category_hierarchy"
               npx prisma migrate resolve --applied "20260221152905_allow_duplicate_category_names"
+              npx prisma migrate resolve --applied "20260225062526_add_line_registration"
+              npx prisma migrate resolve --applied "20260225172600_add_line_user_id_to_claims"
+              npx prisma migrate resolve --applied "20260301113000_add_specification_field"
             else
               echo ">>> Migration history found, skipping baseline"
             fi
