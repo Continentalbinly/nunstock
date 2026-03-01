@@ -103,5 +103,8 @@ export const lookupPartByCode = async (code: string) => {
     return data; // { success, data?, error? }
 };
 
+export const createBatchMovements = (data: { items: { partId: string; quantity: number; reason?: string }[]; reason?: string }) =>
+    apiFetch<any>("/api/movements/batch", { method: "POST", body: JSON.stringify(data) });
+
 // ---- สต็อก Dashboard ----
 export const getStockSummary = () => apiFetch<any>("/api/stock/summary");

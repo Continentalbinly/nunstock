@@ -100,3 +100,46 @@ movementsRouter.post("/", requireAuth(), zValidator("json", movementSchema), asy
         return c.json({ success: false, error: "ไม่สามารถบันทึกรายการได้" }, 500);
     }
 });
+
+// POST /api/movements/batch — เบิกอะไหล่หลายรายการพร้อมกัน (ต้อง login)
+const batchSchema = z.object({
+    items: z.array(z.object({
+        partId: z.string().min(1),
+        quantity: z.number().int().min(1),
+        reason: z.string().optional(),
+    })).min(1, "ต้องมีอย่างน้อย 1 รายการ"),
+    reason: z.string().optional(),
+});
+
+movementsRouter.post("/batch", requireAuth(), zValidator("json", batchSchema), async (c) => {
+    try {
+        const { items, reason: globalReason } = c.req.valid("json");
+        const user = (c as any).get("user");
+
+        const partIds = items.map(i => i.partId);
+        const parts = await prisma.part.findMany({ where: { id: { in: partIds } } });
+        const partMap = new Map(parts.map(p => [p.id, p]));
+
+        const errors: string[] = [];
+        for (const item of items) {
+            const part = partMap.get(item.partId);
+            if (!part) { errors.push(`ไม่พบอะไหล่ ID: ${item.partId}`); continue; }
+            if (part.quantity < item.quantity) {
+                errors.push(`${part.name}: สต็อกไม่เพียงพอ (มี ${part.quantity} ${part.unit}, ต้องการ ${item.quantity})`);
+            }
+        }
+        if (errors.length > 0) return c.json({ success: false, error: errors.join("\n"), errors }, 400);
+
+        const ops = items.flatMap(item => [
+            prisma.stockMovement.create({
+                data: { partId: item.partId, type: "OUT", quantity: item.quantity, reason: item.reason || globalReason || null, userId: user.id },
+            }),
+            prisma.part.update({ where: { id: item.partId }, data: { quantity: { decrement: item.quantity } } }),
+        ]);
+        await prisma.$transaction(ops);
+
+        return c.json({ success: true, data: { count: items.length, items: items.map(i => ({ partId: i.partId, quantity: i.quantity, name: partMap.get(i.partId)?.name })) } }, 201);
+    } catch (error) {
+        return c.json({ success: false, error: "ไม่สามารถบันทึกรายการได้" }, 500);
+    }
+});

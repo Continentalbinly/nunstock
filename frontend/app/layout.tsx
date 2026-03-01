@@ -5,7 +5,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { Toaster } from "@/components/ui/sonner";
 import { PWARegister } from "@/components/PWARegister";
-import { GlobalBarcodeScanner } from "@/components/GlobalBarcodeScanner";
+import { GlobalBarcodeScannerWrapper } from "@/components/GlobalBarcodeScannerWrapper";
 import { headers } from "next/headers";
 
 const notoSansThai = Noto_Sans_Thai({
@@ -65,7 +65,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           </main>
           <Toaster richColors position="top-right" />
           <PWARegister />
-          <GlobalBarcodeScanner />
+          <GlobalBarcodeScannerWrapper />
         </ThemeProvider>
       </body>
     </html>

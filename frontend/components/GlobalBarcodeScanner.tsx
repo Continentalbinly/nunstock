@@ -1,72 +1,112 @@
 "use client";
 import { useEffect, useRef, useState, useCallback } from "react";
-import { lookupPartByCode, createMovement } from "@/lib/api";
+import { lookupPartByCode, createBatchMovements } from "@/lib/api";
+import { toast } from "sonner";
 import {
-    ScanBarcode, X, Package, CheckCircle2, AlertTriangle,
-    ArrowDownToLine, ArrowUpFromLine, Minus, Plus, AlertCircle
+    X, Package, CheckCircle2, AlertTriangle, AlertCircle,
+    ArrowUpFromLine, Minus, Plus, Trash2, ShoppingCart
 } from "lucide-react";
 
+interface CartItem {
+    id: string;
+    code: string;
+    name: string;
+    brand?: string;
+    unit: string;
+    quantity: number;
+    categoryPath: string;
+    withdrawQty: number;
+}
+
 export function GlobalBarcodeScanner() {
-    const [part, setPart] = useState<any>(null);
-    const [notFound, setNotFound] = useState<string | null>(null);
-    const [loading, setLoading] = useState(false);
-    const [scanIndicator, setScanIndicator] = useState(false);
-
-    // Action modal state
-    const [actionType, setActionType] = useState<"IN" | "OUT">("IN");
-    const [qty, setQty] = useState(1);
-    const [reason, setReason] = useState("");
+    const [cart, setCart] = useState<CartItem[]>([]);
+    const [isOpen, setIsOpen] = useState(false);
     const [submitting, setSubmitting] = useState(false);
-    const [success, setSuccess] = useState("");
-    const [error, setError] = useState("");
+    const [success, setSuccess] = useState(false);
+    const [reason, setReason] = useState("");
 
-    // Scanner detection refs
+    // Scanner refs
     const keyBuffer = useRef("");
     const lastKeyTime = useRef(0);
     const scannerTimeout = useRef<NodeJS.Timeout | null>(null);
+    const lookingUp = useRef(false);
 
-    const resetModal = useCallback(() => {
-        setPart(null);
-        setNotFound(null);
-        setActionType("IN");
-        setQty(1);
-        setReason("");
-        setSubmitting(false);
-        setSuccess("");
-        setError("");
+    // Thai Kedmanee → English mapping (both layers)
+    const thaiToEng: Record<string, string> = {
+        "ๅ": "1", "/": "2", "-": "3", "ภ": "4", "ถ": "5", "ุ": "6", "ึ": "7", "ค": "8", "ต": "9", "จ": "0",
+        "ข": "-", "ช": "=",
+        "ๆ": "q", "ไ": "w", "ำ": "e", "พ": "r", "ะ": "t", "ั": "y", "ี": "u", "ร": "i", "น": "o", "ย": "p",
+        "บ": "[", "ล": "]", "ฃ": "\\",
+        "ฟ": "a", "ห": "s", "ก": "d", "ด": "f", "เ": "g", "้": "h", "่": "j", "า": "k", "ส": "l", "ว": ";",
+        "ง": "'",
+        "ผ": "z", "ป": "x", "แ": "c", "อ": "v", "ิ": "b", "ื": "n", "ท": "m", "ม": ",", "ใ": ".", "ฝ": "/",
+        "๐": "Q", "ฎ": "E", "ฑ": "R", "ธ": "T", "ํ": "Y", "๊": "U", "ณ": "I", "ฯ": "O", "ญ": "P",
+        "ฤ": "A", "ฆ": "S", "ฏ": "D", "โ": "F", "ฌ": "G", "็": "H", "๋": "J", "ษ": "K", "ศ": "L",
+        "ฉ": "C", "ฮ": "V", "ฺ": "B", "์": "N", "ฒ": "<", "ฬ": ">",
+        "๑": "@", "๒": "#", "๓": "$", "๔": "%", "ู": "^", "฿": "&", "๕": "*", "๖": "(", "๗": ")",
+        "๘": "_", "๙": "+",
+    };
+    const hasThai = (s: string) => /[\u0E00-\u0E7F]/.test(s);
+    const convertBuffer = (buf: string): string =>
+        hasThai(buf) ? buf.split("").map(c => thaiToEng[c] || c).join("") : buf;
+
+    const getCategoryPath = (p: any): string => {
+        if (!p?.category) return "";
+        const parts: string[] = [p.category.name];
+        if (p.category.parent) {
+            parts.unshift(p.category.parent.name);
+            if (p.category.parent.parent) parts.unshift(p.category.parent.parent.name);
+        }
+        return parts.join(" › ");
+    };
+
+    const addToCart = useCallback((part: any) => {
+        setCart(prev => {
+            const existing = prev.find(i => i.id === part.id);
+            if (existing) {
+                if (existing.withdrawQty < existing.quantity) {
+                    toast.success(`${part.name} +1 (รวม ${existing.withdrawQty + 1})`, { duration: 1500 });
+                    return prev.map(i => i.id === part.id ? { ...i, withdrawQty: i.withdrawQty + 1 } : i);
+                } else {
+                    toast.warning(`${part.name}: สต็อกไม่เพียงพอ (มี ${existing.quantity} ${existing.unit})`, { duration: 2000 });
+                    return prev;
+                }
+            }
+            toast.success(`เพิ่ม ${part.name} ลงตะกร้า`, { duration: 1500 });
+            return [...prev, {
+                id: part.id, code: part.code, name: part.name, brand: part.brand,
+                unit: part.unit, quantity: part.quantity,
+                categoryPath: getCategoryPath(part), withdrawQty: 1,
+            }];
+        });
+        setIsOpen(true);
     }, []);
 
-    const handleLookup = useCallback(async (code: string) => {
-        if (code.length < 2) return;
-        setLoading(true);
-        setScanIndicator(true);
+    const handleLookup = useCallback(async (rawCode: string) => {
+        // Strip invisible/control chars and trim whitespace
+        const code = rawCode.replace(/[^\x20-\x7E]/g, "").trim();
+        if (code.length < 2 || lookingUp.current) return;
+        lookingUp.current = true;
         try {
             const result = await lookupPartByCode(code);
             if (result.success && result.data) {
-                setPart(result.data);
-                setActionType("IN");
-                setQty(1);
-                setReason("");
-                setSuccess("");
-                setError("");
+                addToCart(result.data);
             } else {
-                setNotFound(code);
+                toast.error(`ไม่พบรายการ "${code}" ในระบบ`, { duration: 2500 });
             }
         } catch {
-            setNotFound(code);
+            toast.error(`ไม่พบรายการ "${code}" ในระบบ`, { duration: 2500 });
         } finally {
-            setLoading(false);
-            setTimeout(() => setScanIndicator(false), 1000);
+            lookingUp.current = false;
         }
-    }, []);
+    }, [addToCart]);
 
-    // Global keydown listener for barcode scanner detection
+    // === Physical Scanner (keydown) — ทำงานทุก platform ===
     useEffect(() => {
         const handler = (e: KeyboardEvent) => {
-            // Skip if focus is in an input/textarea/select or if a modal is already open
             const tag = (e.target as HTMLElement)?.tagName;
-            if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-            if (part || notFound) return;
+            const isContentEditable = (e.target as HTMLElement)?.isContentEditable;
+            if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || isContentEditable) return;
 
             const now = Date.now();
             const timeDiff = now - lastKeyTime.current;
@@ -74,30 +114,26 @@ export function GlobalBarcodeScanner() {
             if (e.key === "Enter") {
                 e.preventDefault();
                 if (keyBuffer.current.length >= 2) {
-                    const code = keyBuffer.current;
+                    const code = convertBuffer(keyBuffer.current);
                     keyBuffer.current = "";
                     handleLookup(code);
                 }
                 return;
             }
 
-            // Only single printable characters
             if (e.key.length !== 1) return;
 
-            // Detect rapid typing (scanner: < 50ms between chars)
             if (timeDiff < 50) {
                 keyBuffer.current += e.key;
             } else {
-                // Reset: slow typing = human, start new buffer
                 keyBuffer.current = e.key;
             }
             lastKeyTime.current = now;
 
-            // Auto-trigger after 300ms of no more input (scanner finished)
             if (scannerTimeout.current) clearTimeout(scannerTimeout.current);
             scannerTimeout.current = setTimeout(() => {
                 if (keyBuffer.current.length >= 3) {
-                    const code = keyBuffer.current;
+                    const code = convertBuffer(keyBuffer.current);
                     keyBuffer.current = "";
                     handleLookup(code);
                 } else {
@@ -111,251 +147,189 @@ export function GlobalBarcodeScanner() {
             window.removeEventListener("keydown", handler);
             if (scannerTimeout.current) clearTimeout(scannerTimeout.current);
         };
-    }, [part, notFound, handleLookup]);
+    }, [handleLookup]);
 
-    const handleSubmit = async () => {
-        if (!part) return;
-        if (actionType === "OUT" && qty > part.quantity) {
-            setError(`สต็อกไม่เพียงพอ (เหลือ ${part.quantity} ${part.unit})`);
-            return;
-        }
+    const updateQty = (id: string, delta: number) => {
+        setCart(prev => prev.map(item => {
+            if (item.id !== id) return item;
+            const newQty = Math.max(1, Math.min(item.withdrawQty + delta, item.quantity));
+            return { ...item, withdrawQty: newQty };
+        }));
+    };
+
+    const removeItem = (id: string) => {
+        setCart(prev => {
+            const next = prev.filter(i => i.id !== id);
+            if (next.length === 0) setIsOpen(false);
+            return next;
+        });
+    };
+
+    const clearCart = () => {
+        setCart([]);
+        setIsOpen(false);
+        setReason("");
+        setSuccess(false);
+    };
+
+    const handleBatchSubmit = async () => {
+        if (cart.length === 0) return;
         setSubmitting(true);
-        setError("");
         try {
-            await createMovement({
-                partId: part.id,
-                type: actionType,
-                quantity: qty,
+            await createBatchMovements({
+                items: cart.map(i => ({ partId: i.id, quantity: i.withdrawQty })),
                 reason: reason || undefined,
             });
-            setSuccess(
-                actionType === "IN"
-                    ? `เพิ่ม ${part.name} จำนวน ${qty} ${part.unit} สำเร็จ!`
-                    : `เบิก ${part.name} จำนวน ${qty} ${part.unit} สำเร็จ!`
-            );
-            // Re-fetch updated part
-            const updated = await lookupPartByCode(part.code);
-            if (updated.success) setPart(updated.data);
-            setTimeout(() => resetModal(), 2000);
+            setSuccess(true);
+            setTimeout(() => clearCart(), 2500);
         } catch (err: any) {
-            setError(err.message || "ไม่สามารถดำเนินการได้");
+            toast.error(err.message || "ไม่สามารถเบิกได้");
         } finally {
             setSubmitting(false);
         }
     };
 
-    // Build category breadcrumb
-    const getCategoryPath = (p: any): string => {
-        if (!p?.category) return "";
-        const parts: string[] = [p.category.name];
-        if (p.category.parent) {
-            parts.unshift(p.category.parent.name);
-            if (p.category.parent.parent) {
-                parts.unshift(p.category.parent.parent.name);
-            }
-        }
-        return parts.join(" › ");
-    };
-
-    const isIn = actionType === "IN";
-    const accentColor = isIn ? "#22C55E" : "#F97316";
+    const totalItems = cart.reduce((sum, i) => sum + i.withdrawQty, 0);
 
     return (
         <>
-            {/* Scan indicator — brief flash when barcode detected */}
-            {(scanIndicator || loading) && (
-                <div className="fixed top-4 left-1/2 -translate-x-1/2 z-100 flex items-center gap-2 px-4 py-2 rounded-full shadow-lg"
-                    style={{ background: "var(--t-modal-bg)", border: "1px solid #22C55E40", animation: "fadeIn 100ms ease" }}>
-                    <ScanBarcode className="w-4 h-4 text-emerald-500 animate-pulse" />
-                    <span className="text-sm font-medium" style={{ color: "var(--t-text)" }}>
-                        {loading ? "กำลังค้นหา..." : "สแกนบาร์โค้ด"}
-                    </span>
-                </div>
+            {/* Floating cart button (only when cart has items & panel closed) */}
+            {!isOpen && cart.length > 0 && (
+                <button
+                    onClick={() => setIsOpen(true)}
+                    className="fixed bottom-6 right-6 z-80 flex items-center gap-2 px-5 py-3.5 rounded-2xl shadow-2xl transition-all hover:-translate-y-1 cursor-pointer"
+                    style={{ background: "linear-gradient(135deg, #F97316, #EA580C)", color: "#fff", boxShadow: "0 8px 32px rgba(249,115,22,0.4)" }}>
+                    <ShoppingCart className="w-5 h-5" />
+                    <span className="font-bold text-sm">ตะกร้าเบิก</span>
+                    <span className="bg-white text-orange-600 font-bold text-xs px-2 py-0.5 rounded-full ml-1">{cart.length}</span>
+                </button>
             )}
 
-            {/* Not Found Modal */}
-            {notFound && (
-                <div className="fixed inset-0 z-90 flex items-center justify-center"
-                    style={{ background: "var(--t-modal-overlay)", animation: "fadeIn 150ms ease" }}
-                    onClick={resetModal}>
-                    <div className="rounded-2xl p-6 w-[90%] max-w-sm shadow-2xl"
-                        style={{ background: "var(--t-modal-bg)", border: "1px solid var(--t-modal-border)", animation: "slideUp 200ms ease" }}
-                        onClick={(e) => e.stopPropagation()}>
-                        <div className="text-center">
-                            <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: "rgba(239,68,68,0.1)" }}>
-                                <AlertTriangle className="w-8 h-8 text-red-500" />
-                            </div>
-                            <h3 className="font-bold text-lg mb-2" style={{ color: "var(--t-text)" }}>ไม่พบรายการนี้ในระบบ</h3>
-                            <div className="rounded-lg px-4 py-2.5 mb-4" style={{ background: "var(--t-badge-bg)" }}>
-                                <p className="font-mono text-sm font-semibold" style={{ color: "var(--t-text-secondary)" }}>{notFound}</p>
-                            </div>
-                            <p className="text-sm mb-5" style={{ color: "var(--t-text-muted)" }}>
-                                ไม่มีอะไหล่ที่ตรงกับบาร์โค้ดนี้ในระบบ
-                            </p>
-                            <button onClick={resetModal}
-                                className="w-full rounded-xl py-3 text-sm font-semibold transition-colors cursor-pointer"
-                                style={{ background: "var(--t-input-bg)", color: "var(--t-text)", border: "1px solid var(--t-input-border)" }}>
-                                ปิด
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Part Found Modal */}
-            {part && (
-                <div className="fixed inset-0 z-90 flex items-center justify-center"
-                    style={{ background: "var(--t-modal-overlay)", animation: "fadeIn 150ms ease" }}
-                    onClick={() => !submitting && !success && resetModal()}>
-                    <div className="rounded-2xl w-[90%] max-w-md shadow-2xl overflow-hidden"
-                        style={{ background: "var(--t-modal-bg)", border: `1px solid var(--t-modal-border)`, animation: "slideUp 200ms ease" }}
-                        onClick={(e) => e.stopPropagation()}>
+            {/* Cart Panel */}
+            {isOpen && (
+                <div className="fixed bottom-0 right-0 z-80 w-full sm:w-[420px] sm:bottom-4 sm:right-4 flex flex-col"
+                    style={{ maxHeight: "90vh", animation: "slideUp 200ms ease" }}>
+                    <div className="rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+                        style={{ background: "var(--t-modal-bg)", border: "1px solid var(--t-modal-border)", maxHeight: "90vh" }}>
 
                         {/* Header */}
-                        <div className="p-5 flex items-center justify-between" style={{ borderBottom: `2px solid ${accentColor}20` }}>
+                        <div className="p-4 flex items-center justify-between shrink-0" style={{ borderBottom: "1px solid var(--t-border-subtle)", background: "linear-gradient(135deg, rgba(249,115,22,0.08), rgba(249,115,22,0.02))" }}>
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "rgba(34,197,94,0.15)" }}>
-                                    <ScanBarcode className="w-5 h-5" style={{ color: "#22C55E" }} />
+                                <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "rgba(249,115,22,0.15)" }}>
+                                    <ShoppingCart className="w-5 h-5" style={{ color: "#F97316" }} />
                                 </div>
                                 <div>
-                                    <h3 className="font-bold" style={{ color: "var(--t-text)" }}>สแกนบาร์โค้ด</h3>
-                                    <p className="text-xs" style={{ color: "var(--t-text-muted)" }}>พบอะไหล่ในระบบ</p>
+                                    <h3 className="font-bold text-sm" style={{ color: "var(--t-text)" }}>ตะกร้าเบิก</h3>
+                                    <p className="text-[11px]" style={{ color: "var(--t-text-muted)" }}>{cart.length} รายการ • {totalItems} ชิ้น</p>
                                 </div>
                             </div>
-                            <button onClick={resetModal} className="p-1.5 rounded-lg transition-colors cursor-pointer" style={{ color: "var(--t-text-muted)" }}>
-                                <X className="w-5 h-5" />
-                            </button>
+                            <div className="flex items-center gap-1">
+                                <button onClick={clearCart} className="p-1.5 rounded-lg transition-colors cursor-pointer text-xs font-medium px-2.5 py-1.5"
+                                    style={{ color: "var(--t-text-muted)" }}
+                                    onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(239,68,68,0.1)"; e.currentTarget.style.color = "#EF4444"; }}
+                                    onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--t-text-muted)"; }}>
+                                    ล้าง
+                                </button>
+                                <button onClick={() => setIsOpen(false)} className="p-1.5 rounded-lg transition-colors cursor-pointer" style={{ color: "var(--t-text-muted)" }}>
+                                    <X className="w-4 h-4" />
+                                </button>
+                            </div>
                         </div>
 
                         {success ? (
-                            <div className="p-8 text-center" style={{ animation: "slideUp 200ms ease" }}>
-                                <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: `${accentColor}15` }}>
-                                    <CheckCircle2 className="w-8 h-8" style={{ color: accentColor }} />
+                            <div className="p-8 text-center">
+                                <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: "rgba(34,197,94,0.15)" }}>
+                                    <CheckCircle2 className="w-8 h-8 text-emerald-500" />
                                 </div>
-                                <p className="font-bold text-lg" style={{ color: accentColor }}>{success}</p>
+                                <p className="font-bold text-lg text-emerald-500 mb-1">เบิกสำเร็จ!</p>
+                                <p className="text-sm" style={{ color: "var(--t-text-muted)" }}>เบิกอะไหล่ {cart.length} รายการเรียบร้อย</p>
                             </div>
                         ) : (
-                            <div className="p-5 space-y-5">
-                                {/* Part Info Card */}
-                                <div className="rounded-xl p-4" style={{ background: "var(--t-badge-bg)", border: "1px solid var(--t-border-subtle)" }}>
-                                    <div className="flex items-start gap-3">
-                                        <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style={{ background: "var(--t-input-bg)" }}>
-                                            <Package className="w-5 h-5" style={{ color: "var(--t-text-muted)" }} />
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="font-bold text-base" style={{ color: "var(--t-text)" }}>{part.name}</p>
-                                            <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                                <span className="font-mono text-xs px-2 py-0.5 rounded" style={{ background: "var(--t-input-bg)", color: "var(--t-text-secondary)" }}>{part.code}</span>
-                                                {part.brand && <span className="text-xs" style={{ color: "var(--t-text-muted)" }}>{part.brand}</span>}
-                                            </div>
-                                            {getCategoryPath(part) && (
-                                                <p className="text-[11px] mt-1.5" style={{ color: "var(--t-text-dim)" }}>
-                                                    📍 {getCategoryPath(part)}
-                                                </p>
-                                            )}
-                                            <div className="flex items-center gap-2 mt-2">
-                                                <span className="text-xs" style={{ color: "var(--t-text-muted)" }}>สต็อกปัจจุบัน:</span>
-                                                <span className={`text-sm font-bold ${part.quantity <= part.minStock ? "text-red-500" : "text-emerald-500"}`}>
-                                                    {part.quantity} {part.unit}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
+                            <>
+                                {/* Scan hint */}
+                                <div className="px-4 py-2 flex items-center gap-2 shrink-0" style={{ background: "rgba(249,115,22,0.05)", borderBottom: "1px solid var(--t-border-subtle)" }}>
+                                    <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
+                                    <span className="text-[11px] font-medium" style={{ color: "var(--t-text-muted)" }}>ยิงบาร์โค้ดเพื่อเพิ่มรายการ</span>
                                 </div>
 
-                                {/* Action Type Toggle */}
-                                <div className="flex gap-2">
-                                    <button
-                                        onClick={() => { setActionType("IN"); setError(""); }}
-                                        className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all cursor-pointer`}
-                                        style={isIn ? { background: "#22C55E", color: "#fff", boxShadow: "0 4px 12px rgba(34,197,94,0.3)" } : { background: "var(--t-input-bg)", color: "var(--t-text-secondary)", border: "1px solid var(--t-input-border)" }}>
-                                        <ArrowDownToLine className="w-4 h-4" /> เพิ่มสต็อก
-                                    </button>
-                                    <button
-                                        onClick={() => { setActionType("OUT"); setError(""); }}
-                                        className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all cursor-pointer`}
-                                        style={!isIn ? { background: "#F97316", color: "#fff", boxShadow: "0 4px 12px rgba(249,115,22,0.3)" } : { background: "var(--t-input-bg)", color: "var(--t-text-secondary)", border: "1px solid var(--t-input-border)" }}>
-                                        <ArrowUpFromLine className="w-4 h-4" /> เบิกอะไหล่
-                                    </button>
-                                </div>
-
-                                {error && (
-                                    <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center gap-2">
-                                        <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
-                                        <p className="text-sm text-red-500">{error}</p>
+                                {/* Empty state */}
+                                {cart.length === 0 && (
+                                    <div className="p-6 text-center">
+                                        <Package className="w-8 h-8 mx-auto mb-2" style={{ color: "var(--t-text-dim)" }} />
+                                        <p className="text-sm" style={{ color: "var(--t-text-muted)" }}>ยังไม่มีรายการ</p>
+                                        <p className="text-[11px] mt-1" style={{ color: "var(--t-text-dim)" }}>ยิงบาร์โค้ดเพื่อเพิ่มอะไหล่</p>
                                     </div>
                                 )}
 
-                                {/* Quantity */}
-                                <div>
-                                    <label className="text-sm font-semibold mb-2 block" style={{ color: "var(--t-text)" }}>{isIn ? "จำนวนที่เพิ่ม" : "จำนวนที่เบิก"}</label>
-                                    <div className="flex items-center gap-2">
-                                        <button type="button" onClick={() => setQty(Math.max(1, qty - 1))} disabled={qty <= 1}
-                                            className="w-12 h-12 rounded-xl flex items-center justify-center transition-colors cursor-pointer disabled:opacity-30"
-                                            style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-text)" }}>
-                                            <Minus className="w-5 h-5" />
-                                        </button>
-                                        <div className="flex-1 relative">
-                                            <input type="number" value={qty} onChange={(e) => setQty(Math.max(1, Number(e.target.value)))}
-                                                className="w-full rounded-xl text-center text-3xl font-bold py-2 focus:outline-none"
-                                                style={{ background: "var(--t-input-bg)", border: `2px solid ${accentColor}40`, color: "var(--t-text)" }}
-                                                min={1} max={actionType === "OUT" ? part.quantity : undefined} />
-                                            {!isIn && (
-                                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs" style={{ color: "var(--t-text-dim)" }}>
-                                                    / {part.quantity} {part.unit}
-                                                </span>
-                                            )}
-                                        </div>
-                                        <button type="button"
-                                            onClick={() => setQty(actionType === "OUT" ? Math.min(qty + 1, part.quantity) : qty + 1)}
-                                            disabled={actionType === "OUT" && qty >= part.quantity}
-                                            className="w-12 h-12 rounded-xl flex items-center justify-center transition-colors cursor-pointer disabled:opacity-30"
-                                            style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-text)" }}>
-                                            <Plus className="w-5 h-5" />
+                                {/* Cart Items */}
+                                {cart.length > 0 && (
+                                    <div className="flex-1 overflow-y-auto" style={{ minHeight: 0 }}>
+                                        {cart.map((item, idx) => {
+                                            const isLow = item.withdrawQty >= item.quantity;
+                                            return (
+                                                <div key={item.id} className="px-4 py-3 flex items-center gap-3"
+                                                    style={{ borderBottom: idx < cart.length - 1 ? "1px solid var(--t-border-subtle)" : "none" }}>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-sm font-semibold truncate" style={{ color: "var(--t-text)" }}>{item.name}</p>
+                                                        <div className="flex items-center gap-2 mt-0.5">
+                                                            <span className="font-mono text-[10px]" style={{ color: "var(--t-text-muted)" }}>{item.code}</span>
+                                                            {item.brand && <span className="text-[10px]" style={{ color: "var(--t-text-dim)" }}>• {item.brand}</span>}
+                                                        </div>
+                                                        <p className="text-[10px] mt-0.5" style={{ color: isLow ? "#EF4444" : "var(--t-text-dim)" }}>
+                                                            สต็อก: {item.quantity} {item.unit}
+                                                        </p>
+                                                    </div>
+                                                    <div className="flex items-center gap-1 shrink-0">
+                                                        <button onClick={() => updateQty(item.id, -1)} disabled={item.withdrawQty <= 1}
+                                                            className="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer disabled:opacity-30 transition-colors"
+                                                            style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-text)" }}>
+                                                            <Minus className="w-3 h-3" />
+                                                        </button>
+                                                        <span className="w-8 text-center text-sm font-bold" style={{ color: isLow ? "#EF4444" : "#F97316" }}>
+                                                            {item.withdrawQty}
+                                                        </span>
+                                                        <button onClick={() => updateQty(item.id, 1)} disabled={item.withdrawQty >= item.quantity}
+                                                            className="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer disabled:opacity-30 transition-colors"
+                                                            style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-text)" }}>
+                                                            <Plus className="w-3 h-3" />
+                                                        </button>
+                                                    </div>
+                                                    <button onClick={() => removeItem(item.id)}
+                                                        className="p-1.5 rounded-lg cursor-pointer transition-colors shrink-0"
+                                                        style={{ color: "var(--t-text-dim)" }}
+                                                        onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(239,68,68,0.1)"; e.currentTarget.style.color = "#EF4444"; }}
+                                                        onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--t-text-dim)"; }}>
+                                                        <Trash2 className="w-3.5 h-3.5" />
+                                                    </button>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+
+                                {/* Footer */}
+                                {cart.length > 0 && (
+                                    <div className="p-4 space-y-3 shrink-0" style={{ borderTop: "1px solid var(--t-border-subtle)", background: "var(--t-modal-bg)" }}>
+                                        <input
+                                            type="text"
+                                            value={reason}
+                                            onChange={(e) => setReason(e.target.value)}
+                                            onKeyDown={(e) => { if (e.key === "Enter" && cart.length > 0) handleBatchSubmit(); }}
+                                            placeholder="เหตุผลการเบิก (ถ้ามี)"
+                                            className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none"
+                                            style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }}
+                                        />
+                                        <button
+                                            onClick={handleBatchSubmit}
+                                            disabled={submitting || cart.length === 0}
+                                            className="w-full flex items-center justify-center gap-2 text-white font-bold rounded-xl py-3 text-sm transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-lg hover:-translate-y-0.5 active:translate-y-0"
+                                            style={{ background: "linear-gradient(135deg, #F97316, #EA580C)", boxShadow: "0 8px 20px rgba(249,115,22,0.3)" }}>
+                                            <ArrowUpFromLine className="w-4 h-4" />
+                                            {submitting ? "กำลังเบิก..." : `เบิกทั้งหมด ${cart.length} รายการ (${totalItems} ชิ้น)`}
                                         </button>
                                     </div>
-                                    {!isIn && (
-                                        <div className="mt-2">
-                                            <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--t-border-subtle)" }}>
-                                                <div className={`h-full rounded-full transition-all duration-300 ${qty > part.quantity * 0.8 ? "bg-red-500" : qty > part.quantity * 0.5 ? "bg-amber-500" : "bg-orange-500"}`}
-                                                    style={{ width: `${Math.min((qty / part.quantity) * 100, 100)}%` }} />
-                                            </div>
-                                            <div className="flex justify-between mt-1">
-                                                <span className="text-[10px]" style={{ color: "var(--t-text-dim)" }}>เบิก {qty} {part.unit}</span>
-                                                <span className="text-[10px]" style={{ color: "var(--t-text-dim)" }}>คงเหลือ {Math.max(0, part.quantity - qty)} {part.unit}</span>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Reason */}
-                                <div>
-                                    <label className="text-sm font-semibold mb-2 block" style={{ color: "var(--t-text)" }}>
-                                        เหตุผล <span className="font-normal text-xs" style={{ color: "var(--t-text-dim)" }}>(ถ้ามี)</span>
-                                    </label>
-                                    <input type="text" value={reason} onChange={(e) => setReason(e.target.value)}
-                                        onKeyDown={(e) => { if (e.key === "Enter") handleSubmit(); }}
-                                        className="w-full rounded-lg px-4 py-2.5 text-sm focus:outline-none"
-                                        style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }}
-                                        placeholder={isIn ? "เช่น สั่งซื้อเข้าคลัง, รับคืน" : "เช่น ซ่อมรถลูกค้า, ใช้ในงาน"} />
-                                </div>
-
-                                {/* Buttons */}
-                                <div className="flex gap-3 pt-1">
-                                    <button onClick={resetModal}
-                                        className="flex-1 rounded-xl py-3 text-sm font-medium transition-colors cursor-pointer"
-                                        style={{ background: "var(--t-input-bg)", color: "var(--t-text-secondary)", border: "1px solid var(--t-input-border)" }}>
-                                        ปิด
-                                    </button>
-                                    <button onClick={handleSubmit}
-                                        disabled={submitting || (actionType === "OUT" && qty > part.quantity)}
-                                        className="flex-1 flex items-center justify-center gap-2 text-white font-bold rounded-xl py-3 text-sm transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-lg hover:-translate-y-0.5 active:translate-y-0"
-                                        style={{ background: accentColor, boxShadow: `0 8px 16px ${accentColor}30` }}>
-                                        {isIn ? <ArrowDownToLine className="w-4 h-4" /> : <ArrowUpFromLine className="w-4 h-4" />}
-                                        {submitting ? "กำลัง..." : isIn ? "เพิ่มสต็อก" : "เบิกอะไหล่"}
-                                    </button>
-                                </div>
-                            </div>
+                                )}
+                            </>
                         )}
                     </div>
                 </div>
