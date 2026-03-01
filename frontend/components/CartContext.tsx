@@ -13,10 +13,14 @@ interface CartItem {
     withdrawQty: number;
 }
 
+type CartMode = "IN" | "OUT";
+
 interface CartContextType {
     cart: CartItem[];
     isOpen: boolean;
-    addToCart: (part: any) => void;
+    mode: CartMode;
+    setMode: (m: CartMode) => void;
+    addToCart: (part: any, mode?: CartMode) => void;
     removeItem: (id: string) => void;
     updateQty: (id: string, delta: number) => void;
     clearCart: () => void;
@@ -50,18 +54,36 @@ const getCategoryPath = (p: any): string => {
 export function CartProvider({ children }: { children: ReactNode }) {
     const [cart, setCart] = useState<CartItem[]>([]);
     const [isOpen, setIsOpen] = useState(false);
+    const [mode, setModeState] = useState<CartMode>("OUT");
     const [submitting, setSubmitting] = useState(false);
     const [success, setSuccess] = useState(false);
     const [reason, setReason] = useState("");
     const cartRef = useRef<CartItem[]>([]);
 
-    const addToCart = useCallback((part: any) => {
+    const setMode = useCallback((m: CartMode) => {
+        // Switching mode clears cart to avoid confusion
+        if (cartRef.current.length > 0) {
+            cartRef.current = [];
+            setCart([]);
+        }
+        setModeState(m);
+    }, []);
+
+    const addToCart = useCallback((part: any, forceMode?: CartMode) => {
+        if (forceMode && forceMode !== mode) {
+            // Switch mode and clear cart first
+            cartRef.current = [];
+            setCart([]);
+            setModeState(forceMode);
+        }
+        const currentMode = forceMode || mode;
         const prev = cartRef.current;
         const existing = prev.find(i => i.id === part.id);
 
         let next: CartItem[];
         if (existing) {
-            if (existing.withdrawQty >= existing.quantity) {
+            // For OUT mode, check stock limit
+            if (currentMode === "OUT" && existing.withdrawQty >= existing.quantity) {
                 toast.warning(`${part.name}: สต็อกไม่เพียงพอ (มี ${existing.quantity} ${existing.unit})`, { duration: 2000 });
                 return;
             }
@@ -73,25 +95,27 @@ export function CartProvider({ children }: { children: ReactNode }) {
                 unit: part.unit, quantity: part.quantity,
                 categoryPath: getCategoryPath(part), withdrawQty: 1,
             }];
-            toast.success(`เพิ่ม ${part.name} ลงตะกร้า`, { duration: 1500 });
+            const label = currentMode === "IN" ? "เพิ่มเข้า" : "เบิกออก";
+            toast.success(`${label}: ${part.name} ลงตะกร้า`, { duration: 1500 });
         }
 
         cartRef.current = next;
         setCart(next);
         setIsOpen(true);
-    }, []);
+    }, [mode]);
 
     const updateQty = useCallback((id: string, delta: number) => {
         setCart(prev => {
             const next = prev.map(item => {
                 if (item.id !== id) return item;
-                const newQty = Math.max(1, Math.min(item.withdrawQty + delta, item.quantity));
+                const max = mode === "OUT" ? item.quantity : 9999;
+                const newQty = Math.max(1, Math.min(item.withdrawQty + delta, max));
                 return { ...item, withdrawQty: newQty };
             });
             cartRef.current = next;
             return next;
         });
-    }, []);
+    }, [mode]);
 
     const removeItem = useCallback((id: string) => {
         setCart(prev => {
@@ -119,28 +143,29 @@ export function CartProvider({ children }: { children: ReactNode }) {
                 headers: { "Content-Type": "application/json" },
                 credentials: "include",
                 body: JSON.stringify({
+                    type: mode,
                     items: cart.map(i => ({ partId: i.id, quantity: i.withdrawQty })),
                     reason: reason || undefined,
                 }),
             });
             if (!res.ok) {
                 const err = await res.json().catch(() => ({}));
-                throw new Error(err.error || "ไม่สามารถเบิกได้");
+                throw new Error(err.error || "ไม่สามารถดำเนินการได้");
             }
             setSuccess(true);
             setTimeout(() => clearCart(), 2500);
         } catch (err: any) {
-            toast.error(err.message || "ไม่สามารถเบิกได้");
+            toast.error(err.message || "ไม่สามารถดำเนินการได้");
         } finally {
             setSubmitting(false);
         }
-    }, [cart, reason, clearCart]);
+    }, [cart, reason, mode, clearCart]);
 
     const totalItems = cart.reduce((sum, i) => sum + i.withdrawQty, 0);
 
     return (
         <CartContext.Provider value={{
-            cart, isOpen, addToCart, removeItem, updateQty, clearCart,
+            cart, isOpen, mode, setMode, addToCart, removeItem, updateQty, clearCart,
             setIsOpen, submitting, success, reason, setReason, handleBatchSubmit, totalItems,
         }}>
             {children}

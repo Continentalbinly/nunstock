@@ -8,13 +8,13 @@ import {
     ShieldCheck,
     Wrench as WrenchIcon,
     Barcode,
-    History,
     Bell,
     LogOut,
     Sun,
     Moon,
     Printer,
     MessageSquare,
+    BarChart3,
 } from "lucide-react";
 
 const navItems = [
@@ -29,7 +29,7 @@ const stockItems = [
 
 const managementItems = [
     { href: "/barcode", icon: Barcode, label: "บาร์โค้ด" },
-    { href: "/withdraw", icon: History, label: "ประวัติสต็อก" },
+    { href: "/reports", icon: BarChart3, label: "รายงานสต็อก" },
     { href: "/claims", icon: ShieldCheck, label: "เคลมประกัน" },
     { href: "/line", icon: MessageSquare, label: "LINE Operations" },
     { href: "/notifications", icon: Bell, label: "แจ้งเตือน" },

@@ -112,10 +112,10 @@ async function seed() {
         { code: "IN-ISZ-001", name: "กันชนหลัง D-Max", brand: "OEM", quantity: 1, minStock: 1, unit: "ชิ้น", categoryId: insurance.modelsMap["Isuzu"]["D-Max"].id },
 
         // อุปกรณ์สิ้นเปลือง
-        { code: "CON-001", name: "น้ำมันเครื่อง 5W-30", brand: "Castrol", quantity: 48, minStock: 10, unit: "ลิตร", categoryId: consumableCat.id },
-        { code: "CON-002", name: "เทปกาว 3M", brand: "3M", quantity: 20, minStock: 5, unit: "ม้วน", categoryId: consumableCat.id },
-        { code: "CON-003", name: "กาวซิลิโคน", brand: "Dowsil", quantity: 15, minStock: 5, unit: "หลอด", categoryId: consumableCat.id },
-        { code: "CON-004", name: "กระดาษทราย #120", brand: "3M", quantity: 100, minStock: 20, unit: "แผ่น", categoryId: consumableCat.id },
+        { code: "CON-001", name: "น้ำมันเครื่อง 5W-30", brand: "Castrol", specification: "1 ลิตร", quantity: 48, minStock: 10, unit: "ขวด", categoryId: consumableCat.id },
+        { code: "CON-002", name: "เทปกาว", brand: "3M", specification: "2 นิ้ว x 10 หลา", quantity: 20, minStock: 5, unit: "ม้วน", categoryId: consumableCat.id },
+        { code: "CON-003", name: "กาวซิลิโคน", brand: "Dowsil", specification: "300 มล.", quantity: 15, minStock: 5, unit: "หลอด", categoryId: consumableCat.id },
+        { code: "CON-004", name: "กระดาษทราย", brand: "3M", specification: "เกรด #120", quantity: 100, minStock: 20, unit: "แผ่น", categoryId: consumableCat.id },
     ];
 
     for (const p of parts) {

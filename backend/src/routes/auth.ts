@@ -75,3 +75,14 @@ export function requireAuth() {
         }
     };
 }
+
+// Middleware สำหรับ check role
+export function requireRole(...roles: string[]) {
+    return async (c: any, next: any) => {
+        const user = c.get("user");
+        if (!user || !roles.includes(user.role)) {
+            return c.json({ success: false, error: "คุณไม่มีสิทธิ์เข้าถึงส่วนนี้" }, 403);
+        }
+        await next();
+    };
+}

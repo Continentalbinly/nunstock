@@ -101,8 +101,9 @@ movementsRouter.post("/", requireAuth(), zValidator("json", movementSchema), asy
     }
 });
 
-// POST /api/movements/batch — เบิกอะไหล่หลายรายการพร้อมกัน (ต้อง login)
+// POST /api/movements/batch — เบิก/เพิ่มอะไหล่หลายรายการพร้อมกัน (ต้อง login)
 const batchSchema = z.object({
+    type: z.enum(["IN", "OUT"]).default("OUT"),
     items: z.array(z.object({
         partId: z.string().min(1),
         quantity: z.number().int().min(1),
@@ -113,7 +114,7 @@ const batchSchema = z.object({
 
 movementsRouter.post("/batch", requireAuth(), zValidator("json", batchSchema), async (c) => {
     try {
-        const { items, reason: globalReason } = c.req.valid("json");
+        const { type, items, reason: globalReason } = c.req.valid("json");
         const user = (c as any).get("user");
 
         const partIds = items.map(i => i.partId);
@@ -124,7 +125,7 @@ movementsRouter.post("/batch", requireAuth(), zValidator("json", batchSchema), a
         for (const item of items) {
             const part = partMap.get(item.partId);
             if (!part) { errors.push(`ไม่พบอะไหล่ ID: ${item.partId}`); continue; }
-            if (part.quantity < item.quantity) {
+            if (type === "OUT" && part.quantity < item.quantity) {
                 errors.push(`${part.name}: สต็อกไม่เพียงพอ (มี ${part.quantity} ${part.unit}, ต้องการ ${item.quantity})`);
             }
         }
@@ -132,13 +133,54 @@ movementsRouter.post("/batch", requireAuth(), zValidator("json", batchSchema), a
 
         const ops = items.flatMap(item => [
             prisma.stockMovement.create({
-                data: { partId: item.partId, type: "OUT", quantity: item.quantity, reason: item.reason || globalReason || null, userId: user.id },
+                data: { partId: item.partId, type, quantity: item.quantity, reason: item.reason || globalReason || null, userId: user.id },
             }),
-            prisma.part.update({ where: { id: item.partId }, data: { quantity: { decrement: item.quantity } } }),
+            prisma.part.update({
+                where: { id: item.partId },
+                data: { quantity: type === "IN" ? { increment: item.quantity } : { decrement: item.quantity } },
+            }),
         ]);
         await prisma.$transaction(ops);
 
-        return c.json({ success: true, data: { count: items.length, items: items.map(i => ({ partId: i.partId, quantity: i.quantity, name: partMap.get(i.partId)?.name })) } }, 201);
+        // After OUT: check for low stock and notify LINE
+        if (type === "OUT") {
+            try {
+                const updatedParts = await prisma.part.findMany({ where: { id: { in: partIds } } });
+                const lowStockParts = updatedParts.filter(p => p.quantity <= p.minStock);
+                if (lowStockParts.length > 0) {
+                    const LINE_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+                    const LINE_ADMIN_GROUP = process.env.LINE_ADMIN_GROUP_ID;
+                    if (LINE_TOKEN && LINE_ADMIN_GROUP) {
+                        const lines = lowStockParts.map(p =>
+                            `⚠️ ${p.name} (${p.code}) เหลือ ${p.quantity} ${p.unit} (ต่ำสุด: ${p.minStock})`
+                        );
+                        const message = `🔴 แจ้งเตือนสต็อกใกล้หมด\n\n${lines.join("\n")}\n\nผู้เบิก: ${user.name}\nเหตุผล: ${globalReason || "-"}`;
+                        fetch("https://api.line.me/v2/bot/message/push", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${LINE_TOKEN}` },
+                            body: JSON.stringify({ to: LINE_ADMIN_GROUP, messages: [{ type: "text", text: message }] }),
+                        }).catch(e => console.error("[LINE Notify] Error:", e));
+                    }
+                }
+            } catch (e) { console.error("[LowStock Check]", e); }
+        }
+
+        // Record audit log
+        try {
+            await prisma.auditLog.create({
+                data: {
+                    action: type === "OUT" ? "BATCH_OUT" : "BATCH_IN",
+                    entity: "StockMovement",
+                    details: JSON.stringify({
+                        items: items.map(i => ({ partId: i.partId, qty: i.quantity, name: partMap.get(i.partId)?.name })),
+                        reason: globalReason || null,
+                    }),
+                    userId: user.id,
+                },
+            });
+        } catch (e) { console.error("[AuditLog]", e); }
+
+        return c.json({ success: true, data: { type, count: items.length, items: items.map(i => ({ partId: i.partId, quantity: i.quantity, name: partMap.get(i.partId)?.name })) } }, 201);
     } catch (error) {
         return c.json({ success: false, error: "ไม่สามารถบันทึกรายการได้" }, 500);
     }

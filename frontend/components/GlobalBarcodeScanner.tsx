@@ -46,7 +46,11 @@ const lookupPartByCode = async (code: string) => {
 // Component — Scanner detection + Cart UI
 // ============================================================
 export function GlobalBarcodeScanner() {
-    const { cart, isOpen, setIsOpen, addToCart, removeItem, updateQty, clearCart, submitting, success, reason, setReason, handleBatchSubmit, totalItems } = useCart();
+    const { cart, isOpen, setIsOpen, mode, setMode, addToCart, removeItem, updateQty, clearCart, submitting, success, reason, setReason, handleBatchSubmit, totalItems } = useCart();
+    const isIN = mode === "IN";
+    const accentColor = isIN ? "#22C55E" : "#F97316";
+    const accentDark = isIN ? "#16A34A" : "#EA580C";
+    const modeLabel = isIN ? "เพิ่มสต็อก" : "เบิกออก";
 
     const keyBuffer = useRef("");
     const lastKeyTime = useRef(0);
@@ -146,10 +150,10 @@ export function GlobalBarcodeScanner() {
                 <button
                     onClick={() => setIsOpen(true)}
                     className="fixed bottom-6 right-6 flex items-center gap-2 px-5 py-3.5 rounded-2xl shadow-2xl transition-all hover:-translate-y-1 cursor-pointer"
-                    style={{ zIndex: 9999, background: "linear-gradient(135deg, #F97316, #EA580C)", color: "#fff", boxShadow: "0 8px 32px rgba(249,115,22,0.4)" }}>
+                    style={{ zIndex: 9999, background: `linear-gradient(135deg, ${accentColor}, ${accentDark})`, color: "#fff", boxShadow: `0 8px 32px ${accentColor}66` }}>
                     <IconCart className="w-5 h-5" />
-                    <span className="font-bold text-sm">ตะกร้าเบิก</span>
-                    <span className="bg-white text-orange-600 font-bold text-xs px-2 py-0.5 rounded-full ml-1">{cart.length}</span>
+                    <span className="font-bold text-sm">ตะกร้า{modeLabel}</span>
+                    <span className="bg-white font-bold text-xs px-2 py-0.5 rounded-full ml-1" style={{ color: accentColor }}>{cart.length}</span>
                 </button>
             )}
 
@@ -163,17 +167,26 @@ export function GlobalBarcodeScanner() {
                         onClick={(e) => e.stopPropagation()}>
 
                         {/* Header */}
-                        <div className="p-4 flex items-center justify-between shrink-0" style={{ borderBottom: "1px solid var(--t-border-subtle)", background: "linear-gradient(135deg, rgba(249,115,22,0.08), rgba(249,115,22,0.02))" }}>
+                        <div className="p-4 flex items-center justify-between shrink-0" style={{ borderBottom: "1px solid var(--t-border-subtle)", background: `linear-gradient(135deg, ${accentColor}14, ${accentColor}05)` }}>
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "rgba(249,115,22,0.15)" }}>
+                                <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: `${accentColor}25` }}>
                                     <IconCart className="w-5 h-5" />
                                 </div>
                                 <div>
-                                    <h3 className="font-bold text-sm" style={{ color: "var(--t-text)" }}>ตะกร้าเบิก</h3>
+                                    <h3 className="font-bold text-sm" style={{ color: "var(--t-text)" }}>ตะกร้า{modeLabel}</h3>
                                     <p className="text-[11px]" style={{ color: "var(--t-text-muted)" }}>{cart.length} รายการ • {totalItems} ชิ้น</p>
                                 </div>
                             </div>
                             <div className="flex items-center gap-1">
+                                {/* Mode toggle */}
+                                <div className="flex rounded-lg overflow-hidden mr-1" style={{ border: "1px solid var(--t-border-subtle)" }}>
+                                    <button onClick={() => setMode("OUT")}
+                                        className="px-2 py-1 text-[10px] font-bold cursor-pointer transition-all"
+                                        style={{ background: mode === "OUT" ? accentColor : "transparent", color: mode === "OUT" ? "#fff" : "var(--t-text-muted)" }}>เบิก</button>
+                                    <button onClick={() => setMode("IN")}
+                                        className="px-2 py-1 text-[10px] font-bold cursor-pointer transition-all"
+                                        style={{ background: mode === "IN" ? "#22C55E" : "transparent", color: mode === "IN" ? "#fff" : "var(--t-text-muted)" }}>เพิ่ม</button>
+                                </div>
                                 <button onClick={() => setIsOpen(false)} className="p-1.5 rounded-lg transition-colors cursor-pointer" style={{ color: "var(--t-text-muted)" }} title="ซ่อน">
                                     <IconMinus className="w-4 h-4" />
                                 </button>
@@ -188,13 +201,13 @@ export function GlobalBarcodeScanner() {
                                 <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: "rgba(34,197,94,0.15)" }}>
                                     <IconCheck className="w-8 h-8 text-emerald-500" />
                                 </div>
-                                <p className="font-bold text-lg text-emerald-500 mb-1">เบิกสำเร็จ!</p>
-                                <p className="text-sm" style={{ color: "var(--t-text-muted)" }}>เบิกอะไหล่ {cart.length} รายการเรียบร้อย</p>
+                                <p className="font-bold text-lg text-emerald-500 mb-1">{isIN ? "เพิ่มสต็อกสำเร็จ!" : "เบิกสำเร็จ!"}</p>
+                                <p className="text-sm" style={{ color: "var(--t-text-muted)" }}>{isIN ? "เพิ่มสต็อก" : "เบิกอะไหล่"} {cart.length} รายการเรียบร้อย</p>
                             </div>
                         ) : (
                             <>
-                                <div className="px-4 py-2 flex items-center gap-2 shrink-0" style={{ background: "rgba(249,115,22,0.05)", borderBottom: "1px solid var(--t-border-subtle)" }}>
-                                    <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
+                                <div className="px-4 py-2 flex items-center gap-2 shrink-0" style={{ background: `${accentColor}0D`, borderBottom: "1px solid var(--t-border-subtle)" }}>
+                                    <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: accentColor }} />
                                     <span className="text-[11px] font-medium" style={{ color: "var(--t-text-muted)" }}>ยิงบาร์โค้ดหรือกดเบิกจากหน้ารายการเพื่อเพิ่ม</span>
                                 </div>
 
@@ -229,10 +242,10 @@ export function GlobalBarcodeScanner() {
                                                             style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-text)" }}>
                                                             <IconMinus />
                                                         </button>
-                                                        <span className="w-8 text-center text-sm font-bold" style={{ color: isLow ? "#EF4444" : "#F97316" }}>
+                                                        <span className="w-8 text-center text-sm font-bold" style={{ color: isLow ? "#EF4444" : accentColor }}>
                                                             {item.withdrawQty}
                                                         </span>
-                                                        <button onClick={() => updateQty(item.id, 1)} disabled={item.withdrawQty >= item.quantity}
+                                                        <button onClick={() => updateQty(item.id, 1)} disabled={!isIN && item.withdrawQty >= item.quantity}
                                                             className="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer disabled:opacity-30 transition-colors"
                                                             style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-text)" }}>
                                                             <IconPlus />
@@ -258,7 +271,7 @@ export function GlobalBarcodeScanner() {
                                             value={reason}
                                             onChange={(e) => setReason(e.target.value)}
                                             onKeyDown={(e) => { if (e.key === "Enter" && cart.length > 0) handleBatchSubmit(); }}
-                                            placeholder="เหตุผลการเบิก (ถ้ามี)"
+                                            placeholder={isIN ? "เหตุผลการเพิ่ม (ถ้ามี)" : "เหตุผลการเบิก (ถ้ามี)"}
                                             className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none"
                                             style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }}
                                         />
@@ -266,9 +279,9 @@ export function GlobalBarcodeScanner() {
                                             onClick={handleBatchSubmit}
                                             disabled={submitting || cart.length === 0}
                                             className="w-full flex items-center justify-center gap-2 text-white font-bold rounded-xl py-3 text-sm transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-lg hover:-translate-y-0.5 active:translate-y-0"
-                                            style={{ background: "linear-gradient(135deg, #F97316, #EA580C)", boxShadow: "0 8px 20px rgba(249,115,22,0.3)" }}>
+                                            style={{ background: `linear-gradient(135deg, ${accentColor}, ${accentDark})`, boxShadow: `0 8px 20px ${accentColor}4D` }}>
                                             <IconArrowUp className="w-4 h-4" />
-                                            {submitting ? "กำลังเบิก..." : `เบิกทั้งหมด ${cart.length} รายการ (${totalItems} ชิ้น)`}
+                                            {submitting ? (isIN ? "กำลังเพิ่ม..." : "กำลังเบิก...") : `${modeLabel}ทั้งหมด ${cart.length} รายการ (${totalItems} ชิ้น)`}
                                         </button>
                                     </div>
                                 )}

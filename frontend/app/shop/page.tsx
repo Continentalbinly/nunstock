@@ -432,11 +432,15 @@ export default function ShopPage() {
                 >
                     <ChevronLeft className="w-4 h-4" /> กลับไปเลือกรุ่น {selectedBrand.name}
                 </button>
-                <h1 className="text-xl font-bold" style={{ color: "var(--t-text)" }}>
-                    อะไหล่หน้าร้าน — {selectedBrand.name} {selectedModel?.name}
-                </h1>
-                <p className="mt-1 text-sm" style={{ color: "var(--t-text-muted)" }}>ค้นหา, เพิ่ม, เบิกอะไหล่</p>
-                <button onClick={() => { setCreateForm({ code: "", name: "", description: "", brand: "", unit: "ชิ้น", quantity: 0, minStock: 5 }); setCreateError(""); setShowCreate(true); }} className="mt-3 flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-white font-semibold rounded-lg px-4 py-2 text-sm transition-colors cursor-pointer"><Plus className="w-4 h-4" /> สร้างอะไหล่ใหม่</button>
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                    <div>
+                        <h1 className="text-xl font-bold" style={{ color: "var(--t-text)" }}>
+                            อะไหล่หน้าร้าน — {selectedBrand.name} {selectedModel?.name}
+                        </h1>
+                        <p className="mt-1 text-sm" style={{ color: "var(--t-text-muted)" }}>ค้นหา, เพิ่ม, เบิกอะไหล่</p>
+                    </div>
+                    <button onClick={() => { setCreateForm({ code: "", name: "", description: "", brand: "", unit: "ชิ้น", quantity: 0, minStock: 5 }); setCreateError(""); setShowCreate(true); }} className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-white font-semibold rounded-lg px-4 py-2 text-sm transition-colors cursor-pointer"><Plus className="w-4 h-4" /> สร้างอะไหล่ใหม่</button>
+                </div>
             </div>
 
             {/* Search */}
@@ -448,7 +452,7 @@ export default function ShopPage() {
                         </div>
                         <input
                             type="text"
-                            placeholder="ค้นหาอะไหล่... (ชื่อ, รหัส, ยี่ห้อ)"
+                            placeholder="ค้นหาอะไหล่... (ชื่อ, รหัส, คุณภาพ)"
                             value={search}
                             onChange={(e) => handleFilterChange(setSearch, e.target.value)}
                             onKeyDown={handleSearchKeyDown}
@@ -486,7 +490,7 @@ export default function ShopPage() {
                         <table className="w-full">
                             <thead>
                                 <tr style={{ borderBottom: "1px solid var(--t-border-subtle)" }}>
-                                    {["รหัส", "ชื่ออะไหล่", "ยี่ห้อ", "จำนวน", "สถานะ", "จัดการ"].map((h) => (
+                                    {["รหัส", "ชื่ออะไหล่", "คุณภาพ", "จำนวน", "สถานะ", "จัดการ"].map((h) => (
                                         <th key={h} className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-left" style={{ color: "var(--t-text-muted)" }}>{h}</th>
                                     ))}
                                 </tr>
@@ -516,7 +520,7 @@ export default function ShopPage() {
                                             </td>
                                             <td className="px-4 py-2">
                                                 <div className="flex items-center gap-1.5">
-                                                    <button onClick={() => openModal(p, "IN")} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer bg-emerald-500 hover:bg-emerald-400 text-white shadow-sm">
+                                                    <button onClick={() => addToCart(p, "IN")} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer bg-emerald-500 hover:bg-emerald-400 text-white shadow-sm">
                                                         <ArrowDownToLine className="w-3.5 h-3.5" /> เพิ่ม
                                                     </button>
                                                     <button onClick={() => addToCart(p)} disabled={p.quantity === 0} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer bg-orange-500 hover:bg-orange-400 text-white shadow-sm disabled:opacity-30 disabled:cursor-not-allowed">
@@ -645,7 +649,7 @@ export default function ShopPage() {
                         <div className="space-y-4">
                             <div className="grid grid-cols-2 gap-3">
                                 <div><label className="text-sm mb-1 block" style={{ color: "var(--t-text-secondary)" }}>รหัส *</label><input value={createForm.code} onChange={(e) => setCreateForm({ ...createForm, code: e.target.value })} className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500/30" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} placeholder="SH-TYT-003" /></div>
-                                <div><label className="text-sm mb-1 block" style={{ color: "var(--t-text-secondary)" }}>ยี่ห้ออะไหล่</label><input value={createForm.brand} onChange={(e) => setCreateForm({ ...createForm, brand: e.target.value })} className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500/30" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} placeholder="OEM, Stanley" /></div>
+                                <div><label className="text-sm mb-1 block" style={{ color: "var(--t-text-secondary)" }}>คุณภาพ</label><input value={createForm.brand} onChange={(e) => setCreateForm({ ...createForm, brand: e.target.value })} className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500/30" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} placeholder="OEM, Stanley" /></div>
                             </div>
                             <div><label className="text-sm mb-1 block" style={{ color: "var(--t-text-secondary)" }}>ชื่ออะไหล่ *</label><input value={createForm.name} onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })} className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500/30" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} /></div>
                             <div><label className="text-sm mb-1 block" style={{ color: "var(--t-text-secondary)" }}>รายละเอียด</label><textarea value={createForm.description} onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })} className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500/30" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} rows={2} /></div>
@@ -678,7 +682,7 @@ export default function ShopPage() {
                         <div className="space-y-3">
                             <div className="grid grid-cols-2 gap-3">
                                 <div><label className="text-sm mb-1 block" style={{ color: "var(--t-text-secondary)" }}>รหัส *</label><input value={editPartForm.code} onChange={(e) => setEditPartForm({ ...editPartForm, code: e.target.value })} className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500/30" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} /></div>
-                                <div><label className="text-sm mb-1 block" style={{ color: "var(--t-text-secondary)" }}>ยี่ห้ออะไหล่</label><input value={editPartForm.brand} onChange={(e) => setEditPartForm({ ...editPartForm, brand: e.target.value })} className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500/30" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} /></div>
+                                <div><label className="text-sm mb-1 block" style={{ color: "var(--t-text-secondary)" }}>คุณภาพ</label><input value={editPartForm.brand} onChange={(e) => setEditPartForm({ ...editPartForm, brand: e.target.value })} className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500/30" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} /></div>
                             </div>
                             <div><label className="text-sm mb-1 block" style={{ color: "var(--t-text-secondary)" }}>ชื่ออะไหล่ *</label><input value={editPartForm.name} onChange={(e) => setEditPartForm({ ...editPartForm, name: e.target.value })} className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500/30" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} /></div>
                             <div><label className="text-sm mb-1 block" style={{ color: "var(--t-text-secondary)" }}>รายละเอียด</label><textarea value={editPartForm.description} onChange={(e) => setEditPartForm({ ...editPartForm, description: e.target.value })} className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500/30" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} rows={2} /></div>

@@ -27,6 +27,9 @@ export default function BarcodePage() {
     const [selectedPart, setSelectedPart] = useState<any>(null);
     const barcodeRef = useRef<HTMLCanvasElement>(null);
     const searchRef = useRef<HTMLInputElement>(null);
+    const [shopCount, setShopCount] = useState(0);
+    const [consumablesCount, setConsumablesCount] = useState(0);
+    const [printQty, setPrintQty] = useState(1);
 
     // Scanner detection
     const lastKeyTime = useRef(0);
@@ -51,6 +54,24 @@ export default function BarcodePage() {
             .catch(console.error)
             .finally(() => setLoading(false));
     }, []);
+
+    // Fetch tab counts separately
+    useEffect(() => {
+        if (categories.length === 0) return;
+        // Get total parts count
+        getParts({ pageSize: "1" }).then(allRes => {
+            const total = allRes.pagination.total;
+            if (consumableRoot) {
+                // Get consumables count
+                getParts({ categoryId: consumableRoot.id, pageSize: "1" }).then(conRes => {
+                    setConsumablesCount(conRes.pagination.total);
+                    setShopCount(total - conRes.pagination.total);
+                }).catch(() => { setShopCount(total); });
+            } else {
+                setShopCount(total);
+            }
+        }).catch(() => { });
+    }, [categories, consumableRoot?.id]);
 
     const fetchParts = async (currentPage = 1, currentSearch = search) => {
         setLoading(true);
@@ -85,8 +106,8 @@ export default function BarcodePage() {
         if (selectedPart && barcodeRef.current) {
             import("jsbarcode").then((JsBarcode) => {
                 JsBarcode.default(barcodeRef.current, selectedPart.code, {
-                    format: "CODE128", width: 3, height: 100, displayValue: true,
-                    background: "#FFFFFF", lineColor: "#000000", fontSize: 24, font: "monospace", margin: 10, textMargin: 8,
+                    format: "CODE128", width: 4, height: 120, displayValue: true,
+                    background: "#FFFFFF", lineColor: "#000000", fontSize: 32, font: "bold 'Courier New', monospace", fontOptions: "bold", margin: 12, textMargin: 12,
                 });
             });
         }
@@ -164,16 +185,20 @@ export default function BarcodePage() {
                 toast.error("กรุณาเลือกเครื่องปริ้นก่อนที่หน้า 'เครื่องปริ้น'");
                 return;
             }
-            const result = await printBarcode({ imageDataUrl: dataUrl, printerName: savedPrinter });
-            if (result.success) {
-                toast.success("ปริ้นบาร์โค้ดสำเร็จ!");
+            let successCount = 0;
+            for (let i = 0; i < printQty; i++) {
+                const result = await printBarcode({ imageDataUrl: dataUrl, printerName: savedPrinter });
+                if (result.success) successCount++;
+            }
+            if (successCount === printQty) {
+                toast.success(`ปริ้นบาร์โค้ด ${printQty} แผ่นสำเร็จ!`);
             } else {
-                toast.error(`ปริ้นไม่สำเร็จ: ${result.error || "ไม่ทราบสาเหตุ"}`);
+                toast.error(`ปริ้นสำเร็จ ${successCount}/${printQty} แผ่น`);
             }
         } else {
             const container = document.createElement("div");
             container.id = "barcode-print";
-            container.innerHTML = `<img src="${dataUrl}" />`;
+            container.innerHTML = Array(printQty).fill(`<img src="${dataUrl}" />`).join("");
             document.body.appendChild(container);
             setTimeout(() => {
                 window.print();
@@ -185,8 +210,8 @@ export default function BarcodePage() {
     };
 
     const tabs: { key: TabType; label: string; icon: any; color: string; count: number }[] = [
-        { key: "shop", label: "อะไหล่หน้าร้าน", icon: Car, color: "#22C55E", count: pagination.total },
-        { key: "consumables", label: "วัสดุสิ้นเปลือง", icon: Wrench, color: "#F59E0B", count: pagination.total },
+        { key: "shop", label: "อะไหล่หน้าร้าน", icon: Car, color: "#22C55E", count: shopCount },
+        { key: "consumables", label: "วัสดุสิ้นเปลือง", icon: Wrench, color: "#F59E0B", count: consumablesCount },
     ];
 
     if (loading && categories.length === 0) return <div className="p-8 flex items-center justify-center min-h-screen"><div className="text-center"><div className="w-10 h-10 border-3 rounded-full animate-spin mx-auto mb-4" style={{ borderColor: "var(--t-border)", borderTopColor: "#22C55E" }} /><p style={{ color: "var(--t-text-muted)" }} className="text-sm">กำลังโหลดข้อมูล...</p></div></div>;
@@ -390,7 +415,7 @@ export default function BarcodePage() {
                     <input
                         ref={searchRef}
                         type="text"
-                        placeholder="ค้นหาหรือสแกนบาร์โค้ด... (ชื่อ, รหัส, ยี่ห้อ)"
+                        placeholder="ค้นหาหรือสแกนบาร์โค้ด... (ชื่อ, รหัส, คุณภาพ)"
                         value={pendingSearch}
                         onChange={(e) => setPendingSearch(e.target.value)}
                         onKeyDown={(e) => {
@@ -469,9 +494,19 @@ export default function BarcodePage() {
                             <canvas ref={barcodeRef} style={{ maxWidth: "100%", height: "auto" }} />
                         </div>
 
-                        <div className="flex gap-3 mt-5 pt-4" style={{ borderTop: "1px solid var(--t-border-subtle)" }}>
-                            <button onClick={() => setSelectedPart(null)} className="flex-1 rounded-lg py-2.5 text-sm font-medium transition-colors cursor-pointer" style={{ background: "var(--t-input-bg)", color: "var(--t-text-secondary)", border: "1px solid var(--t-input-border)" }}>ปิด</button>
-                            <button onClick={handlePrint} className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-white font-semibold rounded-lg py-2.5 text-sm transition-colors cursor-pointer flex items-center justify-center gap-2"><Printer className="w-4 h-4" /> พิมพ์บาร์โค้ด</button>
+                        {/* Print Quantity Selector */}
+                        <div className="flex items-center justify-between mt-4 p-3 rounded-lg" style={{ background: "var(--t-badge-bg)", border: "1px solid var(--t-border-subtle)" }}>
+                            <span className="text-sm font-medium" style={{ color: "var(--t-text)" }}>จำนวนแผ่นที่จะปริ้น</span>
+                            <div className="flex items-center gap-2">
+                                <button onClick={() => setPrintQty(q => Math.max(1, q - 1))} className="w-8 h-8 rounded-lg flex items-center justify-center cursor-pointer transition-colors" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-text)" }}>−</button>
+                                <input type="number" value={printQty} onChange={(e) => setPrintQty(Math.max(1, Math.min(99, parseInt(e.target.value) || 1)))} className="w-12 text-center text-sm font-bold rounded-lg py-1 focus:outline-none" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-text)" }} min={1} max={99} />
+                                <button onClick={() => setPrintQty(q => Math.min(99, q + 1))} className="w-8 h-8 rounded-lg flex items-center justify-center cursor-pointer transition-colors" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-text)" }}>+</button>
+                            </div>
+                        </div>
+
+                        <div className="flex gap-3 mt-4 pt-4" style={{ borderTop: "1px solid var(--t-border-subtle)" }}>
+                            <button onClick={() => { setSelectedPart(null); setPrintQty(1); }} className="flex-1 rounded-lg py-2.5 text-sm font-medium transition-colors cursor-pointer" style={{ background: "var(--t-input-bg)", color: "var(--t-text-secondary)", border: "1px solid var(--t-input-border)" }}>ปิด</button>
+                            <button onClick={handlePrint} className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-white font-semibold rounded-lg py-2.5 text-sm transition-colors cursor-pointer flex items-center justify-center gap-2"><Printer className="w-4 h-4" /> พิมพ์ {printQty > 1 ? `${printQty} แผ่น` : "บาร์โค้ด"}</button>
                         </div>
                     </div>
                 </div>
