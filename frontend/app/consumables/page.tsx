@@ -4,8 +4,10 @@ import { useEffect, useState, useRef } from "react";
 import { getParts, getCategories, createMovement, createPart, updatePart, deletePart, deletePartForce } from "@/lib/api";
 import { Package, Search, Filter, TrendingDown, CheckCircle2, ScanBarcode, ArrowDownToLine, ArrowUpFromLine, Minus, Plus, X, AlertCircle, PackagePlus, Pencil, Trash2 } from "lucide-react";
 import { Pagination } from "@/components/Pagination";
+import { useCart } from "@/components/CartContext";
 
 export default function ConsumablesPage() {
+    const { addToCart } = useCart();
     const [allCategories, setAllCategories] = useState<any[]>([]);
     const [consumableId, setConsumableId] = useState<string>("");
     const [parts, setParts] = useState<any[]>([]);
@@ -192,7 +194,7 @@ export default function ConsumablesPage() {
                                         <button onClick={() => openModal(p, "IN")} className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer text-emerald-600 hover:text-white hover:bg-emerald-500" style={{ background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.2)" }} onMouseEnter={(e) => { e.currentTarget.style.background = "#22C55E"; e.currentTarget.style.borderColor = "#22C55E"; }} onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(34,197,94,0.1)"; e.currentTarget.style.borderColor = "rgba(34,197,94,0.2)"; e.currentTarget.style.color = "rgb(22,163,74)"; }}>
                                             <ArrowDownToLine className="w-3.5 h-3.5" /> เพิ่ม
                                         </button>
-                                        <button onClick={() => openModal(p, "OUT")} disabled={p.quantity === 0} className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer text-orange-600 hover:text-white hover:bg-orange-500 disabled:opacity-30 disabled:cursor-not-allowed" style={{ background: "rgba(249,115,22,0.1)", border: "1px solid rgba(249,115,22,0.2)" }} onMouseEnter={(e) => { if (p.quantity > 0) { e.currentTarget.style.background = "#F97316"; e.currentTarget.style.borderColor = "#F97316"; } }} onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(249,115,22,0.1)"; e.currentTarget.style.borderColor = "rgba(249,115,22,0.2)"; e.currentTarget.style.color = "rgb(234,88,12)"; }}>
+                                        <button onClick={() => addToCart(p)} disabled={p.quantity === 0} className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer text-orange-600 hover:text-white hover:bg-orange-500 disabled:opacity-30 disabled:cursor-not-allowed" style={{ background: "rgba(249,115,22,0.1)", border: "1px solid rgba(249,115,22,0.2)" }} onMouseEnter={(e) => { if (p.quantity > 0) { e.currentTarget.style.background = "#F97316"; e.currentTarget.style.borderColor = "#F97316"; } }} onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(249,115,22,0.1)"; e.currentTarget.style.borderColor = "rgba(249,115,22,0.2)"; e.currentTarget.style.color = "rgb(234,88,12)"; }}>
                                             <ArrowUpFromLine className="w-3.5 h-3.5" /> เบิก
                                         </button>
                                         <button onClick={() => { setEditingPart(p); setEditPartForm({ code: p.code, name: p.name, description: p.description || "", brand: p.brand || "", unit: p.unit, minStock: p.minStock }); setEditPartError(""); }} className="p-2 rounded-lg cursor-pointer" style={{ background: "rgba(59,130,246,0.1)", color: "#3b82f6" }} title="แก้ไข">

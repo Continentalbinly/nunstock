@@ -6,10 +6,12 @@ import { getParts, getCategories, createMovement, createPart, updatePart, delete
 import { getCarLogoUrl } from "@/lib/carLogos";
 import { Package, Search, Filter, TrendingDown, CheckCircle2, ScanBarcode, ArrowDownToLine, ArrowUpFromLine, Minus, Plus, X, AlertCircle, ChevronLeft, Car, PackagePlus, Trash2, Pencil } from "lucide-react";
 import { Pagination } from "@/components/Pagination";
+import { useCart } from "@/components/CartContext";
 
 export default function ShopPage() {
     const searchParams = useSearchParams();
     const router = useRouter();
+    const { addToCart } = useCart();
     const [allCategories, setAllCategories] = useState<any[]>([]);
     const [selectedBrand, setSelectedBrand] = useState<any>(null);
     const [selectedModel, setSelectedModel] = useState<any>(null);
@@ -517,7 +519,7 @@ export default function ShopPage() {
                                                     <button onClick={() => openModal(p, "IN")} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer bg-emerald-500 hover:bg-emerald-400 text-white shadow-sm">
                                                         <ArrowDownToLine className="w-3.5 h-3.5" /> เพิ่ม
                                                     </button>
-                                                    <button onClick={() => openModal(p, "OUT")} disabled={p.quantity === 0} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer bg-orange-500 hover:bg-orange-400 text-white shadow-sm disabled:opacity-30 disabled:cursor-not-allowed">
+                                                    <button onClick={() => addToCart(p)} disabled={p.quantity === 0} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer bg-orange-500 hover:bg-orange-400 text-white shadow-sm disabled:opacity-30 disabled:cursor-not-allowed">
                                                         <ArrowUpFromLine className="w-3.5 h-3.5" /> เบิก
                                                     </button>
                                                     <button onClick={() => { setEditingPart(p); setEditPartForm({ code: p.code, name: p.name, description: p.description || "", brand: p.brand || "", unit: p.unit, minStock: p.minStock }); setEditPartError(""); }} className="p-2 rounded-lg cursor-pointer transition-colors" style={{ background: "rgba(59,130,246,0.1)", color: "#3b82f6" }} title="แก้ไขอะไหล่">
