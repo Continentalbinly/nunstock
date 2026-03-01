@@ -152,8 +152,8 @@ jobs:
             echo ">>> Running database migrations..."
             npx prisma migrate deploy
 
-            # Only seed if seed files changed
-            if git diff HEAD~1 --name-only | grep -q "backend/src/seed"; then
+            # Only seed if seed files changed (check last 5 commits)
+            if git diff HEAD~5 --name-only 2>/dev/null | grep -q "backend/src/seed"; then
               echo ">>> Seed files changed, running seeds..."
               npx tsx src/seed.ts 2>/dev/null || true
               npx tsx src/seed-admin.ts 2>/dev/null || true
