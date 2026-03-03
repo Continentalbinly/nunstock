@@ -8,7 +8,7 @@ const statusLabel: Record<string, string> = {
   PENDING: "รอดำเนินการ", ORDERED: "สั่งแล้ว", ARRIVED: "มาถึง", NOTIFIED: "แจ้งแล้ว", COMPLETED: "เสร็จสิ้น",
 };
 const statusBadge: Record<string, string> = {
-  PENDING: "bg-amber-500/15 text-amber-500", ORDERED: "bg-blue-500/15 text-blue-500", ARRIVED: "bg-emerald-500/15 text-emerald-500", NOTIFIED: "bg-purple-500/15 text-purple-500", COMPLETED: "bg-emerald-500/10 text-emerald-500",
+  PENDING: "bg-amber-500/15 text-amber-500", ORDERED: "bg-orange-500/15 text-orange-500", ARRIVED: "bg-emerald-500/15 text-emerald-500", NOTIFIED: "bg-purple-500/15 text-purple-500", COMPLETED: "bg-emerald-500/10 text-emerald-500",
 };
 
 export default function DashboardPage() {
@@ -31,8 +31,8 @@ export default function DashboardPage() {
   }
 
   const stats = [
-    { label: "อะไหล่ทั้งหมด", value: summary?.totalParts ?? 0, icon: Package, accent: "#3B82F6", href: "/shop" },
-    { label: "จำนวนสต็อกรวม", value: summary?.totalStock ?? 0, icon: Layers, accent: "#A855F7", href: "/shop" },
+    { label: "วัสดุสิ้นเปลือง", value: summary?.totalParts ?? 0, icon: Package, accent: "#F97316", href: "/consumables" },
+    { label: "คลังสี", value: summary?.totalStock ?? 0, icon: Layers, accent: "#8B5CF6", href: "/paints" },
     { label: "ของใกล้หมด", value: summary?.lowStockCount ?? 0, icon: TrendingDown, accent: "#F59E0B", href: "/reports?tab=lowstock" },
     { label: "เคลมค้าง", value: summary?.pendingClaimsCount ?? 0, icon: ShieldCheck, accent: "#22C55E", href: "/claims" },
   ];
@@ -46,7 +46,7 @@ export default function DashboardPage() {
         </div>
         <Link href="/reports" className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all hover:shadow-md cursor-pointer"
           style={{ background: "var(--t-card)", border: "1px solid var(--t-border-subtle)", color: "var(--t-text)" }}>
-          <BarChart3 className="w-4 h-4" style={{ color: "#3B82F6" }} />
+          <BarChart3 className="w-4 h-4" style={{ color: "#F97316" }} />
           รายงานสต็อก
         </Link>
       </div>
@@ -95,7 +95,7 @@ export default function DashboardPage() {
           <div className="rounded-xl p-5 mb-6" style={{ background: "var(--t-card)", border: "1px solid var(--t-border-subtle)" }}>
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <BarChart3 className="w-5 h-5" style={{ color: "#3B82F6" }} />
+                <BarChart3 className="w-5 h-5" style={{ color: "#F97316" }} />
                 <h2 className="font-semibold" style={{ color: "var(--t-text)" }}>กิจกรรม 7 วัน</h2>
               </div>
               <div className="flex items-center gap-4 text-[11px]">
@@ -177,7 +177,7 @@ export default function DashboardPage() {
         {/* Pending Claims */}
         <div className="rounded-xl p-5" style={{ background: "var(--t-card)", border: "1px solid var(--t-border-subtle)" }}>
           <div className="flex items-center gap-2 mb-4">
-            <ShieldCheck className="w-5 h-5 text-blue-500" />
+            <ShieldCheck className="w-5 h-5 text-orange-500" />
             <h2 className="font-semibold" style={{ color: "var(--t-text)" }}>เคลมค้างดำเนินการ</h2>
           </div>
           {!summary?.pendingClaims?.length ? (

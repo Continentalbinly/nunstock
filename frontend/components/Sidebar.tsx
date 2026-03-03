@@ -7,7 +7,6 @@ import {
     Car,
     ShieldCheck,
     Wrench as WrenchIcon,
-    Barcode,
     Bell,
     LogOut,
     Sun,
@@ -15,29 +14,31 @@ import {
     Printer,
     MessageSquare,
     BarChart3,
+    Warehouse,
+    Palette,
 } from "lucide-react";
 
 const navItems = [
     { href: "/", icon: LayoutDashboard, label: "แดชบอร์ด" },
+    { href: "/jobs", icon: WrenchIcon, label: "งานซ่อม" },
 ];
 
 const stockItems = [
-    { href: "/shop", icon: Car, label: "อะไหล่หน้าร้าน" },
+    { href: "/paints", icon: Palette, label: "คลังสี" },
+    { href: "/shop-stock", icon: Warehouse, label: "สต็อกอู่" },
     { href: "/insurance", icon: ShieldCheck, label: "อะไหล่ประกัน" },
     { href: "/consumables", icon: WrenchIcon, label: "วัสดุสิ้นเปลือง" },
 ];
 
 const managementItems = [
-    { href: "/barcode", icon: Barcode, label: "บาร์โค้ด" },
     { href: "/reports", icon: BarChart3, label: "รายงานสต็อก" },
-    { href: "/claims", icon: ShieldCheck, label: "เคลมประกัน" },
     { href: "/line", icon: MessageSquare, label: "LINE Operations" },
     { href: "/notifications", icon: Bell, label: "แจ้งเตือน" },
     { href: "/printer-settings", icon: Printer, label: "เครื่องปริ้น" },
 ];
 
 function NavLink({ href, icon: Icon, label, pathname }: { href: string; icon: any; label: string; pathname: string }) {
-    const active = pathname === href || (href !== "/" && pathname.startsWith(href));
+    const active = pathname === href || (href !== "/" && pathname.startsWith(href + "/"));
     return (
         <Link
             href={href}

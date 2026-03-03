@@ -2,9 +2,12 @@
 import { toast } from "sonner";
 import { useEffect, useState, useRef } from "react";
 import { getParts, getCategories, createMovement, createPart, updatePart, deletePart, deletePartForce } from "@/lib/api";
-import { Package, Search, Filter, TrendingDown, CheckCircle2, ScanBarcode, ArrowDownToLine, ArrowUpFromLine, Minus, Plus, X, AlertCircle, PackagePlus, Pencil, Trash2 } from "lucide-react";
+import { Package, Search, Filter, TrendingDown, CheckCircle2, ScanBarcode, ArrowDownToLine, ArrowUpFromLine, Minus, Plus, X, AlertCircle, PackagePlus, Pencil, Trash2, Wrench } from "lucide-react";
 import { Pagination } from "@/components/Pagination";
 import { useCart } from "@/components/CartContext";
+import BarcodeModal from "@/components/BarcodeModal";
+import ConsumableWithdrawModal from "@/components/ConsumableWithdrawModal";
+import { Barcode } from "lucide-react";
 
 export default function ConsumablesPage() {
     const { addToCart } = useCart();
@@ -48,6 +51,8 @@ export default function ConsumablesPage() {
     const keyBuffer = useRef("");
     const [customSpec, setCustomSpec] = useState(false);
     const [customEditSpec, setCustomEditSpec] = useState(false);
+    const [barcodePart, setBarcodePart] = useState<any>(null);
+    const [withdrawPart, setWithdrawPart] = useState<any>(null);
 
     const SPEC_OPTIONS = [
         // ปริมาตร
@@ -182,7 +187,7 @@ export default function ConsumablesPage() {
                     {parts.map((p) => {
                         const isLow = p.quantity <= p.minStock;
                         return (
-                            <div key={p.id} className="rounded-xl p-4 transition-all" style={{ background: "var(--t-card)", border: `1px solid ${isLow ? "rgba(239,68,68,0.25)" : "var(--t-border-subtle)"}` }} onMouseEnter={(e) => e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.06)"} onMouseLeave={(e) => e.currentTarget.style.boxShadow = "none"}>
+                            <div key={p.id} className="rounded-xl p-4 transition-all cursor-pointer" style={{ background: "var(--t-card)", border: `1px solid ${isLow ? "rgba(239,68,68,0.25)" : "var(--t-border-subtle)"}` }} onMouseEnter={(e) => e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.06)"} onMouseLeave={(e) => e.currentTarget.style.boxShadow = "none"} onClick={() => setBarcodePart(p)}>
                                 <div className="flex items-center justify-between gap-4 flex-wrap">
                                     {/* Left: icon + info */}
                                     <div className="flex items-center gap-4 flex-1 min-w-0">
@@ -210,16 +215,16 @@ export default function ConsumablesPage() {
 
                                     {/* Right: action buttons */}
                                     <div className="flex items-center gap-1.5 shrink-0">
-                                        <button onClick={() => addToCart(p, "IN")} className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer text-emerald-600 hover:text-white hover:bg-emerald-500" style={{ background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.2)" }} onMouseEnter={(e) => { e.currentTarget.style.background = "#22C55E"; e.currentTarget.style.borderColor = "#22C55E"; }} onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(34,197,94,0.1)"; e.currentTarget.style.borderColor = "rgba(34,197,94,0.2)"; e.currentTarget.style.color = "rgb(22,163,74)"; }}>
+                                        <button onClick={(e) => { e.stopPropagation(); addToCart(p, "IN"); }} className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer text-emerald-600 hover:text-white hover:bg-emerald-500" style={{ background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.2)" }} onMouseEnter={(e) => { e.currentTarget.style.background = "#22C55E"; e.currentTarget.style.borderColor = "#22C55E"; }} onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(34,197,94,0.1)"; e.currentTarget.style.borderColor = "rgba(34,197,94,0.2)"; e.currentTarget.style.color = "rgb(22,163,74)"; }}>
                                             <ArrowDownToLine className="w-3.5 h-3.5" /> เพิ่ม
                                         </button>
-                                        <button onClick={() => addToCart(p)} disabled={p.quantity === 0} className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer text-orange-600 hover:text-white hover:bg-orange-500 disabled:opacity-30 disabled:cursor-not-allowed" style={{ background: "rgba(249,115,22,0.1)", border: "1px solid rgba(249,115,22,0.2)" }} onMouseEnter={(e) => { if (p.quantity > 0) { e.currentTarget.style.background = "#F97316"; e.currentTarget.style.borderColor = "#F97316"; } }} onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(249,115,22,0.1)"; e.currentTarget.style.borderColor = "rgba(249,115,22,0.2)"; e.currentTarget.style.color = "rgb(234,88,12)"; }}>
+                                        <button onClick={(e) => { e.stopPropagation(); setWithdrawPart(p); }} disabled={p.quantity === 0} className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer text-orange-600 hover:text-white hover:bg-orange-500 disabled:opacity-30 disabled:cursor-not-allowed" style={{ background: "rgba(249,115,22,0.1)", border: "1px solid rgba(249,115,22,0.2)" }} onMouseEnter={(e) => { if (p.quantity > 0) { e.currentTarget.style.background = "#F97316"; e.currentTarget.style.borderColor = "#F97316"; } }} onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(249,115,22,0.1)"; e.currentTarget.style.borderColor = "rgba(249,115,22,0.2)"; e.currentTarget.style.color = "rgb(234,88,12)"; }}>
                                             <ArrowUpFromLine className="w-3.5 h-3.5" /> เบิก
                                         </button>
-                                        <button onClick={() => { setEditingPart(p); setEditPartForm({ code: p.code, name: p.name, description: p.description || "", brand: p.brand || "", specification: p.specification || "", unit: p.unit, minStock: p.minStock }); setEditPartError(""); setCustomEditSpec(!!(p.specification && !SPEC_OPTIONS.includes(p.specification))); }} className="p-2 rounded-lg cursor-pointer" style={{ background: "rgba(59,130,246,0.1)", color: "#3b82f6" }} title="แก้ไข">
+                                        <button onClick={(e) => { e.stopPropagation(); setEditingPart(p); setEditPartForm({ code: p.code, name: p.name, description: p.description || "", brand: p.brand || "", specification: p.specification || "", unit: p.unit, minStock: p.minStock }); setEditPartError(""); setCustomEditSpec(!!(p.specification && !SPEC_OPTIONS.includes(p.specification))); }} className="p-2 rounded-lg cursor-pointer" style={{ background: "rgba(249,115,22,0.1)", color: "#F97316" }} title="แก้ไข">
                                             <Pencil className="w-3.5 h-3.5" />
                                         </button>
-                                        <button onClick={() => { setDeletePartMsg(""); setDeletePartCanForce(false); setConfirmDeletePart(p); }} className="p-2 rounded-lg cursor-pointer" style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }} title="ลบ">
+                                        <button onClick={(e) => { e.stopPropagation(); setDeletePartMsg(""); setDeletePartCanForce(false); setConfirmDeletePart(p); }} className="p-2 rounded-lg cursor-pointer" style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }} title="ลบ">
                                             <Trash2 className="w-3.5 h-3.5" />
                                         </button>
                                     </div>
@@ -337,7 +342,7 @@ export default function ConsumablesPage() {
                     <div className="rounded-2xl p-6 w-[90%] max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl" style={{ background: "var(--t-modal-bg)", border: "1px solid var(--t-modal-border)", animation: "slideUp 200ms ease" }} onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-between mb-5">
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "rgba(59,130,246,0.15)" }}><Pencil className="w-5 h-5" style={{ color: "#3b82f6" }} /></div>
+                                <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "rgba(249,115,22,0.15)" }}><Pencil className="w-5 h-5" style={{ color: "#F97316" }} /></div>
                                 <div><h3 className="font-bold" style={{ color: "var(--t-text)" }}>แก้ไขวัสดุ</h3><p className="text-xs" style={{ color: "var(--t-text-muted)" }}>{editingPart.name}</p></div>
                             </div>
                             <button onClick={() => setEditingPart(null)} className="p-1 rounded-lg cursor-pointer" style={{ color: "var(--t-text-muted)" }}><X className="w-5 h-5" /></button>
@@ -384,6 +389,13 @@ export default function ConsumablesPage() {
                     </div>
                 </div>
             )}
+            <BarcodeModal part={barcodePart} onClose={() => setBarcodePart(null)} />
+            <ConsumableWithdrawModal
+                open={!!withdrawPart}
+                preSelectedPart={withdrawPart}
+                onClose={() => setWithdrawPart(null)}
+                onSuccess={fetchParts}
+            />
         </div>
     );
 }

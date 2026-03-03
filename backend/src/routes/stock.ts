@@ -131,10 +131,14 @@ stockRouter.get("/summary", async (c) => {
     }
 });
 
-// GET /api/stock/low-stock - รายการสินค้าใกล้หมด
+// GET /api/stock/low-stock - รายการสินค้าใกล้หมด (เฉพาะ consumable + shop, ไม่รวม insurance catalog)
 stockRouter.get("/low-stock", async (c) => {
     try {
         const allParts = await prisma.part.findMany({
+            where: {
+                minStock: { gt: 0 },  // Skip catalog items (minStock=0)
+                NOT: { code: { startsWith: "INS-" } },  // Skip insurance catalog
+            },
             include: { category: { include: { parent: true } } },
             orderBy: { quantity: "asc" },
         });
@@ -142,6 +146,69 @@ stockRouter.get("/low-stock", async (c) => {
         return c.json({ success: true, data: lowStock });
     } catch (error) {
         return c.json({ success: false, error: "ไม่สามารถดึงข้อมูลได้" }, 500);
+    }
+});
+
+// GET /api/stock/jobs-report - สรุป Jobs + รายการ Jobs
+stockRouter.get("/jobs-report", async (c) => {
+    try {
+        const { from, to, status, type, search } = c.req.query();
+        const where: any = {};
+
+        if (from) where.createdAt = { ...where.createdAt, gte: new Date(from) };
+        if (to) {
+            const toDate = new Date(to);
+            toDate.setHours(23, 59, 59, 999);
+            where.createdAt = { ...where.createdAt, lte: toDate };
+        }
+        if (status) where.status = status;
+        if (type) where.type = type;
+        if (search) {
+            where.OR = [
+                { jobNo: { contains: search, mode: "insensitive" } },
+                { customerName: { contains: search, mode: "insensitive" } },
+                { plateNo: { contains: search, mode: "insensitive" } },
+            ];
+        }
+
+        const [jobs, summary] = await Promise.all([
+            prisma.job.findMany({
+                where,
+                include: {
+                    parts: { select: { id: true, partName: true, status: true, source: true, quantity: true } },
+                    _count: { select: { parts: true } },
+                },
+                orderBy: { createdAt: "desc" },
+            }),
+            // Summary counts by status
+            prisma.job.groupBy({
+                by: ["status"],
+                _count: true,
+            }),
+        ]);
+
+        const statusCounts: Record<string, number> = {};
+        for (const s of summary) { statusCounts[s.status] = s._count; }
+
+        // Parts used this month
+        const thisMonthStart = new Date();
+        thisMonthStart.setDate(1);
+        thisMonthStart.setHours(0, 0, 0, 0);
+        const partsUsedThisMonth = await prisma.jobPart.count({
+            where: { addedAt: { gte: thisMonthStart } },
+        });
+
+        return c.json({
+            success: true,
+            data: {
+                jobs,
+                statusCounts,
+                totalJobs: jobs.length,
+                partsUsedThisMonth,
+            },
+        });
+    } catch (error) {
+        return c.json({ success: false, error: "ไม่สามารถดึงรายงาน Jobs ได้" }, 500);
     }
 });
 
@@ -203,6 +270,106 @@ stockRouter.get("/report", async (c) => {
         });
     } catch (error) {
         return c.json({ success: false, error: "ไม่สามารถดึงรายงานได้" }, 500);
+    }
+});
+
+// GET /api/stock/consumable-history — ประวัติเบิกวัสดุสิ้นเปลือง
+stockRouter.get("/consumable-history", async (c) => {
+    try {
+        const { from, to, search } = c.req.query();
+        const where: any = { source: "CONSUMABLE" };
+
+        if (from) where.addedAt = { ...where.addedAt, gte: new Date(from) };
+        if (to) {
+            const toDate = new Date(to);
+            toDate.setHours(23, 59, 59, 999);
+            where.addedAt = { ...where.addedAt, lte: toDate };
+        }
+        if (search) {
+            where.OR = [
+                { partName: { contains: search, mode: "insensitive" } },
+                { withdrawnBy: { contains: search, mode: "insensitive" } },
+                { job: { jobNo: { contains: search, mode: "insensitive" } } },
+            ];
+        }
+
+        const [items, totalAgg] = await Promise.all([
+            prisma.jobPart.findMany({
+                where,
+                include: {
+                    job: { select: { id: true, jobNo: true, customerName: true, carBrand: true, carModel: true, plateNo: true } },
+                },
+                orderBy: { addedAt: "desc" },
+            }),
+            prisma.jobPart.aggregate({
+                where,
+                _count: true,
+                _sum: { quantity: true },
+            }),
+        ]);
+
+        return c.json({
+            success: true,
+            data: {
+                items,
+                summary: {
+                    totalItems: totalAgg._count,
+                    totalPieces: totalAgg._sum.quantity || 0,
+                },
+            },
+        });
+    } catch (error) {
+        return c.json({ success: false, error: "ไม่สามารถดึงประวัติเบิกวัสดุได้" }, 500);
+    }
+});
+
+// GET /api/stock/paint-history — ประวัติเบิกสี
+stockRouter.get("/paint-history", async (c) => {
+    try {
+        const { from, to, search } = c.req.query();
+        const where: any = { source: "PAINT" };
+
+        if (from) where.addedAt = { ...where.addedAt, gte: new Date(from) };
+        if (to) {
+            const toDate = new Date(to);
+            toDate.setHours(23, 59, 59, 999);
+            where.addedAt = { ...where.addedAt, lte: toDate };
+        }
+        if (search) {
+            where.OR = [
+                { partName: { contains: search, mode: "insensitive" } },
+                { withdrawnBy: { contains: search, mode: "insensitive" } },
+                { job: { jobNo: { contains: search, mode: "insensitive" } } },
+            ];
+        }
+
+        const [items, totalAgg] = await Promise.all([
+            prisma.jobPart.findMany({
+                where,
+                include: {
+                    job: { select: { id: true, jobNo: true, customerName: true, carBrand: true, carModel: true, plateNo: true } },
+                },
+                orderBy: { addedAt: "desc" },
+            }),
+            prisma.jobPart.aggregate({
+                where,
+                _count: true,
+                _sum: { quantity: true },
+            }),
+        ]);
+
+        return c.json({
+            success: true,
+            data: {
+                items,
+                summary: {
+                    totalItems: totalAgg._count,
+                    totalPieces: totalAgg._sum.quantity || 0,
+                },
+            },
+        });
+    } catch (error) {
+        return c.json({ success: false, error: "ไม่สามารถดึงประวัติเบิกสีได้" }, 500);
     }
 });
 

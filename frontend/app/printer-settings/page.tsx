@@ -95,7 +95,7 @@ export default function PrinterSettingsPage() {
                     onClick={loadPrinters}
                     className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer"
                     style={{ background: "var(--t-card)", border: "1px solid var(--t-border-subtle)", color: "var(--t-text-secondary)" }}
-                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#3b82f680"; }}
+                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#F9731680"; }}
                     onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--t-border-subtle)"; }}
                 >
                     <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
@@ -151,7 +151,7 @@ export default function PrinterSettingsPage() {
                                     background: "var(--t-card)",
                                     border: isSelected ? "2px solid #10B981" : "1px solid var(--t-border-subtle)",
                                 }}
-                                onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.borderColor = "#3b82f680"; }}
+                                onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.borderColor = "#F9731680"; }}
                                 onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.borderColor = "var(--t-border-subtle)"; }}
                             >
                                 <div className="flex items-center justify-between">
@@ -163,7 +163,7 @@ export default function PrinterSettingsPage() {
                                             <p className="font-semibold text-sm" style={{ color: "var(--t-text)" }}>{printer.displayName || printer.name}</p>
                                             <div className="flex items-center gap-2 mt-0.5">
                                                 {printer.isDefault && (
-                                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 font-medium">ค่าเริ่มต้น</span>
+                                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-400 font-medium">ค่าเริ่มต้น</span>
                                                 )}
                                                 <span className="text-[10px]" style={{ color: "var(--t-text-dim)" }}>{printer.name}</span>
                                             </div>

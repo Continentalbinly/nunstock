@@ -8,9 +8,9 @@ import { Pagination } from "@/components/Pagination";
 
 const statusList = ["PENDING", "ORDERED", "ARRIVED", "NOTIFIED", "COMPLETED"] as const;
 const statusLabel: Record<string, string> = { PENDING: "รอดำเนินการ", ORDERED: "สั่งแล้ว", ARRIVED: "มาถึง", NOTIFIED: "แจ้งแล้ว", COMPLETED: "เสร็จสิ้น" };
-const statusColor: Record<string, string> = { PENDING: "#f59e0b", ORDERED: "#3b82f6", ARRIVED: "#22c55e", NOTIFIED: "#a855f7", COMPLETED: "#10b981" };
+const statusColor: Record<string, string> = { PENDING: "#f59e0b", ORDERED: "#F97316", ARRIVED: "#22c55e", NOTIFIED: "#a855f7", COMPLETED: "#10b981" };
 
-const inputCls = "w-full rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500/30";
+const inputCls = "w-full rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-orange-500/30";
 const inputStyle: React.CSSProperties = { background: "var(--t-input-bg)", color: "var(--t-input-text)", border: "1px solid var(--t-input-border)" };
 
 type Step = "list" | "company" | "brand" | "model" | "form";
@@ -165,7 +165,7 @@ export default function ClaimsPage() {
                             </div>
                             <div className="flex gap-1.5 flex-wrap">
                                 {["ALL", ...statusList].map(s => (
-                                    <button key={s} onClick={() => { setStatusFilter(s); setClaimPage(1); }} className="px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors" style={statusFilter === s ? { background: s === "ALL" ? "rgba(59,130,246,0.12)" : `${statusColor[s]}15`, color: s === "ALL" ? "#3b82f6" : statusColor[s], border: `1px solid ${s === "ALL" ? "rgba(59,130,246,0.2)" : `${statusColor[s]}25`}` } : { background: "var(--t-badge-bg)", color: "var(--t-text-muted)", border: "1px solid transparent" }}>
+                                    <button key={s} onClick={() => { setStatusFilter(s); setClaimPage(1); }} className="px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors" style={statusFilter === s ? { background: s === "ALL" ? "rgba(249,115,22,0.12)" : `${statusColor[s]}15`, color: s === "ALL" ? "#F97316" : statusColor[s], border: `1px solid ${s === "ALL" ? "rgba(249,115,22,0.2)" : `${statusColor[s]}25`}` } : { background: "var(--t-badge-bg)", color: "var(--t-text-muted)", border: "1px solid transparent" }}>
                                         {s === "ALL" ? "ทั้งหมด" : statusLabel[s]}
                                     </button>
                                 ))}
@@ -238,8 +238,8 @@ export default function ClaimsPage() {
                             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                                 {companies.map((c: any) => (
                                     <button key={c.id} onClick={() => { setSelectedCompany(c); setStep("brand"); setBrandSearch(""); }} className="flex flex-col items-center gap-3 p-5 rounded-xl cursor-pointer transition-all duration-200 hover:scale-[1.02]" style={{ background: "var(--t-card)", border: "1px solid var(--t-border-subtle)" }}>
-                                        <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: "rgba(59,130,246,0.08)" }}>
-                                            <Building2 className="w-6 h-6" style={{ color: "#3b82f6" }} />
+                                        <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: "rgba(249,115,22,0.08)" }}>
+                                            <Building2 className="w-6 h-6" style={{ color: "#F97316" }} />
                                         </div>
                                         <span className="text-sm font-semibold text-center" style={{ color: "var(--t-text)" }}>{c.name}</span>
                                     </button>
@@ -294,8 +294,8 @@ export default function ClaimsPage() {
                             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                                 {filteredModels.map((m: any) => (
                                     <button key={m.id} onClick={() => { setSelectedModel(m); setStep("form"); setClaimError(""); }} className="flex flex-col items-center gap-3 p-5 rounded-xl cursor-pointer transition-all duration-200 hover:scale-[1.02]" style={{ background: "var(--t-card)", border: "1px solid var(--t-border-subtle)" }}>
-                                        <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: "rgba(59,130,246,0.08)" }}>
-                                            <Car className="w-6 h-6" style={{ color: "#3b82f6" }} />
+                                        <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: "rgba(249,115,22,0.08)" }}>
+                                            <Car className="w-6 h-6" style={{ color: "#F97316" }} />
                                         </div>
                                         <span className="text-sm font-semibold text-center" style={{ color: "var(--t-text)" }}>{m.name}</span>
                                     </button>

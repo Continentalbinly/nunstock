@@ -108,3 +108,88 @@ export const createBatchMovements = (data: { items: { partId: string; quantity: 
 
 // ---- สต็อก Dashboard ----
 export const getStockSummary = () => apiFetch<any>("/api/stock/summary");
+
+// ---- สต็อกหน้าร้าน (Shop Stock) ----
+export const getShopStock = (params?: Record<string, string>) =>
+    apiFetchPaginated<any>(`/api/shop-stock?${new URLSearchParams(params)}`);
+export const getShopStockSummary = () => apiFetch<any>("/api/shop-stock/summary");
+export const createShopStock = (data: any) =>
+    apiFetch<any>("/api/shop-stock", { method: "POST", body: JSON.stringify(data) });
+export const updateShopStock = (id: string, data: any) =>
+    apiFetch<any>(`/api/shop-stock/${id}`, { method: "PATCH", body: JSON.stringify(data) });
+export const updateShopStockCondition = (id: string, condition: string) =>
+    apiFetch<any>(`/api/shop-stock/${id}/condition`, { method: "PATCH", body: JSON.stringify({ condition }) });
+export const useShopStock = (id: string, data: { quantity: number; jobNo?: string; note?: string }) =>
+    apiFetch<any>(`/api/shop-stock/${id}/use`, { method: "POST", body: JSON.stringify(data) });
+export const deleteShopStock = (id: string) =>
+    apiFetch<any>(`/api/shop-stock/${id}`, { method: "DELETE" });
+
+// ---- งานซ่อม (Jobs) ----
+export const getJobs = (params?: Record<string, string>) =>
+    apiFetchPaginated<any>(`/api/jobs?${new URLSearchParams(params)}`);
+export const getJobSuggestions = (field: string, q: string) =>
+    apiFetch<{ suggestions: string[] }>(`/api/jobs/suggestions?field=${field}&q=${encodeURIComponent(q)}`);
+export const getJobsSummary = () => apiFetch<any>("/api/jobs/summary");
+export const getJob = (id: string) => apiFetch<any>(`/api/jobs/${id}`);
+export const createJob = (data: any) =>
+    apiFetch<any>("/api/jobs", { method: "POST", body: JSON.stringify(data) });
+export const updateJob = (id: string, data: any) =>
+    apiFetch<any>(`/api/jobs/${id}`, { method: "PATCH", body: JSON.stringify(data) });
+export const updateJobStatus = (id: string, status: string) =>
+    apiFetch<any>(`/api/jobs/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) });
+export const addJobPart = (jobId: string, data: any) =>
+    apiFetch<any>(`/api/jobs/${jobId}/parts`, { method: "POST", body: JSON.stringify(data) });
+export const removeJobPart = (jobId: string, partId: string) =>
+    apiFetch<any>(`/api/jobs/${jobId}/parts/${partId}`, { method: "DELETE" });
+export const updateJobPartStatus = (jobId: string, partId: string, status: string) =>
+    apiFetch<any>(`/api/jobs/${jobId}/parts/${partId}/status`, { method: "PATCH", body: JSON.stringify({ status }) });
+export const addRepairStep = (jobId: string, step: string, label: string) =>
+    apiFetch<any>(`/api/jobs/${jobId}/repair-steps`, { method: "POST", body: JSON.stringify({ step, label }) });
+export const removeRepairStep = (jobId: string, stepId: string) =>
+    apiFetch<any>(`/api/jobs/${jobId}/repair-steps/${stepId}`, { method: "DELETE" });
+export const advanceRepairStep = (jobId: string, stepId: string) =>
+    apiFetch<any>(`/api/jobs/${jobId}/repair-steps/${stepId}/advance`, { method: "PATCH" });
+export const reorderRepairSteps = (jobId: string, order: string[]) =>
+    apiFetch<any>(`/api/jobs/${jobId}/repair-steps/reorder`, { method: "PATCH", body: JSON.stringify({ order }) });
+export const getRepairStepTemplates = () =>
+    apiFetch<any>(`/api/jobs/repair-step-templates`);
+export const cancelJob = (id: string, reason: string) =>
+    apiFetch<any>(`/api/jobs/${id}/cancel`, { method: "PATCH", body: JSON.stringify({ reason }) });
+export const lookupJobPartBarcode = (barcode: string) =>
+    apiFetch<any>(`/api/jobs/parts/lookup/${encodeURIComponent(barcode)}`);
+export const getActiveJobs = () =>
+    apiFetch<any>(`/api/jobs/active-jobs`);
+
+// ─── Notifications ─────────
+export const getNotifications = (page = 1, pageSize = 20, status?: string) =>
+    apiFetch<any>(`/api/notifications?page=${page}&pageSize=${pageSize}${status ? `&status=${status}` : ""}`);
+export const retryNotification = (id: string) =>
+    apiFetch<any>(`/api/notifications/${id}/retry`, { method: "POST" });
+export const sendNotification = (jobId: string, message: string) =>
+    apiFetch<any>(`/api/notifications/send`, { method: "POST", body: JSON.stringify({ jobId, message }) });
+
+// ─── Car Types ─────────
+export const getCarTypes = () => apiFetch<any[]>("/api/car-types");
+export const createCarType = (data: { key: string; label: string; brands: string[]; order?: number }) =>
+    apiFetch<any>("/api/car-types", { method: "POST", body: JSON.stringify(data) });
+export const updateCarType = (id: string, data: { label?: string; brands?: string[]; order?: number }) =>
+    apiFetch<any>(`/api/car-types/${id}`, { method: "PUT", body: JSON.stringify(data) });
+export const deleteCarType = (id: string) =>
+    apiFetch<any>(`/api/car-types/${id}`, { method: "DELETE" });
+
+// ─── Paint Brands & Colors ─────────
+export const getPaintBrands = () => apiFetch<any[]>("/api/paint/brands");
+export const createPaintBrand = (data: { name: string; order?: number }) =>
+    apiFetch<any>("/api/paint/brands", { method: "POST", body: JSON.stringify(data) });
+export const updatePaintBrand = (id: string, data: { name?: string; order?: number }) =>
+    apiFetch<any>(`/api/paint/brands/${id}`, { method: "PUT", body: JSON.stringify(data) });
+export const deletePaintBrand = (id: string) =>
+    apiFetch<any>(`/api/paint/brands/${id}`, { method: "DELETE" });
+export const getPaintColors = (brandId: string, type?: string) =>
+    apiFetch<any[]>(`/api/paint/brands/${brandId}/colors${type && type !== "ทั้งหมด" ? `?type=${encodeURIComponent(type)}` : ""}`);
+export const createPaintColor = (brandId: string, data: { code: string; name: string; type?: string; quantity?: number; unit?: string }) =>
+    apiFetch<any>(`/api/paint/brands/${brandId}/colors`, { method: "POST", body: JSON.stringify(data) });
+export const updatePaintColor = (id: string, data: { code?: string; name?: string; type?: string; quantity?: number; unit?: string }) =>
+    apiFetch<any>(`/api/paint/colors/${id}`, { method: "PUT", body: JSON.stringify(data) });
+export const deletePaintColor = (id: string) =>
+    apiFetch<any>(`/api/paint/colors/${id}`, { method: "DELETE" });

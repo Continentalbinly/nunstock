@@ -18,6 +18,7 @@ model PartCategory {
   parent        PartCategory?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
   subCategories PartCategory[] @relation("CategoryHierarchy")
   parts         Part[]
+  shopStocks    ShopStock[]
 
   @@unique([name, parentId])
   @@map("part_categories")
@@ -93,6 +94,7 @@ model InsuranceClaim {
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
   items         ClaimItem[]
+  jobs          Job[]
 
   @@map("insurance_claims")
 }
@@ -136,6 +138,188 @@ enum ClaimStatus {
   COMPLETED
 }
 
+enum ShopStockSource {
+  EXCESS_ORDER
+  CUSTOMER_LEFTOVER
+  CLAIM_MISMATCH
+  CLAIM_NO_PICKUP
+  JOB_CANCEL
+}
+
+enum ShopStockCondition {
+  USABLE
+  NEEDS_REPAIR
+  SCRAP
+}
+
+enum JobType {
+  INSURANCE
+  CASH
+}
+
+enum JobStatus {
+  WAITING_PARTS
+  NOTIFY_CUSTOMER
+  RECEIVED
+  IN_PROGRESS
+  COMPLETED
+  DELIVERED
+  CANCELLED
+}
+
+enum JobPartSource {
+  SHOP_PART
+  INSURANCE_PART
+  SHOP_STOCK
+  CONSUMABLE
+  PAINT
+  EXTERNAL
+}
+
+enum JobPartStatus {
+  ORDERED
+  ARRIVED
+  WITHDRAWN
+  INSTALLED
+}
+
+enum RepairStep {
+  BODY_REPAIR
+  PAINTING
+  PARTS_REPLACEMENT
+  POLISHING
+}
+
+enum RepairStepStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+}
+
+model ShopStock {
+  id          String             @id @default(cuid())
+  name        String
+  description String?
+  categoryId  String
+  carBrand    String?
+  carModel    String?
+  quantity    Int                @default(1)
+  unit        String             @default("ชิ้น")
+  source      ShopStockSource
+  sourceRef   String?
+  sourceNote  String?
+  condition   ShopStockCondition @default(USABLE)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  category    PartCategory       @relation(fields: [categoryId], references: [id])
+  usages      ShopStockUsage[]
+
+  @@map("shop_stocks")
+}
+
+model ShopStockUsage {
+  id          String    @id @default(cuid())
+  shopStockId String
+  quantity    Int
+  jobNo       String?
+  note        String?
+  usedAt      DateTime  @default(now())
+
+  shopStock   ShopStock @relation(fields: [shopStockId], references: [id])
+
+  @@map("shop_stock_usages")
+}
+
+model Job {
+  id            String          @id @default(cuid())
+  jobNo         String          @unique
+  type          JobType
+  status        JobStatus       @default(WAITING_PARTS)
+  customerName  String
+  customerPhone String?
+  carBrand      String
+  carModel      String
+  plateNo       String
+  notes         String?
+  claimId       String?
+  claimNo       String?
+  insuranceComp String?
+  receivedAt    DateTime        @default(now())
+  startedAt     DateTime?
+  completedAt   DateTime?
+  deliveredAt   DateTime?
+  cancelReason  String?
+  cancelledAt   DateTime?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  claim         InsuranceClaim? @relation(fields: [claimId], references: [id])
+  parts         JobPart[]
+  repairSteps   JobRepairStep[]
+  notifications Notification[]
+
+  @@map("jobs")
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  jobId     String
+  type      String   // PARTS_ARRIVED, STATUS_CHANGE, MANUAL
+  channel   String   @default("LINE")
+  recipient String   // lineUserId or phone
+  message   String
+  status    String   @default("PENDING") // PENDING, SENT, FAILED
+  error     String?
+  sentAt    DateTime?
+  createdAt DateTime @default(now())
+
+  job       Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model JobRepairStep {
+  id      String           @id @default(cuid())
+  jobId   String
+  step    String           // free text, matches template label
+  label   String
+  status  RepairStepStatus @default(PENDING)
+  order   Int
+
+  job     Job              @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@map("job_repair_steps")
+}
+
+model RepairStepTemplate {
+  id    String @id @default(cuid())
+  label String @unique
+  icon  String @default("Wrench")
+  color String @default("#6B7280")
+
+  @@map("repair_step_templates")
+}
+
+model JobPart {
+  id          String        @id @default(cuid())
+  jobId       String
+  source      JobPartSource
+  sourceId    String?
+  partName    String
+  barcode     String?       @unique
+  quantity    Int
+  unit        String        @default("ชิ้น")
+  note        String?
+  withdrawnBy String?
+  status      JobPartStatus @default(ORDERED)
+  addedAt     DateTime      @default(now())
+
+  job         Job           @relation(fields: [jobId], references: [id])
+
+  @@map("job_parts")
+}
+
 model LineRegistration {
   id              String   @id @default(cuid())
   lineUserId      String
@@ -148,6 +332,38 @@ model LineRegistration {
 
   @@unique([lineUserId, normalizedPlate])
   @@map("line_registrations")
+}
+
+model PaintBrand {
+  id     String       @id @default(cuid())
+  name   String       @unique
+  order  Int          @default(0)
+  colors PaintColor[]
+
+  @@map("paint_brands")
+}
+
+model PaintColor {
+  id       String     @id @default(cuid())
+  brandId  String
+  code     String
+  name     String
+  type     String     @default("แม่สี")
+  quantity Int        @default(0)
+  unit     String     @default("กระป๋อง")
+  brand    PaintBrand @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  @@map("paint_colors")
+}
+
+model CarType {
+  id     String   @id @default(cuid())
+  key    String   @unique
+  label  String
+  brands String[]
+  order  Int      @default(0)
+
+  @@map("car_types")
 }
 
 model AuditLog {

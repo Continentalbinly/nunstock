@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { prisma } from "../lib/prisma.js";
+import { sendLinePush } from "../lib/line.js";
 import * as crypto from "crypto";
 
 export const webhookRouter = new Hono();
@@ -34,30 +35,7 @@ async function sendLineReply(replyToken: string, text: string): Promise<void> {
     }).catch(() => { });
 }
 
-/** ส่ง Push Message ไปหา userId */
-async function sendLinePush(to: string, text: string): Promise<{ ok: boolean; error?: string }> {
-    if (!LINE_TOKEN) return { ok: false, error: "ไม่พบ LINE_CHANNEL_ACCESS_TOKEN" };
-    try {
-        const res = await fetch("https://api.line.me/v2/bot/message/push", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${LINE_TOKEN}`,
-            },
-            body: JSON.stringify({
-                to,
-                messages: [{ type: "text", text }],
-            }),
-        });
-        if (!res.ok) {
-            const err = await res.json().catch(() => ({})) as any;
-            return { ok: false, error: err?.message || `LINE API error: ${res.status}` };
-        }
-        return { ok: true };
-    } catch (e: any) {
-        return { ok: false, error: e?.message || "เชื่อมต่อ LINE ไม่ได้" };
-    }
-}
+
 
 /** Normalize ทะเบียน: ลบ space, dash, ทำ uppercase */
 function normalizePlate(text: string): string {
@@ -197,6 +175,87 @@ webhookRouter.post("/line", async (c) => {
             const rawText: string = event.message.text.trim();
 
             if (!lineUserId) continue;
+
+            // ── "สถานะ" keyword → show job + per-part status ──
+            if (rawText === "สถานะ" || rawText.toLowerCase() === "status") {
+                // Find jobs linked to this LINE user (via claim.lineUserId)
+                const jobs = await prisma.job.findMany({
+                    where: {
+                        status: { not: "DELIVERED" },
+                        claim: { lineUserId },
+                    },
+                    include: {
+                        parts: { orderBy: { addedAt: "asc" } },
+                        claim: { select: { claimNo: true, insuranceComp: true } },
+                        repairSteps: { orderBy: { order: "asc" } },
+                    },
+                    orderBy: { createdAt: "desc" },
+                    take: 3,
+                });
+
+                if (jobs.length === 0) {
+                    // Fallback: check claims directly
+                    const claim = await prisma.insuranceClaim.findFirst({
+                        where: { lineUserId, status: { not: "COMPLETED" } },
+                        include: { items: true },
+                        orderBy: { createdAt: "desc" },
+                    });
+                    if (claim) {
+                        const statusTh: Record<string, string> = { PENDING: "รอดำเนินการ 🕐", ORDERED: "สั่งอะไหล่แล้ว 📦", ARRIVED: "อะไหล่มาถึง 🎉", NOTIFIED: "แจ้งลูกค้าแล้ว ✅" };
+                        await sendLineReply(replyToken, [
+                            `📋 สถานะเคลม: ${claim.claimNo}`,
+                            `🚗 ${claim.carBrand} ${claim.carModel} (${claim.plateNo})`,
+                            `สถานะ: ${statusTh[claim.status] || claim.status}`,
+                            ``, `📦 อะไหล่:`,
+                            ...claim.items.map(i => `• ${i.partName} x${i.quantity}`),
+                        ].join("\n"));
+                    } else {
+                        await sendLineReply(replyToken, `❌ ไม่พบงานซ่อมที่ผูกกับ LINE ของคุณ\n\nกรุณาลงทะเบียนด้วย:\nชื่อ / ทะเบียนรถ\n\nตัวอย่าง: สมชาย / กข1234`);
+                    }
+                    continue;
+                }
+
+                // Build per-job status message
+                const messages: string[] = [];
+                const stepStatusTh: Record<string, string> = {
+                    COMPLETED: "เสร็จแล้ว ✅", IN_PROGRESS: "กำลังดำเนินงาน 🔧", PENDING: "รอดำเนินงาน ⏳",
+                };
+                for (const job of jobs) {
+                    const statusTh: Record<string, string> = {
+                        WAITING_PARTS: "รออะไหล่ ⏳",
+                        RECEIVED: "รับรถแล้ว 🚗", IN_PROGRESS: "กำลังซ่อม 🔧",
+                        COMPLETED: "ซ่อมเสร็จ ✅", DELIVERED: "ส่งมอบแล้ว 🚚",
+                    };
+                    const arrived = job.parts.filter(p => p.status === "ARRIVED" || p.status === "INSTALLED").length;
+                    const total = job.parts.length;
+                    const insuranceInfo = job.claim?.insuranceComp ? `\n🏢 ประกัน: ${job.claim.insuranceComp}` : "";
+
+                    // Per-step repair detail
+                    const repairLines: string[] = [];
+                    if (job.status === "IN_PROGRESS" && (job as any).repairSteps?.length > 0) {
+                        repairLines.push(``, `🛠️ ขั้นตอนซ่อม:`);
+                        for (const rs of (job as any).repairSteps) {
+                            repairLines.push(`${stepStatusTh[rs.status]?.startsWith("เสร็จ") ? "✅" : rs.status === "IN_PROGRESS" ? "🔧" : "⏳"} ${rs.label} — ${stepStatusTh[rs.status] || rs.status}`);
+                        }
+                    }
+
+                    messages.push([
+                        `📋 ${job.jobNo}${job.claim ? ` (เคลม: ${job.claim.claimNo})` : ""}`,
+                        `🚗 ${job.carBrand} ${job.carModel} (${job.plateNo})`,
+                        `สถานะ: ${statusTh[job.status] || job.status}${insuranceInfo}`,
+                        ...repairLines,
+                        ``,
+                        total > 0 ? `📦 อะไหล่ (${arrived}/${total} มาถึง):` : `📦 ยังไม่มีอะไหล่`,
+                        ...job.parts.map(p => {
+                            const icon = p.status === "INSTALLED" ? "✅" : p.status === "ARRIVED" ? "✅" : "⏳";
+                            return `${icon} ${p.partName} x${p.quantity}`;
+                        }),
+                    ].join("\n"));
+                }
+
+                await sendLineReply(replyToken, messages.join("\n\n───────────\n\n"));
+                continue;
+            }
 
             // Parse format: "ชื่อ / ทะเบียน" หรือ "ชื่อ/ทะเบียน"
             const parts = rawText.split(/[\/]/);

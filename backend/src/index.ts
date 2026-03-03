@@ -35,6 +35,11 @@ import { authRouter } from "./routes/auth.js";
 import { movementsRouter } from "./routes/movements.js";
 import { webhookRouter } from "./routes/webhook.js";
 import { lineRouter } from "./routes/line.js";
+import { shopStockRouter } from "./routes/shop-stock.js";
+import { jobsRouter } from "./routes/jobs.js";
+import { notificationsRouter } from "./routes/notifications.js";
+import { carTypesRouter } from "./routes/carTypes.js";
+import { paintColorsRouter } from "./routes/paintColors.js";
 
 
 // ตรวจสอบ JWT_SECRET ตอน startup
@@ -79,6 +84,11 @@ app.route("/api/claims", claimsRouter);
 app.route("/api/stock", stockRouter);
 app.route("/api/movements", movementsRouter);
 app.route("/api/line", lineRouter);
+app.route("/api/shop-stock", shopStockRouter);
+app.route("/api/jobs", jobsRouter);
+app.route("/api/notifications", notificationsRouter);
+app.route("/api/car-types", carTypesRouter);
+app.route("/api/paint", paintColorsRouter);
 // LINE Webhook — ต้องอยู่นอก /api เพราะ LINE ไม่ส่ง auth cookie
 app.route("/webhook", webhookRouter);
 

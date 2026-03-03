@@ -81,7 +81,7 @@ export default function LoginPage() {
             {/* Background glow */}
             <div className="fixed inset-0 overflow-hidden pointer-events-none">
                 <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full blur-3xl" style={{ background: isDark ? "rgba(34,197,94,0.05)" : "rgba(34,197,94,0.08)" }} />
-                <div className="absolute bottom-1/4 right-1/4 w-96 h-96 rounded-full blur-3xl" style={{ background: isDark ? "rgba(59,130,246,0.05)" : "rgba(59,130,246,0.08)" }} />
+                <div className="absolute bottom-1/4 right-1/4 w-96 h-96 rounded-full blur-3xl" style={{ background: isDark ? "rgba(249,115,22,0.05)" : "rgba(249,115,22,0.08)" }} />
             </div>
 
             <div className="w-full max-w-sm relative z-10">
@@ -182,7 +182,7 @@ export default function LoginPage() {
                                 disabled={!installPrompt}
                                 className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                                 style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-text-secondary)" }}
-                                onMouseEnter={(e) => { if (installPrompt) { e.currentTarget.style.borderColor = "#3b82f660"; e.currentTarget.style.color = "#3b82f6"; } }}
+                                onMouseEnter={(e) => { if (installPrompt) { e.currentTarget.style.borderColor = "#F9731660"; e.currentTarget.style.color = "#F97316"; } }}
                                 onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--t-input-border)"; e.currentTarget.style.color = "var(--t-text-secondary)"; }}
                                 title={installPrompt ? "ติดตั้งเป็นเว็บแอป" : "เปิดใน Chrome/Edge เพื่อติดตั้ง"}
                             >

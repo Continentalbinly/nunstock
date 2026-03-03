@@ -6,7 +6,7 @@ import { CheckCircle2, XCircle, AlertCircle, MessageSquare, RefreshCw, Send, Cop
 const API_BASE = "";
 
 const statusLabel: Record<string, string> = { PENDING: "รอดำเนินการ", ORDERED: "สั่งแล้ว", ARRIVED: "มาถึง", NOTIFIED: "แจ้งแล้ว", COMPLETED: "เสร็จสิ้น" };
-const statusBadge: Record<string, string> = { PENDING: "bg-amber-500/15 text-amber-500", ORDERED: "bg-blue-500/15 text-blue-500", ARRIVED: "bg-emerald-500/15 text-emerald-500", NOTIFIED: "bg-purple-500/15 text-purple-500", COMPLETED: "bg-emerald-500/10 text-emerald-500" };
+const statusBadge: Record<string, string> = { PENDING: "bg-amber-500/15 text-amber-500", ORDERED: "bg-orange-500/15 text-orange-500", ARRIVED: "bg-emerald-500/15 text-emerald-500", NOTIFIED: "bg-purple-500/15 text-purple-500", COMPLETED: "bg-emerald-500/10 text-emerald-500" };
 
 export default function LineOperationsPage() {
     const [data, setData] = useState<any>(null);
@@ -126,7 +126,7 @@ export default function LineOperationsPage() {
             {/* ── Stats ── */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                 {[
-                    { label: "เคลมทั้งหมด", value: stats?.totalClaims ?? 0, icon: Users, color: "#3B82F6" },
+                    { label: "เคลมทั้งหมด", value: stats?.totalClaims ?? 0, icon: Users, color: "#F97316" },
                     { label: "ลิงก์ LINE แล้ว", value: stats?.linkedClaims ?? 0, icon: Link2, color: "#00B370" },
                     { label: "เคลมเปิดอยู่", value: stats?.activeClaims ?? 0, icon: AlertCircle, color: "#F59E0B" },
                     { label: "อัตราลิงก์ (active)", value: `${stats?.linkRate ?? 0}%`, icon: CheckCircle2, color: "#A855F7" },
@@ -199,9 +199,9 @@ export default function LineOperationsPage() {
             {/* ── คำแนะนำสำหรับลูกค้า ── */}
             <div className="rounded-xl p-5 mb-6" style={{ background: "var(--t-card)", border: "1px solid var(--t-border-subtle)" }}>
                 <h2 className="font-semibold mb-3 flex items-center gap-2" style={{ color: "var(--t-text)" }}>
-                    <MessageSquare className="w-4 h-4 text-blue-500" />
+                    <MessageSquare className="w-4 h-4 text-orange-500" />
                     ข้อความแนะนำสำหรับลูกค้า
-                    <span className="text-xs px-2 py-0.5 rounded-full text-blue-500 ml-1" style={{ background: "rgba(59,130,246,0.1)" }}>copy ให้ลูกค้า</span>
+                    <span className="text-xs px-2 py-0.5 rounded-full text-orange-500 ml-1" style={{ background: "rgba(249,115,22,0.1)" }}>copy ให้ลูกค้า</span>
                 </h2>
                 {[
                     {

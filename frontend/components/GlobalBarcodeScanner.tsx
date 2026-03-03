@@ -1,7 +1,9 @@
 "use client";
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 import { useCart } from "@/components/CartContext";
 import { toast } from "sonner";
+import ConsumableWithdrawModal from "@/components/ConsumableWithdrawModal";
+import PaintWithdrawModal from "@/components/PaintWithdrawModal";
 
 // ============================================================
 // Inline SVG Icons — ไม่ import lucide-react
@@ -41,21 +43,51 @@ const lookupPartByCode = async (code: string) => {
     });
     return res.json();
 };
+const lookupJobPartByBarcode = async (barcode: string) => {
+    const res = await fetch(`/api/jobs/parts/lookup/${encodeURIComponent(barcode)}`, {
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+    });
+    return res.json();
+};
+const updateJobPartStatusApi = async (jobId: string, partId: string, status: string) => {
+    const res = await fetch(`/api/jobs/${jobId}/parts/${partId}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ status }),
+    });
+    return res.json();
+};
 
 // ============================================================
 // Component — Scanner detection + Cart UI
 // ============================================================
 export function GlobalBarcodeScanner() {
     const { cart, isOpen, setIsOpen, mode, setMode, addToCart, removeItem, updateQty, clearCart, submitting, success, reason, setReason, handleBatchSubmit, totalItems } = useCart();
-    const isIN = mode === "IN";
-    const accentColor = isIN ? "#22C55E" : "#F97316";
-    const accentDark = isIN ? "#16A34A" : "#EA580C";
-    const modeLabel = isIN ? "เพิ่มสต็อก" : "เบิกออก";
+    const accentColor = "#22C55E";
+    const accentDark = "#16A34A";
+    const modeLabel = "เพิ่มสต็อก";
 
     const keyBuffer = useRef("");
     const lastKeyTime = useRef(0);
     const scannerTimeout = useRef<NodeJS.Timeout | null>(null);
     const lookingUp = useRef(false);
+
+    // Job part scan modal
+    const [jobPartModal, setJobPartModal] = useState<any>(null);
+    const [jpLoading, setJpLoading] = useState(false);
+
+    // Consumable withdraw modal (opened by CON-xxx barcode scan)
+    const [showConsWithdraw, setShowConsWithdraw] = useState(false);
+    const [scannedConsPart, setScannedConsPart] = useState<any>(null);
+
+    // Paint withdraw modal (opened by PT-xxx barcode scan)
+    const [showPaintWithdraw, setShowPaintWithdraw] = useState(false);
+    const [scannedPaintPart, setScannedPaintPart] = useState<any>(null);
+
+    // Force IN mode on mount
+    useEffect(() => { setMode("IN"); }, []);
 
     // Thai Kedmanee → English mapping
     const thaiToEng: Record<string, string> = {
@@ -81,11 +113,39 @@ export function GlobalBarcodeScanner() {
         if (code.length < 2 || lookingUp.current) return;
         lookingUp.current = true;
         try {
-            const result = await lookupPartByCode(code);
-            if (result.success && result.data) {
-                addToCart(result.data);
+            // JP- prefix = Job Part barcode
+            if (code.startsWith("JP-")) {
+                const result = await lookupJobPartByBarcode(code);
+                if (result.success && result.data) {
+                    setJobPartModal(result.data);
+                } else {
+                    toast.error(`ไม่พบอะไหล่ "${code}" ในระบบ`, { duration: 2500 });
+                }
+            } else if (code.startsWith("CON-")) {
+                // CON- prefix = Consumable → look up part, open withdraw modal
+                const result = await lookupPartByCode(code);
+                if (result.success && result.data) {
+                    setScannedConsPart(result.data);
+                    setShowConsWithdraw(true);
+                } else {
+                    toast.error(`ไม่พบวัสดุ "${code}" ในระบบ`, { duration: 2500 });
+                }
+            } else if (code.startsWith("PT-")) {
+                // PT- prefix = Paint → look up part, open paint withdraw modal
+                const result = await lookupPartByCode(code);
+                if (result.success && result.data) {
+                    setScannedPaintPart(result.data);
+                    setShowPaintWithdraw(true);
+                } else {
+                    toast.error(`ไม่พบสี "${code}" ในระบบ`, { duration: 2500 });
+                }
             } else {
-                toast.error(`ไม่พบรายการ "${code}" ในระบบ`, { duration: 2500 });
+                const result = await lookupPartByCode(code);
+                if (result.success && result.data) {
+                    addToCart(result.data, "IN");
+                } else {
+                    toast.error(`ไม่พบรายการ "${code}" ในระบบ`, { duration: 2500 });
+                }
             }
         } catch {
             toast.error(`ไม่พบรายการ "${code}" ในระบบ`, { duration: 2500 });
@@ -173,20 +233,11 @@ export function GlobalBarcodeScanner() {
                                     <IconCart className="w-5 h-5" />
                                 </div>
                                 <div>
-                                    <h3 className="font-bold text-sm" style={{ color: "var(--t-text)" }}>ตะกร้า{modeLabel}</h3>
+                                    <h3 className="font-bold text-sm" style={{ color: "var(--t-text)" }}>ตะกร้าเพิ่มสต็อก</h3>
                                     <p className="text-[11px]" style={{ color: "var(--t-text-muted)" }}>{cart.length} รายการ • {totalItems} ชิ้น</p>
                                 </div>
                             </div>
                             <div className="flex items-center gap-1">
-                                {/* Mode toggle */}
-                                <div className="flex rounded-lg overflow-hidden mr-1" style={{ border: "1px solid var(--t-border-subtle)" }}>
-                                    <button onClick={() => setMode("OUT")}
-                                        className="px-2 py-1 text-[10px] font-bold cursor-pointer transition-all"
-                                        style={{ background: mode === "OUT" ? accentColor : "transparent", color: mode === "OUT" ? "#fff" : "var(--t-text-muted)" }}>เบิก</button>
-                                    <button onClick={() => setMode("IN")}
-                                        className="px-2 py-1 text-[10px] font-bold cursor-pointer transition-all"
-                                        style={{ background: mode === "IN" ? "#22C55E" : "transparent", color: mode === "IN" ? "#fff" : "var(--t-text-muted)" }}>เพิ่ม</button>
-                                </div>
                                 <button onClick={() => setIsOpen(false)} className="p-1.5 rounded-lg transition-colors cursor-pointer" style={{ color: "var(--t-text-muted)" }} title="ซ่อน">
                                     <IconMinus className="w-4 h-4" />
                                 </button>
@@ -201,8 +252,8 @@ export function GlobalBarcodeScanner() {
                                 <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: "rgba(34,197,94,0.15)" }}>
                                     <IconCheck className="w-8 h-8 text-emerald-500" />
                                 </div>
-                                <p className="font-bold text-lg text-emerald-500 mb-1">{isIN ? "เพิ่มสต็อกสำเร็จ!" : "เบิกสำเร็จ!"}</p>
-                                <p className="text-sm" style={{ color: "var(--t-text-muted)" }}>{isIN ? "เพิ่มสต็อก" : "เบิกอะไหล่"} {cart.length} รายการเรียบร้อย</p>
+                                <p className="font-bold text-lg text-emerald-500 mb-1">เพิ่มสต็อกสำเร็จ!</p>
+                                <p className="text-sm" style={{ color: "var(--t-text-muted)" }}>เพิ่มสต็อก {cart.length} รายการเรียบร้อย</p>
                             </div>
                         ) : (
                             <>
@@ -222,7 +273,6 @@ export function GlobalBarcodeScanner() {
                                 {cart.length > 0 && (
                                     <div className="flex-1 overflow-y-auto" style={{ minHeight: 0 }}>
                                         {cart.map((item, idx) => {
-                                            const isLow = item.withdrawQty >= item.quantity;
                                             return (
                                                 <div key={item.id} className="px-4 py-3 flex items-center gap-3"
                                                     style={{ borderBottom: idx < cart.length - 1 ? "1px solid var(--t-border-subtle)" : "none" }}>
@@ -232,7 +282,7 @@ export function GlobalBarcodeScanner() {
                                                             <span className="font-mono text-[10px]" style={{ color: "var(--t-text-muted)" }}>{item.code}</span>
                                                             {item.brand && <span className="text-[10px]" style={{ color: "var(--t-text-dim)" }}>• {item.brand}</span>}
                                                         </div>
-                                                        <p className="text-[10px] mt-0.5" style={{ color: isLow ? "#EF4444" : "var(--t-text-dim)" }}>
+                                                        <p className="text-[10px] mt-0.5" style={{ color: "var(--t-text-dim)" }}>
                                                             สต็อก: {item.quantity} {item.unit}
                                                         </p>
                                                     </div>
@@ -242,10 +292,10 @@ export function GlobalBarcodeScanner() {
                                                             style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-text)" }}>
                                                             <IconMinus />
                                                         </button>
-                                                        <span className="w-8 text-center text-sm font-bold" style={{ color: isLow ? "#EF4444" : accentColor }}>
+                                                        <span className="w-8 text-center text-sm font-bold" style={{ color: accentColor }}>
                                                             {item.withdrawQty}
                                                         </span>
-                                                        <button onClick={() => updateQty(item.id, 1)} disabled={!isIN && item.withdrawQty >= item.quantity}
+                                                        <button onClick={() => updateQty(item.id, 1)}
                                                             className="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer disabled:opacity-30 transition-colors"
                                                             style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-text)" }}>
                                                             <IconPlus />
@@ -271,7 +321,7 @@ export function GlobalBarcodeScanner() {
                                             value={reason}
                                             onChange={(e) => setReason(e.target.value)}
                                             onKeyDown={(e) => { if (e.key === "Enter" && cart.length > 0) handleBatchSubmit(); }}
-                                            placeholder={isIN ? "เหตุผลการเพิ่ม (ถ้ามี)" : "เหตุผลการเบิก (ถ้ามี)"}
+                                            placeholder="เหตุผลการเพิ่ม (ถ้ามี)"
                                             className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none"
                                             style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }}
                                         />
@@ -281,15 +331,120 @@ export function GlobalBarcodeScanner() {
                                             className="w-full flex items-center justify-center gap-2 text-white font-bold rounded-xl py-3 text-sm transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-lg hover:-translate-y-0.5 active:translate-y-0"
                                             style={{ background: `linear-gradient(135deg, ${accentColor}, ${accentDark})`, boxShadow: `0 8px 20px ${accentColor}4D` }}>
                                             <IconArrowUp className="w-4 h-4" />
-                                            {submitting ? (isIN ? "กำลังเพิ่ม..." : "กำลังเบิก...") : `${modeLabel}ทั้งหมด ${cart.length} รายการ (${totalItems} ชิ้น)`}
+                                            {submitting ? "กำลังเพิ่ม..." : `เพิ่มสต็อกทั้งหมด ${cart.length} รายการ (${totalItems} ชิ้น)`}
                                         </button>
                                     </div>
                                 )}
                             </>
                         )}
                     </div>
-                </div>
-            )}
+                </div >
+            )
+            }
+
+            {/* ──── Job Part Scan Modal ──── */}
+            {
+                jobPartModal && (() => {
+                    const jp = jobPartModal;
+                    const job = jp.job;
+                    const statusLabels: Record<string, string> = { ORDERED: "สั่งแล้ว", ARRIVED: "มาถึง", WITHDRAWN: "เบิกแล้ว", INSTALLED: "ติดตั้ง" };
+                    const nextStatusMap: Record<string, string> = { ARRIVED: "WITHDRAWN", WITHDRAWN: "INSTALLED" };
+                    const nextStatus = nextStatusMap[jp.status];
+                    const nextLabel: Record<string, string> = { WITHDRAWN: "เบิกอะไหล่", INSTALLED: "ติดตั้งเสร็จ" };
+                    const nextColor: Record<string, string> = { WITHDRAWN: "#8B5CF6", INSTALLED: "#F97316" };
+
+                    return (
+                        <div className="fixed inset-0 z-9999 flex items-center justify-center"
+                            style={{ background: "var(--t-modal-overlay)", animation: "fadeIn 150ms ease" }}
+                            onClick={() => !jpLoading && setJobPartModal(null)}>
+                            <div className="w-[90%] max-w-sm rounded-2xl shadow-2xl overflow-hidden"
+                                style={{ background: "var(--t-modal-bg)", border: "1px solid var(--t-modal-border)", animation: "slideUp 200ms ease" }}
+                                onClick={e => e.stopPropagation()}>
+
+                                {/* Header */}
+                                <div className="p-4 flex items-center gap-3" style={{ borderBottom: "1px solid var(--t-border-subtle)", background: "rgba(249,115,22,0.06)" }}>
+                                    <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "rgba(249,115,22,0.15)" }}>
+                                        <IconPackage className="w-5 h-5" style={{ color: "#F97316" }} />
+                                    </div>
+                                    <div>
+                                        <h3 className="font-bold text-sm" style={{ color: "var(--t-text)" }}>อะไหล่จาก Job</h3>
+                                        <p className="text-[11px] font-mono" style={{ color: "var(--t-text-muted)" }}>{jp.barcode}</p>
+                                    </div>
+                                    <button onClick={() => setJobPartModal(null)} className="ml-auto p-1.5 rounded-lg cursor-pointer" style={{ color: "var(--t-text-muted)" }}>
+                                        <IconX className="w-4 h-4" />
+                                    </button>
+                                </div>
+
+                                {/* Content */}
+                                <div className="p-4 space-y-3">
+                                    <div className="rounded-lg p-3" style={{ background: "var(--t-badge-bg)", border: "1px solid var(--t-border-subtle)" }}>
+                                        <p className="font-semibold text-sm" style={{ color: "var(--t-text)" }}>{jp.partName}</p>
+                                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                            <span className="text-xs" style={{ color: "var(--t-text-muted)" }}>x{jp.quantity} {jp.unit}</span>
+                                            <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold" style={{ background: `${nextColor[jp.status] || "#6B7280"}18`, color: nextColor[jp.status] || "#6B7280" }}>
+                                                {statusLabels[jp.status] || jp.status}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {job && (
+                                        <div className="rounded-lg p-3" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-border-subtle)" }}>
+                                            <p className="text-xs font-bold" style={{ color: "#F97316" }}>{job.jobNo}</p>
+                                            <p className="text-xs mt-0.5" style={{ color: "var(--t-text)" }}>{job.customerName}</p>
+                                            <p className="text-[10px] mt-0.5" style={{ color: "var(--t-text-muted)" }}>{job.carBrand} {job.carModel} • {job.plateNo}</p>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Actions */}
+                                <div className="p-4 pt-0 flex gap-2">
+                                    <button onClick={() => setJobPartModal(null)} disabled={jpLoading}
+                                        className="flex-1 rounded-lg py-2.5 text-sm font-medium cursor-pointer"
+                                        style={{ background: "var(--t-input-bg)", color: "var(--t-text-secondary)", border: "1px solid var(--t-input-border)" }}>
+                                        ปิด
+                                    </button>
+                                    {nextStatus && (
+                                        <button onClick={async () => {
+                                            setJpLoading(true);
+                                            try {
+                                                const result = await updateJobPartStatusApi(jp.jobId, jp.id, nextStatus);
+                                                if (result.success) {
+                                                    toast.success(`${nextLabel[nextStatus]} "${jp.partName}" สำเร็จ`);
+                                                    setJobPartModal(null);
+                                                } else {
+                                                    toast.error(result.error || "เกิดข้อผิดพลาด");
+                                                }
+                                            } catch { toast.error("เกิดข้อผิดพลาด"); }
+                                            finally { setJpLoading(false); }
+                                        }} disabled={jpLoading}
+                                            className="flex-1 font-bold rounded-lg py-2.5 text-sm cursor-pointer text-white disabled:opacity-50"
+                                            style={{ background: nextColor[nextStatus] || "#F97316" }}>
+                                            {jpLoading ? "กำลังดำเนินการ..." : nextLabel[nextStatus] || "ดำเนินการ"}
+                                        </button>
+                                    )}
+                                    {!nextStatus && (
+                                        <span className="flex-1 text-center rounded-lg py-2.5 text-sm font-medium" style={{ background: "rgba(34,197,94,0.1)", color: "#22C55E" }}>
+                                            ติดตั้งเสร็จแล้ว
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })()
+            }
+            {/* ──── Consumable Withdraw Modal (CON-xxx scan or button) ──── */}
+            <ConsumableWithdrawModal
+                open={showConsWithdraw}
+                preSelectedPart={scannedConsPart}
+                onClose={() => { setShowConsWithdraw(false); setScannedConsPart(null); }}
+            />
+            {/* ──── Paint Withdraw Modal (PT-xxx scan or button) ──── */}
+            <PaintWithdrawModal
+                open={showPaintWithdraw}
+                preSelectedPart={scannedPaintPart}
+                onClose={() => { setShowPaintWithdraw(false); setScannedPaintPart(null); }}
+            />
         </>
     );
 }

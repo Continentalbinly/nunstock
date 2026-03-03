@@ -2,18 +2,33 @@
 import { toast } from "sonner";
 import { useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { getParts, getCategories, createPart, updatePart, deletePart, deletePartForce, createCategory, deleteCategory, updateCategory } from "@/lib/api";
+import { getParts, getCategories, createPart, updatePart, deletePart, deletePartForce, createCategory, deleteCategory, updateCategory, getCarTypes, createCarType, updateCarType, deleteCarType } from "@/lib/api";
 import { getCarLogoUrl } from "@/lib/carLogos";
-import { Package, Search, Plus, X, AlertCircle, ChevronLeft, Car, Building2, PackagePlus, Trash2, Pencil, ChevronRight } from "lucide-react";
+import { Package, Search, Plus, X, AlertCircle, ChevronLeft, Car, Building2, PackagePlus, Trash2, Pencil, ChevronRight, Barcode, Globe } from "lucide-react";
 import { Pagination } from "@/components/Pagination";
+import BarcodeModal from "@/components/BarcodeModal";
 
+interface CarTypeItem {
+    id?: string;
+    key: string;
+    label: string;
+    brands: string[];
+    order?: number;
+}
 
+function getCarTypeFromList(brandName: string, types: CarTypeItem[]): string {
+    for (const ct of types) {
+        if (ct.brands.some(b => b.toLowerCase() === brandName.toLowerCase())) return ct.key;
+    }
+    return "other";
+}
 
 export default function InsurancePage() {
     const searchParams = useSearchParams();
     const router = useRouter();
     const [allCategories, setAllCategories] = useState<any[]>([]);
     const [selectedCompany, setSelectedCompany] = useState<any>(null);
+    const [selectedCarType, setSelectedCarType] = useState<string | null>(null);
     const [selectedBrand, setSelectedBrand] = useState<any>(null);
     const [selectedModel, setSelectedModel] = useState<any>(null);
     const [parts, setParts] = useState<any[]>([]);
@@ -37,6 +52,18 @@ export default function InsurancePage() {
     const [confirmDelete, setConfirmDelete] = useState<any>(null);
     const [editingCategory, setEditingCategory] = useState<any>(null);
     const [editName, setEditName] = useState("");
+
+    // === Car type CRUD state ===
+    const [carTypes, setCarTypes] = useState<CarTypeItem[]>([]);
+    const [showAddCarType, setShowAddCarType] = useState(false);
+    const [newCarTypeLabel, setNewCarTypeLabel] = useState("");
+    const [newCarTypeBrands, setNewCarTypeBrands] = useState("");
+    const [editingCarType, setEditingCarType] = useState<any>(null);
+    const [editCarTypeLabel, setEditCarTypeLabel] = useState("");
+    const [editCarTypeBrands, setEditCarTypeBrands] = useState("");
+    const [confirmDeleteCarType, setConfirmDeleteCarType] = useState<any>(null);
+
+    const getCarType = (brandName: string) => getCarTypeFromList(brandName, carTypes);
     const [showCreate, setShowCreate] = useState(false);
     const [createForm, setCreateForm] = useState({ code: "", name: "", description: "", brand: "", unit: "ชิ้น", quantity: 0, minStock: 5 });
     const [createSaving, setCreateSaving] = useState(false);
@@ -50,6 +77,7 @@ export default function InsurancePage() {
     const [confirmDeletePart, setConfirmDeletePart] = useState<any>(null);
     const [deletePartMsg, setDeletePartMsg] = useState("");
     const [deletePartCanForce, setDeletePartCanForce] = useState(false);
+    const [barcodePart, setBarcodePart] = useState<any>(null);
 
     // Get the "รถประกัน" root category, its company children, and brand children
     const insuranceRoot = allCategories.find(c => c.name === "รถประกัน" && !c.parentId);
@@ -58,8 +86,8 @@ export default function InsurancePage() {
     const models = selectedBrand ? allCategories.filter((c: any) => c.parentId === selectedBrand.id) : [];
 
     useEffect(() => {
-        getCategories()
-            .then(c => setAllCategories(c))
+        Promise.all([getCategories(), getCarTypes()])
+            .then(([c, ct]) => { setAllCategories(c); setCarTypes(ct); })
             .catch(console.error)
             .finally(() => setLoading(false));
     }, []);
@@ -68,6 +96,7 @@ export default function InsurancePage() {
     useEffect(() => {
         if (allCategories.length === 0) return;
         const companyParam = searchParams.get("company");
+        const carTypeParam = searchParams.get("carType");
         const brandParam = searchParams.get("brand");
         const modelParam = searchParams.get("model");
 
@@ -76,7 +105,15 @@ export default function InsurancePage() {
             if (comp && comp.id !== selectedCompany?.id) {
                 setSelectedCompany(comp);
             }
-            if (brandParam && comp) {
+            if (carTypeParam) {
+                if (carTypeParam !== selectedCarType) setSelectedCarType(carTypeParam);
+            } else if (selectedCarType) {
+                setSelectedCarType(null);
+                setSelectedBrand(null);
+                setSelectedModel(null);
+                setParts([]);
+            }
+            if (brandParam && comp && carTypeParam) {
                 const compBrands = allCategories.filter((c: any) => c.parentId === comp.id);
                 const br = compBrands.find((b: any) => b.id === brandParam);
                 if (br && br.id !== selectedBrand?.id) {
@@ -101,6 +138,7 @@ export default function InsurancePage() {
         } else {
             if (selectedCompany) {
                 setSelectedCompany(null);
+                setSelectedCarType(null);
                 setSelectedBrand(null);
                 setSelectedModel(null);
                 setParts([]);
@@ -141,7 +179,7 @@ export default function InsurancePage() {
         return (
             <div className="p-8 flex items-center justify-center min-h-screen">
                 <div className="text-center">
-                    <div className="w-10 h-10 border-3 rounded-full animate-spin mx-auto mb-4" style={{ borderColor: "var(--t-border)", borderTopColor: "#3b82f6" }} />
+                    <div className="w-10 h-10 border-3 rounded-full animate-spin mx-auto mb-4" style={{ borderColor: "var(--t-border)", borderTopColor: "#F97316" }} />
                     <p style={{ color: "var(--t-text-muted)" }} className="text-sm">กำลังโหลดข้อมูล...</p>
                 </div>
             </div>
@@ -172,10 +210,10 @@ export default function InsurancePage() {
                 <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "var(--t-modal-overlay)", animation: "fadeIn 150ms ease" }} onClick={() => setEditingCategory(null)}>
                     <div className="rounded-2xl p-6 w-[90%] max-w-sm shadow-2xl" style={{ background: "var(--t-modal-bg)", border: "1px solid var(--t-modal-border)", animation: "slideUp 200ms ease" }} onClick={(e) => e.stopPropagation()}>
                         <h3 className="font-bold mb-4" style={{ color: "var(--t-text)" }}>แก้ไขชื่อ</h3>
-                        <input value={editName} onChange={(e) => setEditName(e.target.value)} onKeyDown={async (e) => { if (e.key === "Enter" && editName.trim()) { try { await updateCategory(editingCategory.id, { name: editName.trim() }); setEditingCategory(null); const c = await getCategories(); setAllCategories(c); } catch (err: any) { toast.error(err.message); } } }} className="w-full rounded-lg px-3 py-2.5 text-sm mb-4 focus:outline-none focus:ring-1 focus:ring-blue-500/30" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} autoFocus />
+                        <input value={editName} onChange={(e) => setEditName(e.target.value)} onKeyDown={async (e) => { if (e.key === "Enter" && editName.trim()) { try { await updateCategory(editingCategory.id, { name: editName.trim() }); setEditingCategory(null); const c = await getCategories(); setAllCategories(c); } catch (err: any) { toast.error(err.message); } } }} className="w-full rounded-lg px-3 py-2.5 text-sm mb-4 focus:outline-none focus:ring-1 focus:ring-orange-500/30" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} autoFocus />
                         <div className="flex gap-3">
                             <button onClick={() => setEditingCategory(null)} className="flex-1 rounded-lg py-2.5 text-sm font-medium cursor-pointer" style={{ background: "var(--t-input-bg)", color: "var(--t-text-secondary)", border: "1px solid var(--t-input-border)" }}>ยกเลิก</button>
-                            <button onClick={async () => { if (!editName.trim()) return; try { await updateCategory(editingCategory.id, { name: editName.trim() }); setEditingCategory(null); const c = await getCategories(); setAllCategories(c); } catch (err: any) { toast.error(err.message); } }} className="flex-1 bg-blue-500 hover:bg-blue-400 text-white font-semibold rounded-lg py-2.5 text-sm cursor-pointer">บันทึก</button>
+                            <button onClick={async () => { if (!editName.trim()) return; try { await updateCategory(editingCategory.id, { name: editName.trim() }); setEditingCategory(null); const c = await getCategories(); setAllCategories(c); } catch (err: any) { toast.error(err.message); } }} className="flex-1 bg-orange-500 hover:bg-orange-400 text-white font-semibold rounded-lg py-2.5 text-sm cursor-pointer">บันทึก</button>
                         </div>
                     </div>
                 </div>
@@ -197,13 +235,13 @@ export default function InsurancePage() {
                         {companies.map((company) => {
                             const brandCount = allCategories.filter(c => c.parentId === company.id).length;
                             return (
-                                <div key={company.id} className="group relative rounded-2xl p-6 transition-all duration-200 text-center cursor-pointer" style={{ background: "var(--t-card)", border: "1px solid var(--t-border-subtle)" }} onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#3b82f680"; e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 8px 25px rgba(59,130,246,0.12)"; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--t-border-subtle)"; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; }} onClick={() => { setSelectedCompany(company); router.push(`/insurance?company=${company.id}`); }}>
+                                <div key={company.id} className="group relative rounded-2xl p-6 transition-all duration-200 text-center cursor-pointer" style={{ background: "var(--t-card)", border: "1px solid var(--t-border-subtle)" }} onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#F9731680"; e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 8px 25px rgba(249,115,22,0.12)"; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--t-border-subtle)"; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; }} onClick={() => { setSelectedCompany(company); router.push(`/insurance?company=${company.id}`); }}>
                                     <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
                                         <button onClick={(e) => { e.stopPropagation(); setEditingCategory(company); setEditName(company.name); }} className="p-1.5 rounded-lg cursor-pointer" style={{ background: "var(--t-input-bg)" }} title="แก้ไขชื่อ"><Pencil className="w-3.5 h-3.5" style={{ color: "var(--t-text-muted)" }} /></button>
                                         <button onClick={(e) => { e.stopPropagation(); setConfirmDelete(company); }} className="p-1.5 rounded-lg cursor-pointer" style={{ background: "var(--t-input-bg)" }} title="ลบ"><Trash2 className="w-3.5 h-3.5 text-red-400" /></button>
                                     </div>
-                                    <div className="w-14 h-14 rounded-xl mx-auto mb-3 flex items-center justify-center" style={{ background: "rgba(59,130,246,0.1)" }}>
-                                        <Building2 className="w-7 h-7" style={{ color: "#3b82f6" }} />
+                                    <div className="w-14 h-14 rounded-xl mx-auto mb-3 flex items-center justify-center" style={{ background: "rgba(249,115,22,0.1)" }}>
+                                        <Building2 className="w-7 h-7" style={{ color: "#F97316" }} />
                                     </div>
                                     <p className="font-bold text-base" style={{ color: "var(--t-text)" }}>{company.name}</p>
                                     <p className="text-xs mt-1" style={{ color: "var(--t-text-muted)" }}>{brandCount} ยี่ห้อรถ</p>
@@ -215,13 +253,13 @@ export default function InsurancePage() {
                             onClick={() => { setNewCompanyName(""); setShowAddCompany(true); }}
                             className="rounded-2xl p-6 transition-all duration-200 cursor-pointer text-center border-2 border-dashed"
                             style={{ borderColor: "var(--t-border-subtle)" }}
-                            onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#3b82f680"; e.currentTarget.style.background = "rgba(59,130,246,0.03)"; }}
+                            onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#F9731680"; e.currentTarget.style.background = "rgba(249,115,22,0.03)"; }}
                             onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--t-border-subtle)"; e.currentTarget.style.background = "transparent"; }}
                         >
-                            <div className="w-14 h-14 rounded-xl mx-auto mb-3 flex items-center justify-center" style={{ background: "rgba(59,130,246,0.08)" }}>
-                                <Plus className="w-7 h-7" style={{ color: "#3b82f6" }} />
+                            <div className="w-14 h-14 rounded-xl mx-auto mb-3 flex items-center justify-center" style={{ background: "rgba(249,115,22,0.08)" }}>
+                                <Plus className="w-7 h-7" style={{ color: "#F97316" }} />
                             </div>
-                            <p className="font-bold text-sm" style={{ color: "#3b82f6" }}>เพิ่มบริษัทประกัน</p>
+                            <p className="font-bold text-sm" style={{ color: "#F97316" }}>เพิ่มบริษัทประกัน</p>
                         </button>
                     </div>
 
@@ -237,10 +275,10 @@ export default function InsurancePage() {
                         <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "var(--t-modal-overlay)", animation: "fadeIn 150ms ease" }} onClick={() => setShowAddCompany(false)}>
                             <div className="rounded-2xl p-6 w-[90%] max-w-sm shadow-2xl" style={{ background: "var(--t-modal-bg)", border: "1px solid var(--t-modal-border)", animation: "slideUp 200ms ease" }} onClick={(e) => e.stopPropagation()}>
                                 <h3 className="font-bold mb-4" style={{ color: "var(--t-text)" }}>เพิ่มบริษัทประกันใหม่</h3>
-                                <input value={newCompanyName} onChange={(e) => setNewCompanyName(e.target.value)} onKeyDown={async (e) => { if (e.key === "Enter" && newCompanyName.trim()) { try { await createCategory({ name: newCompanyName.trim(), parentId: insuranceRoot?.id }); setShowAddCompany(false); const c = await getCategories(); setAllCategories(c); } catch (err: any) { toast.error(err.message); } } }} placeholder="ชื่อบริษัทประกัน" className="w-full rounded-lg px-3 py-2.5 text-sm mb-4 focus:outline-none focus:ring-1 focus:ring-blue-500/30" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} autoFocus />
+                                <input value={newCompanyName} onChange={(e) => setNewCompanyName(e.target.value)} onKeyDown={async (e) => { if (e.key === "Enter" && newCompanyName.trim()) { try { await createCategory({ name: newCompanyName.trim(), parentId: insuranceRoot?.id }); setShowAddCompany(false); const c = await getCategories(); setAllCategories(c); } catch (err: any) { toast.error(err.message); } } }} placeholder="ชื่อบริษัทประกัน" className="w-full rounded-lg px-3 py-2.5 text-sm mb-4 focus:outline-none focus:ring-1 focus:ring-orange-500/30" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} autoFocus />
                                 <div className="flex gap-3">
                                     <button onClick={() => setShowAddCompany(false)} className="flex-1 rounded-lg py-2.5 text-sm font-medium cursor-pointer" style={{ background: "var(--t-input-bg)", color: "var(--t-text-secondary)", border: "1px solid var(--t-input-border)" }}>ยกเลิก</button>
-                                    <button onClick={async () => { if (!newCompanyName.trim()) return; try { await createCategory({ name: newCompanyName.trim(), parentId: insuranceRoot?.id }); setShowAddCompany(false); const c = await getCategories(); setAllCategories(c); } catch (err: any) { toast.error(err.message); } }} className="flex-1 bg-blue-500 hover:bg-blue-400 text-white font-semibold rounded-lg py-2.5 text-sm cursor-pointer">เพิ่ม</button>
+                                    <button onClick={async () => { if (!newCompanyName.trim()) return; try { await createCategory({ name: newCompanyName.trim(), parentId: insuranceRoot?.id }); setShowAddCompany(false); const c = await getCategories(); setAllCategories(c); } catch (err: any) { toast.error(err.message); } }} className="flex-1 bg-orange-500 hover:bg-orange-400 text-white font-semibold rounded-lg py-2.5 text-sm cursor-pointer">เพิ่ม</button>
                                 </div>
                             </div>
                         </div>
@@ -250,17 +288,27 @@ export default function InsurancePage() {
         );
     }
 
-    // ─── Step 2: Brand Selection (after company) ─────────────
-    if (selectedCompany && !selectedBrand) {
+    // ─── Step 2: Car Type Selection (after company) ─────────────
+    if (selectedCompany && !selectedCarType) {
+        // Count brands per car type
+        const brandsByType: Record<string, any[]> = {};
+        for (const ct of carTypes) {
+            if (ct.key === "other") {
+                brandsByType[ct.key] = brands.filter(b => getCarType(b.name) === "other");
+            } else {
+                brandsByType[ct.key] = brands.filter(b => getCarType(b.name) === ct.key);
+            }
+        }
+
         return (
             <>{sharedModals}
                 <div className="p-6 lg:p-8">
                     <div className="mb-8">
                         <button
-                            onClick={() => { setSelectedCompany(null); setSelectedBrand(null); setSelectedModel(null); router.push("/insurance"); }}
+                            onClick={() => { setSelectedCompany(null); setSelectedCarType(null); setSelectedBrand(null); setSelectedModel(null); router.push("/insurance"); }}
                             className="inline-flex items-center gap-2 text-sm font-medium mb-4 transition-all duration-200 cursor-pointer rounded-xl px-4 py-2"
                             style={{ background: "var(--t-card)", color: "var(--t-text-secondary)", border: "1px solid var(--t-border-subtle)", boxShadow: "0 1px 2px rgba(0,0,0,0.04)" }}
-                            onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#3b82f660"; e.currentTarget.style.color = "#3b82f6"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(59,130,246,0.1)"; }}
+                            onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#F9731660"; e.currentTarget.style.color = "#F97316"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(249,115,22,0.1)"; }}
                             onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--t-border-subtle)"; e.currentTarget.style.color = "var(--t-text-secondary)"; e.currentTarget.style.boxShadow = "0 1px 2px rgba(0,0,0,0.04)"; }}
                         >
                             <ChevronLeft className="w-4 h-4" /> กลับไปเลือกบริษัทประกัน
@@ -268,29 +316,154 @@ export default function InsurancePage() {
                         <h1 className="text-xl font-bold" style={{ color: "var(--t-text)" }}>
                             {selectedCompany.name}
                         </h1>
+                        <p className="mt-1 text-sm" style={{ color: "var(--t-text-muted)" }}>เลือกประเภทรถ</p>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                        {carTypes.map((ct) => (
+                            <div key={ct.key} className="group relative rounded-2xl p-6 transition-all duration-200 text-center cursor-pointer"
+                                style={{ background: "var(--t-card)", border: "1px solid var(--t-border-subtle)" }}
+                                onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#F9731680"; e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 8px 25px rgba(249,115,22,0.12)"; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--t-border-subtle)"; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; }}
+                                onClick={() => { setSelectedCarType(ct.key); router.push(`/insurance?company=${selectedCompany.id}&carType=${ct.key}`); }}
+                            >
+                                <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                                    <button onClick={(e) => { e.stopPropagation(); setEditingCarType(ct); setEditCarTypeLabel(ct.label); setEditCarTypeBrands(ct.brands.join(", ")); }} className="p-1.5 rounded-lg cursor-pointer" style={{ background: "var(--t-input-bg)" }} title="แก้ไข"><Pencil className="w-3.5 h-3.5" style={{ color: "var(--t-text-muted)" }} /></button>
+                                    <button onClick={(e) => { e.stopPropagation(); setConfirmDeleteCarType(ct); }} className="p-1.5 rounded-lg cursor-pointer" style={{ background: "var(--t-input-bg)" }} title="ลบ"><Trash2 className="w-3.5 h-3.5 text-red-400" /></button>
+                                </div>
+                                <div className="w-14 h-14 rounded-xl mx-auto mb-3 flex items-center justify-center" style={{ background: "rgba(249,115,22,0.1)" }}>
+                                    <Globe className="w-7 h-7" style={{ color: "#F97316" }} />
+                                </div>
+                                <p className="font-bold text-base" style={{ color: "var(--t-text)" }}>{ct.label}</p>
+                                <p className="text-xs mt-1" style={{ color: "var(--t-text-muted)" }}>{brandsByType[ct.key]?.length || 0} ยี่ห้อ</p>
+                            </div>
+                        ))}
+                        {/* Add Car Type Card */}
+                        <button
+                            onClick={() => { setNewCarTypeLabel(""); setNewCarTypeBrands(""); setShowAddCarType(true); }}
+                            className="rounded-2xl p-6 transition-all duration-200 cursor-pointer text-center border-2 border-dashed"
+                            style={{ borderColor: "var(--t-border-subtle)" }}
+                            onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#F9731680"; e.currentTarget.style.background = "rgba(249,115,22,0.03)"; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--t-border-subtle)"; e.currentTarget.style.background = "transparent"; }}
+                        >
+                            <div className="w-14 h-14 rounded-xl mx-auto mb-3 flex items-center justify-center" style={{ background: "rgba(249,115,22,0.08)" }}>
+                                <Plus className="w-7 h-7" style={{ color: "#F97316" }} />
+                            </div>
+                            <p className="font-bold text-sm" style={{ color: "#F97316" }}>เพิ่มประเภทรถ</p>
+                        </button>
+                    </div>
+
+                    {/* Add Car Type Modal */}
+                    {showAddCarType && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "var(--t-modal-overlay)", animation: "fadeIn 150ms ease" }} onClick={() => setShowAddCarType(false)}>
+                            <div className="rounded-2xl p-6 w-[90%] max-w-sm shadow-2xl" style={{ background: "var(--t-modal-bg)", border: "1px solid var(--t-modal-border)", animation: "slideUp 200ms ease" }} onClick={(e) => e.stopPropagation()}>
+                                <h3 className="font-bold mb-4" style={{ color: "var(--t-text)" }}>เพิ่มประเภทรถใหม่</h3>
+                                <div className="space-y-3 mb-4">
+                                    <div>
+                                        <label className="text-xs font-medium mb-1 block" style={{ color: "var(--t-text-muted)" }}>ชื่อประเภท</label>
+                                        <input value={newCarTypeLabel} onChange={(e) => setNewCarTypeLabel(e.target.value)} placeholder="เช่น อินเดีย" className="w-full rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-orange-500/30" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} autoFocus />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-medium mb-1 block" style={{ color: "var(--t-text-muted)" }}>ยี่ห้อรถ (คั่นด้วย , )</label>
+                                        <input value={newCarTypeBrands} onChange={(e) => setNewCarTypeBrands(e.target.value)} placeholder="เช่น Tata, Mahindra" className="w-full rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-orange-500/30" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} />
+                                    </div>
+                                </div>
+                                <div className="flex gap-3">
+                                    <button onClick={() => setShowAddCarType(false)} className="flex-1 rounded-lg py-2.5 text-sm font-medium cursor-pointer" style={{ background: "var(--t-input-bg)", color: "var(--t-text-secondary)", border: "1px solid var(--t-input-border)" }}>ยกเลิก</button>
+                                    <button onClick={async () => { if (!newCarTypeLabel.trim()) return; try { const key = newCarTypeLabel.trim().toLowerCase().replace(/\s+/g, "_"); const brandsArr = newCarTypeBrands.split(",").map(b => b.trim()).filter(Boolean); await createCarType({ key, label: newCarTypeLabel.trim(), brands: brandsArr }); const ct = await getCarTypes(); setCarTypes(ct); setShowAddCarType(false); } catch (err: any) { toast.error(err.message); } }} className="flex-1 bg-orange-500 hover:bg-orange-400 text-white font-semibold rounded-lg py-2.5 text-sm cursor-pointer">เพิ่ม</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Edit Car Type Modal */}
+                    {editingCarType && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "var(--t-modal-overlay)", animation: "fadeIn 150ms ease" }} onClick={() => setEditingCarType(null)}>
+                            <div className="rounded-2xl p-6 w-[90%] max-w-sm shadow-2xl" style={{ background: "var(--t-modal-bg)", border: "1px solid var(--t-modal-border)", animation: "slideUp 200ms ease" }} onClick={(e) => e.stopPropagation()}>
+                                <h3 className="font-bold mb-4" style={{ color: "var(--t-text)" }}>แก้ไขประเภทรถ</h3>
+                                <div className="space-y-3 mb-4">
+                                    <div>
+                                        <label className="text-xs font-medium mb-1 block" style={{ color: "var(--t-text-muted)" }}>ชื่อประเภท</label>
+                                        <input value={editCarTypeLabel} onChange={(e) => setEditCarTypeLabel(e.target.value)} className="w-full rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-orange-500/30" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} autoFocus />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-medium mb-1 block" style={{ color: "var(--t-text-muted)" }}>ยี่ห้อรถ (คั่นด้วย , )</label>
+                                        <input value={editCarTypeBrands} onChange={(e) => setEditCarTypeBrands(e.target.value)} className="w-full rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-orange-500/30" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} />
+                                    </div>
+                                </div>
+                                <div className="flex gap-3">
+                                    <button onClick={() => setEditingCarType(null)} className="flex-1 rounded-lg py-2.5 text-sm font-medium cursor-pointer" style={{ background: "var(--t-input-bg)", color: "var(--t-text-secondary)", border: "1px solid var(--t-input-border)" }}>ยกเลิก</button>
+                                    <button onClick={async () => { if (!editCarTypeLabel.trim()) return; try { const brandsArr = editCarTypeBrands.split(",").map(b => b.trim()).filter(Boolean); await updateCarType(editingCarType.id, { label: editCarTypeLabel.trim(), brands: brandsArr }); const ct = await getCarTypes(); setCarTypes(ct); setEditingCarType(null); } catch (err: any) { toast.error(err.message); } }} className="flex-1 bg-orange-500 hover:bg-orange-400 text-white font-semibold rounded-lg py-2.5 text-sm cursor-pointer">บันทึก</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Delete Car Type Confirmation */}
+                    {confirmDeleteCarType && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "var(--t-modal-overlay)", animation: "fadeIn 150ms ease" }} onClick={() => setConfirmDeleteCarType(null)}>
+                            <div className="rounded-2xl p-6 w-[90%] max-w-sm shadow-2xl" style={{ background: "var(--t-modal-bg)", border: "1px solid var(--t-modal-border)", animation: "slideUp 200ms ease" }} onClick={(e) => e.stopPropagation()}>
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: "rgba(239,68,68,0.1)" }}><Trash2 className="w-5 h-5 text-red-500" /></div>
+                                    <h3 className="font-bold" style={{ color: "var(--t-text)" }}>ลบประเภทรถ</h3>
+                                </div>
+                                <p className="text-sm mb-1" style={{ color: "var(--t-text-secondary)" }}>คุณต้องการลบ <strong>{confirmDeleteCarType.label}</strong> ใช่ไหม?</p>
+                                <p className="text-xs mb-5" style={{ color: "var(--t-text-muted)" }}>ยี่ห้อรถที่อยู่ในประเภทนี้จะถูกย้ายไป "อื่นๆ"</p>
+                                <div className="flex gap-3">
+                                    <button onClick={() => setConfirmDeleteCarType(null)} className="flex-1 rounded-lg py-2.5 text-sm font-medium cursor-pointer" style={{ background: "var(--t-input-bg)", color: "var(--t-text-secondary)", border: "1px solid var(--t-input-border)" }}>ยกเลิก</button>
+                                    <button onClick={async () => { try { await deleteCarType(confirmDeleteCarType.id); const ct = await getCarTypes(); setCarTypes(ct); setConfirmDeleteCarType(null); } catch (err: any) { toast.error(err.message); } }} className="flex-1 bg-red-500 hover:bg-red-400 text-white font-semibold rounded-lg py-2.5 text-sm cursor-pointer">ลบ</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </>
+        );
+    }
+
+    // ─── Step 3: Brand Selection (after car type) ─────────────
+    const filteredBrands = selectedCarType ? brands.filter(b => getCarType(b.name) === selectedCarType) : brands;
+    const currentCarType = carTypes.find(ct => ct.key === selectedCarType);
+    if (selectedCompany && selectedCarType && !selectedBrand) {
+        return (
+            <>{sharedModals}
+                <div className="p-6 lg:p-8">
+                    <div className="mb-8">
+                        <button
+                            onClick={() => { setSelectedCarType(null); setSelectedBrand(null); setSelectedModel(null); router.push(`/insurance?company=${selectedCompany.id}`); }}
+                            className="inline-flex items-center gap-2 text-sm font-medium mb-4 transition-all duration-200 cursor-pointer rounded-xl px-4 py-2"
+                            style={{ background: "var(--t-card)", color: "var(--t-text-secondary)", border: "1px solid var(--t-border-subtle)", boxShadow: "0 1px 2px rgba(0,0,0,0.04)" }}
+                            onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#F9731660"; e.currentTarget.style.color = "#F97316"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(249,115,22,0.1)"; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--t-border-subtle)"; e.currentTarget.style.color = "var(--t-text-secondary)"; e.currentTarget.style.boxShadow = "0 1px 2px rgba(0,0,0,0.04)"; }}
+                        >
+                            <ChevronLeft className="w-4 h-4" /> กลับไปเลือกประเภทรถ
+                        </button>
+                        <h1 className="text-xl font-bold flex items-center gap-2" style={{ color: "var(--t-text)" }}>
+                            {selectedCompany.name} — <Globe className="w-5 h-5" style={{ color: "#F97316" }} /> {currentCarType?.label}
+                        </h1>
                         <p className="mt-1 text-sm" style={{ color: "var(--t-text-muted)" }}>เลือกยี่ห้อรถเพื่อดูอะไหล่</p>
                     </div>
 
                     {/* Search */}
                     <div className="relative mb-4">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--t-text-muted)" }} />
-                        <input value={brandSearch} onChange={(e) => setBrandSearch(e.target.value)} placeholder="ค้นหายี่ห้อรถ..." className="w-full rounded-xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500/30" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} />
+                        <input value={brandSearch} onChange={(e) => setBrandSearch(e.target.value)} placeholder="ค้นหายี่ห้อรถ..." className="w-full rounded-xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-orange-500/30" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} />
                     </div>
 
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-                        {brands.filter((b: any) => !brandSearch || b.name.toLowerCase().includes(brandSearch.toLowerCase())).map((brand: any) => {
+                        {filteredBrands.filter((b: any) => !brandSearch || b.name.toLowerCase().includes(brandSearch.toLowerCase())).map((brand: any) => {
                             const modelCount = allCategories.filter((c: any) => c.parentId === brand.id).length;
                             return (
-                                <div key={brand.id} className="group relative rounded-2xl p-6 transition-all duration-200 text-center cursor-pointer" style={{ background: "var(--t-card)", border: "1px solid var(--t-border-subtle)" }} onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#3b82f680"; e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 8px 25px rgba(59,130,246,0.12)"; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--t-border-subtle)"; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; }} onClick={() => { setSelectedBrand(brand); setSelectedModel(null); setParts([]); setSearch(""); setLowStockOnly(false); setModelSearch(""); router.push(`/insurance?company=${selectedCompany.id}&brand=${brand.id}`); }}>
+                                <div key={brand.id} className="group relative rounded-2xl p-6 transition-all duration-200 text-center cursor-pointer" style={{ background: "var(--t-card)", border: "1px solid var(--t-border-subtle)" }} onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#F9731680"; e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 8px 25px rgba(249,115,22,0.12)"; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--t-border-subtle)"; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; }} onClick={() => { setSelectedBrand(brand); setSelectedModel(null); setParts([]); setSearch(""); setLowStockOnly(false); setModelSearch(""); router.push(`/insurance?company=${selectedCompany.id}&carType=${selectedCarType}&brand=${brand.id}`); }}>
                                     <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
                                         <button onClick={(e) => { e.stopPropagation(); setEditingCategory(brand); setEditName(brand.name); }} className="p-1.5 rounded-lg cursor-pointer" style={{ background: "var(--t-input-bg)" }} title="แก้ไขชื่อ"><Pencil className="w-3.5 h-3.5" style={{ color: "var(--t-text-muted)" }} /></button>
                                         <button onClick={(e) => { e.stopPropagation(); setConfirmDelete(brand); }} className="p-1.5 rounded-lg cursor-pointer" style={{ background: "var(--t-input-bg)" }} title="ลบ"><Trash2 className="w-3.5 h-3.5 text-red-400" /></button>
                                     </div>
-                                    <div className="w-14 h-14 rounded-xl mx-auto mb-3 flex items-center justify-center" style={{ background: "rgba(59,130,246,0.1)" }}>
+                                    <div className="w-14 h-14 rounded-xl mx-auto mb-3 flex items-center justify-center" style={{ background: "rgba(249,115,22,0.1)" }}>
                                         {getCarLogoUrl(brand.name) ? (
                                             <img src={getCarLogoUrl(brand.name)!} alt={brand.name} className="w-10 h-10 object-contain" loading="lazy" />
                                         ) : (
-                                            <Car className="w-7 h-7" style={{ color: "#3b82f6" }} />
+                                            <Car className="w-7 h-7" style={{ color: "#F97316" }} />
                                         )}
                                     </div>
                                     <p className="font-bold text-base" style={{ color: "var(--t-text)" }}>{brand.name}</p>
@@ -303,13 +476,13 @@ export default function InsurancePage() {
                             onClick={() => { setNewBrandName(""); setShowAddBrand(true); }}
                             className="rounded-2xl p-6 transition-all duration-200 cursor-pointer text-center border-2 border-dashed"
                             style={{ borderColor: "var(--t-border-subtle)" }}
-                            onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#3b82f680"; e.currentTarget.style.background = "rgba(59,130,246,0.03)"; }}
+                            onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#F9731680"; e.currentTarget.style.background = "rgba(249,115,22,0.03)"; }}
                             onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--t-border-subtle)"; e.currentTarget.style.background = "transparent"; }}
                         >
-                            <div className="w-14 h-14 rounded-xl mx-auto mb-3 flex items-center justify-center" style={{ background: "rgba(59,130,246,0.08)" }}>
-                                <Plus className="w-7 h-7" style={{ color: "#3b82f6" }} />
+                            <div className="w-14 h-14 rounded-xl mx-auto mb-3 flex items-center justify-center" style={{ background: "rgba(249,115,22,0.08)" }}>
+                                <Plus className="w-7 h-7" style={{ color: "#F97316" }} />
                             </div>
-                            <p className="font-bold text-sm" style={{ color: "#3b82f6" }}>เพิ่มยี่ห้อรถ</p>
+                            <p className="font-bold text-sm" style={{ color: "#F97316" }}>เพิ่มยี่ห้อรถ</p>
                         </button>
                     </div>
 
@@ -318,10 +491,10 @@ export default function InsurancePage() {
                         <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "var(--t-modal-overlay)", animation: "fadeIn 150ms ease" }} onClick={() => setShowAddBrand(false)}>
                             <div className="rounded-2xl p-6 w-[90%] max-w-sm shadow-2xl" style={{ background: "var(--t-modal-bg)", border: "1px solid var(--t-modal-border)", animation: "slideUp 200ms ease" }} onClick={(e) => e.stopPropagation()}>
                                 <h3 className="font-bold mb-4" style={{ color: "var(--t-text)" }}>เพิ่มยี่ห้อรถใน {selectedCompany.name}</h3>
-                                <input value={newBrandName} onChange={(e) => setNewBrandName(e.target.value)} onKeyDown={async (e) => { if (e.key === "Enter" && newBrandName.trim()) { try { await createCategory({ name: newBrandName.trim(), parentId: selectedCompany.id }); setShowAddBrand(false); const c = await getCategories(); setAllCategories(c); } catch (err: any) { toast.error(err.message); } } }} placeholder="ชื่อยี่ห้อรถ (เช่น Nissan)" className="w-full rounded-lg px-3 py-2.5 text-sm mb-4 focus:outline-none focus:ring-1 focus:ring-blue-500/30" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} autoFocus />
+                                <input value={newBrandName} onChange={(e) => setNewBrandName(e.target.value)} onKeyDown={async (e) => { if (e.key === "Enter" && newBrandName.trim()) { try { await createCategory({ name: newBrandName.trim(), parentId: selectedCompany.id }); setShowAddBrand(false); const c = await getCategories(); setAllCategories(c); } catch (err: any) { toast.error(err.message); } } }} placeholder="ชื่อยี่ห้อรถ (เช่น Nissan)" className="w-full rounded-lg px-3 py-2.5 text-sm mb-4 focus:outline-none focus:ring-1 focus:ring-orange-500/30" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} autoFocus />
                                 <div className="flex gap-3">
                                     <button onClick={() => setShowAddBrand(false)} className="flex-1 rounded-lg py-2.5 text-sm font-medium cursor-pointer" style={{ background: "var(--t-input-bg)", color: "var(--t-text-secondary)", border: "1px solid var(--t-input-border)" }}>ยกเลิก</button>
-                                    <button onClick={async () => { if (!newBrandName.trim()) return; try { await createCategory({ name: newBrandName.trim(), parentId: selectedCompany.id }); setShowAddBrand(false); const c = await getCategories(); setAllCategories(c); } catch (err: any) { toast.error(err.message); } }} className="flex-1 bg-blue-500 hover:bg-blue-400 text-white font-semibold rounded-lg py-2.5 text-sm cursor-pointer">เพิ่ม</button>
+                                    <button onClick={async () => { if (!newBrandName.trim()) return; try { await createCategory({ name: newBrandName.trim(), parentId: selectedCompany.id }); setShowAddBrand(false); const c = await getCategories(); setAllCategories(c); } catch (err: any) { toast.error(err.message); } }} className="flex-1 bg-orange-500 hover:bg-orange-400 text-white font-semibold rounded-lg py-2.5 text-sm cursor-pointer">เพิ่ม</button>
                                 </div>
                             </div>
                         </div>
@@ -331,17 +504,17 @@ export default function InsurancePage() {
         );
     }
 
-    // ─── Step 3: Model Selection (after brand) ───────────────
-    if (selectedCompany && selectedBrand && !selectedModel) {
+    // ─── Step 4: Model Selection (after brand) ───────────────
+    if (selectedCompany && selectedCarType && selectedBrand && !selectedModel) {
         return (
             <>{sharedModals}
                 <div className="p-6 lg:p-8">
                     <div className="mb-8">
                         <button
-                            onClick={() => { setSelectedBrand(null); setSelectedModel(null); setParts([]); router.push(`/insurance?company=${selectedCompany.id}`); }}
+                            onClick={() => { setSelectedBrand(null); setSelectedModel(null); setParts([]); router.push(`/insurance?company=${selectedCompany.id}&carType=${selectedCarType}`); }}
                             className="inline-flex items-center gap-2 text-sm font-medium mb-4 transition-all duration-200 cursor-pointer rounded-xl px-4 py-2"
                             style={{ background: "var(--t-card)", color: "var(--t-text-secondary)", border: "1px solid var(--t-border-subtle)", boxShadow: "0 1px 2px rgba(0,0,0,0.04)" }}
-                            onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#3b82f660"; e.currentTarget.style.color = "#3b82f6"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(59,130,246,0.1)"; }}
+                            onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#F9731660"; e.currentTarget.style.color = "#F97316"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(249,115,22,0.1)"; }}
                             onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--t-border-subtle)"; e.currentTarget.style.color = "var(--t-text-secondary)"; e.currentTarget.style.boxShadow = "0 1px 2px rgba(0,0,0,0.04)"; }}
                         >
                             <ChevronLeft className="w-4 h-4" /> กลับไปเลือกยี่ห้อ
@@ -359,21 +532,21 @@ export default function InsurancePage() {
                     {/* Search */}
                     <div className="relative mb-4">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--t-text-muted)" }} />
-                        <input value={modelSearch} onChange={(e) => setModelSearch(e.target.value)} placeholder="ค้นหารุ่นรถ..." className="w-full rounded-xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500/30" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} />
+                        <input value={modelSearch} onChange={(e) => setModelSearch(e.target.value)} placeholder="ค้นหารุ่นรถ..." className="w-full rounded-xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-orange-500/30" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} />
                     </div>
 
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
                         {models.filter((m: any) => !modelSearch || m.name.toLowerCase().includes(modelSearch.toLowerCase())).map((model: any) => (
-                            <div key={model.id} className="group relative rounded-2xl p-5 transition-all duration-200 text-center cursor-pointer" style={{ background: "var(--t-card)", border: "1px solid var(--t-border-subtle)" }} onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#3b82f680"; e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 8px 25px rgba(59,130,246,0.12)"; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--t-border-subtle)"; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; }} onClick={() => { setSelectedModel(model); setPage(1); setSearch(""); setLowStockOnly(false); router.push(`/insurance?company=${selectedCompany.id}&brand=${selectedBrand.id}&model=${model.id}`); }}>
+                            <div key={model.id} className="group relative rounded-2xl p-5 transition-all duration-200 text-center cursor-pointer" style={{ background: "var(--t-card)", border: "1px solid var(--t-border-subtle)" }} onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#F9731680"; e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 8px 25px rgba(249,115,22,0.12)"; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--t-border-subtle)"; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; }} onClick={() => { setSelectedModel(model); setPage(1); setSearch(""); setLowStockOnly(false); router.push(`/insurance?company=${selectedCompany.id}&carType=${selectedCarType}&brand=${selectedBrand.id}&model=${model.id}`); }}>
                                 <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
                                     <button onClick={(e) => { e.stopPropagation(); setEditingCategory(model); setEditName(model.name); }} className="p-1.5 rounded-lg cursor-pointer" style={{ background: "var(--t-input-bg)" }} title="แก้ไขชื่อ"><Pencil className="w-3 h-3" style={{ color: "var(--t-text-muted)" }} /></button>
                                     <button onClick={(e) => { e.stopPropagation(); setConfirmDelete(model); }} className="p-1.5 rounded-lg cursor-pointer" style={{ background: "var(--t-input-bg)" }} title="ลบ"><Trash2 className="w-3 h-3 text-red-400" /></button>
                                 </div>
-                                <div className="w-10 h-10 rounded-lg mx-auto mb-2 flex items-center justify-center" style={{ background: "rgba(59,130,246,0.06)" }}>
+                                <div className="w-10 h-10 rounded-lg mx-auto mb-2 flex items-center justify-center" style={{ background: "rgba(249,115,22,0.06)" }}>
                                     {getCarLogoUrl(selectedBrand.name) ? (
                                         <img src={getCarLogoUrl(selectedBrand.name)!} alt={selectedBrand.name} className="w-7 h-7 object-contain opacity-60" loading="lazy" />
                                     ) : (
-                                        <Car className="w-5 h-5" style={{ color: "#3b82f6" }} />
+                                        <Car className="w-5 h-5" style={{ color: "#F97316" }} />
                                     )}
                                 </div>
                                 <p className="font-bold text-sm" style={{ color: "var(--t-text)" }}>{model.name}</p>
@@ -385,13 +558,13 @@ export default function InsurancePage() {
                             onClick={() => { setNewModelName(""); setShowAddModel(true); }}
                             className="rounded-2xl p-5 transition-all duration-200 cursor-pointer text-center border-2 border-dashed"
                             style={{ borderColor: "var(--t-border-subtle)" }}
-                            onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#3b82f680"; e.currentTarget.style.background = "rgba(59,130,246,0.03)"; }}
+                            onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#F9731680"; e.currentTarget.style.background = "rgba(249,115,22,0.03)"; }}
                             onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--t-border-subtle)"; e.currentTarget.style.background = "transparent"; }}
                         >
-                            <div className="w-10 h-10 rounded-lg mx-auto mb-2 flex items-center justify-center" style={{ background: "rgba(59,130,246,0.08)" }}>
-                                <Plus className="w-5 h-5" style={{ color: "#3b82f6" }} />
+                            <div className="w-10 h-10 rounded-lg mx-auto mb-2 flex items-center justify-center" style={{ background: "rgba(249,115,22,0.08)" }}>
+                                <Plus className="w-5 h-5" style={{ color: "#F97316" }} />
                             </div>
-                            <p className="font-bold text-xs" style={{ color: "#3b82f6" }}>เพิ่มรุ่น</p>
+                            <p className="font-bold text-xs" style={{ color: "#F97316" }}>เพิ่มรุ่น</p>
                         </button>
                     </div>
 
@@ -407,10 +580,10 @@ export default function InsurancePage() {
                         <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "var(--t-modal-overlay)", animation: "fadeIn 150ms ease" }} onClick={() => setShowAddModel(false)}>
                             <div className="rounded-2xl p-6 w-[90%] max-w-sm shadow-2xl" style={{ background: "var(--t-modal-bg)", border: "1px solid var(--t-modal-border)", animation: "slideUp 200ms ease" }} onClick={(e) => e.stopPropagation()}>
                                 <h3 className="font-bold mb-4" style={{ color: "var(--t-text)" }}>เพิ่มรุ่นรถใหม่ — {selectedBrand.name}</h3>
-                                <input value={newModelName} onChange={(e) => setNewModelName(e.target.value)} onKeyDown={async (e) => { if (e.key === "Enter" && newModelName.trim()) { try { await createCategory({ name: newModelName.trim(), parentId: selectedBrand.id }); setShowAddModel(false); const c = await getCategories(); setAllCategories(c); } catch (err: any) { toast.error(err.message); } } }} placeholder="ชื่อรุ่นรถ (เช่น Hilux Revo, Civic)" className="w-full rounded-lg px-3 py-2.5 text-sm mb-4 focus:outline-none focus:ring-1 focus:ring-blue-500/30" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} autoFocus />
+                                <input value={newModelName} onChange={(e) => setNewModelName(e.target.value)} onKeyDown={async (e) => { if (e.key === "Enter" && newModelName.trim()) { try { await createCategory({ name: newModelName.trim(), parentId: selectedBrand.id }); setShowAddModel(false); const c = await getCategories(); setAllCategories(c); } catch (err: any) { toast.error(err.message); } } }} placeholder="ชื่อรุ่นรถ (เช่น Hilux Revo, Civic)" className="w-full rounded-lg px-3 py-2.5 text-sm mb-4 focus:outline-none focus:ring-1 focus:ring-orange-500/30" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} autoFocus />
                                 <div className="flex gap-3">
                                     <button onClick={() => setShowAddModel(false)} className="flex-1 rounded-lg py-2.5 text-sm font-medium cursor-pointer" style={{ background: "var(--t-input-bg)", color: "var(--t-text-secondary)", border: "1px solid var(--t-input-border)" }}>ยกเลิก</button>
-                                    <button onClick={async () => { if (!newModelName.trim()) return; try { await createCategory({ name: newModelName.trim(), parentId: selectedBrand.id }); setShowAddModel(false); const c = await getCategories(); setAllCategories(c); } catch (err: any) { toast.error(err.message); } }} className="flex-1 bg-blue-500 hover:bg-blue-400 text-white font-semibold rounded-lg py-2.5 text-sm cursor-pointer">เพิ่ม</button>
+                                    <button onClick={async () => { if (!newModelName.trim()) return; try { await createCategory({ name: newModelName.trim(), parentId: selectedBrand.id }); setShowAddModel(false); const c = await getCategories(); setAllCategories(c); } catch (err: any) { toast.error(err.message); } }} className="flex-1 bg-orange-500 hover:bg-orange-400 text-white font-semibold rounded-lg py-2.5 text-sm cursor-pointer">เพิ่ม</button>
                                 </div>
                             </div>
                         </div>
@@ -420,18 +593,18 @@ export default function InsurancePage() {
         );
     }
 
-    // ─── Step 4: Parts + Claims (after model) ─────────────────
+    // ─── Step 5: Parts + Claims (after model) ─────────────────
     const inputStyle = { background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" };
-    const inputCls = "w-full rounded-lg px-3 py-2 text-sm transition-colors focus:outline-none focus:ring-1 focus:ring-blue-500/30";
+    const inputCls = "w-full rounded-lg px-3 py-2 text-sm transition-colors focus:outline-none focus:ring-1 focus:ring-orange-500/30";
 
     return (
         <div className="p-6 lg:p-8">
             <div className="mb-6">
                 <button
-                    onClick={() => { setSelectedModel(null); setParts([]); router.push(`/insurance?company=${selectedCompany.id}&brand=${selectedBrand.id}`); }}
+                    onClick={() => { setSelectedModel(null); setParts([]); router.push(`/insurance?company=${selectedCompany.id}&carType=${selectedCarType}&brand=${selectedBrand.id}`); }}
                     className="inline-flex items-center gap-2 text-sm font-medium mb-4 transition-all duration-200 cursor-pointer rounded-xl px-4 py-2"
                     style={{ background: "var(--t-card)", color: "var(--t-text-secondary)", border: "1px solid var(--t-border-subtle)" }}
-                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#3b82f660"; e.currentTarget.style.color = "#3b82f6"; }}
+                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#F9731660"; e.currentTarget.style.color = "#F97316"; }}
                     onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--t-border-subtle)"; e.currentTarget.style.color = "var(--t-text-secondary)"; }}
                 >
                     <ChevronLeft className="w-4 h-4" /> กลับไปเลือกรุ่น {selectedBrand.name}
@@ -441,7 +614,7 @@ export default function InsurancePage() {
                         <h1 className="text-xl font-bold" style={{ color: "var(--t-text)" }}>{selectedCompany.name} — {selectedBrand.name} {selectedModel?.name}</h1>
                         <p className="mt-1 text-sm" style={{ color: "var(--t-text-muted)" }}>รายการอะไหล่ประกัน</p>
                     </div>
-                    <button onClick={() => { setCreateForm({ code: "", name: "", description: "", brand: "", unit: "ชิ้น", quantity: 0, minStock: 5 }); setCreateError(""); setShowCreate(true); }} className="flex items-center gap-2 bg-blue-500 hover:bg-blue-400 text-white font-semibold rounded-lg px-4 py-2 text-sm transition-colors cursor-pointer"><Plus className="w-4 h-4" /> สร้างอะไหล่</button>
+                    <button onClick={() => { setCreateForm({ code: "", name: "", description: "", brand: "", unit: "ชิ้น", quantity: 0, minStock: 5 }); setCreateError(""); setShowCreate(true); }} className="flex items-center gap-2 bg-orange-500 hover:bg-orange-400 text-white font-semibold rounded-lg px-4 py-2 text-sm transition-colors cursor-pointer"><Plus className="w-4 h-4" /> สร้างอะไหล่</button>
                 </div>
             </div>
 
@@ -449,7 +622,7 @@ export default function InsurancePage() {
             <div className="rounded-xl p-4 mb-4" style={{ background: "var(--t-card)", border: "1px solid var(--t-border-subtle)" }}>
                 <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--t-text-muted)" }} />
-                    <input type="text" placeholder="ค้นหาอะไหล่..." value={search} onChange={(e) => handleFilterChange(setSearch, e.target.value)} className="w-full rounded-lg pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500/30" style={inputStyle} />
+                    <input type="text" placeholder="ค้นหาอะไหล่..." value={search} onChange={(e) => handleFilterChange(setSearch, e.target.value)} className="w-full rounded-lg pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-orange-500/30" style={inputStyle} />
                 </div>
             </div>
             <div className="rounded-xl overflow-hidden" style={{ background: "var(--t-card)", border: "1px solid var(--t-border-subtle)" }}>
@@ -461,14 +634,14 @@ export default function InsurancePage() {
                             {["รหัส", "ชื่ออะไหล่", "คุณภาพ", "รายละเอียด", "จัดการ"].map((h) => (<th key={h} className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-left" style={{ color: "var(--t-text-muted)" }}>{h}</th>))}
                         </tr></thead>
                         <tbody>{parts.map((p) => {
-                            return (<tr key={p.id} className="transition-colors" style={{ borderBottom: "1px solid var(--t-border-subtle)" }} onMouseEnter={(e) => (e.currentTarget.style.background = "var(--t-hover-overlay)")} onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
+                            return (<tr key={p.id} className="transition-colors cursor-pointer" style={{ borderBottom: "1px solid var(--t-border-subtle)" }} onMouseEnter={(e) => (e.currentTarget.style.background = "var(--t-hover-overlay)")} onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")} onClick={() => setBarcodePart(p)}>
                                 <td className="px-4 py-3 font-mono text-xs" style={{ color: "var(--t-text-secondary)" }}>{p.code}</td>
                                 <td className="px-4 py-3 text-sm font-medium" style={{ color: "var(--t-text)" }}>{p.name}</td>
                                 <td className="px-4 py-3 text-sm" style={{ color: "var(--t-text-secondary)" }}>{p.brand || "-"}</td>
                                 <td className="px-4 py-3 text-sm" style={{ color: "var(--t-text-muted)" }}>{p.description || "-"}</td>
                                 <td className="px-4 py-2"><div className="flex items-center gap-1.5">
-                                    <button onClick={() => { setEditingPart(p); setEditPartForm({ code: p.code, name: p.name, description: p.description || "", brand: p.brand || "" }); setEditPartError(""); }} className="p-2 rounded-lg cursor-pointer" style={{ background: "rgba(59,130,246,0.1)", color: "#3b82f6" }} title="แก้ไข"><Pencil className="w-3.5 h-3.5" /></button>
-                                    <button onClick={() => { setDeletePartMsg(""); setDeletePartCanForce(false); setConfirmDeletePart(p); }} className="p-2 rounded-lg cursor-pointer" style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }} title="ลบ"><Trash2 className="w-3.5 h-3.5" /></button>
+                                    <button onClick={(e) => { e.stopPropagation(); setEditingPart(p); setEditPartForm({ code: p.code, name: p.name, description: p.description || "", brand: p.brand || "" }); setEditPartError(""); }} className="p-2 rounded-lg cursor-pointer" style={{ background: "rgba(249,115,22,0.1)", color: "#F97316" }} title="แก้ไข"><Pencil className="w-3.5 h-3.5" /></button>
+                                    <button onClick={(e) => { e.stopPropagation(); setDeletePartMsg(""); setDeletePartCanForce(false); setConfirmDeletePart(p); }} className="p-2 rounded-lg cursor-pointer" style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }} title="ลบ"><Trash2 className="w-3.5 h-3.5" /></button>
                                 </div></td>
                             </tr>);
                         })}</tbody>
@@ -482,7 +655,7 @@ export default function InsurancePage() {
                 <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "var(--t-modal-overlay)", animation: "fadeIn 150ms ease" }} onClick={() => setShowCreate(false)}>
                     <div className="rounded-2xl p-6 w-[90%] max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl" style={{ background: "var(--t-modal-bg)", border: "1px solid var(--t-modal-border)", animation: "slideUp 200ms ease" }} onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-between mb-6">
-                            <div className="flex items-center gap-3"><div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "rgba(59,130,246,0.15)" }}><PackagePlus className="w-5 h-5" style={{ color: "#3b82f6" }} /></div><div><h3 className="font-bold" style={{ color: "var(--t-text)" }}>สร้างอะไหล่ใหม่</h3><p className="text-xs" style={{ color: "var(--t-text-muted)" }}>{selectedCompany.name} — {selectedBrand.name}</p></div></div>
+                            <div className="flex items-center gap-3"><div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "rgba(249,115,22,0.15)" }}><PackagePlus className="w-5 h-5" style={{ color: "#F97316" }} /></div><div><h3 className="font-bold" style={{ color: "var(--t-text)" }}>สร้างอะไหล่ใหม่</h3><p className="text-xs" style={{ color: "var(--t-text-muted)" }}>{selectedCompany.name} — {selectedBrand.name}</p></div></div>
                             <button onClick={() => setShowCreate(false)} className="p-1 rounded-lg cursor-pointer" style={{ color: "var(--t-text-muted)" }}><X className="w-5 h-5" /></button>
                         </div>
                         {createError && <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-500 text-sm">{createError}</div>}
@@ -493,7 +666,7 @@ export default function InsurancePage() {
                         </div>
                         <div className="flex gap-3 mt-6 pt-4" style={{ borderTop: "1px solid var(--t-border-subtle)" }}>
                             <button onClick={() => setShowCreate(false)} className="flex-1 rounded-lg py-2.5 text-sm font-medium cursor-pointer" style={{ background: "var(--t-input-bg)", color: "var(--t-text-secondary)", border: "1px solid var(--t-input-border)" }}>ยกเลิก</button>
-                            <button onClick={async () => { if (!createForm.code || !createForm.name) { setCreateError("กรุณากรอกรหัสและชื่อ"); return; } setCreateSaving(true); setCreateError(""); try { await createPart({ ...createForm, quantity: 0, minStock: 0, categoryId: selectedModel.id }); setShowCreate(false); fetchParts(); } catch (err: any) { setCreateError(err.message || "เกิดข้อผิดพลาด"); } finally { setCreateSaving(false); } }} disabled={createSaving} className="flex-1 bg-blue-500 hover:bg-blue-400 text-white font-semibold rounded-lg py-2.5 text-sm cursor-pointer disabled:opacity-50">{createSaving ? "กำลังบันทึก..." : "สร้างอะไหล่"}</button>
+                            <button onClick={async () => { if (!createForm.code || !createForm.name) { setCreateError("กรุณากรอกรหัสและชื่อ"); return; } setCreateSaving(true); setCreateError(""); try { await createPart({ ...createForm, quantity: 0, minStock: 0, categoryId: selectedModel.id }); setShowCreate(false); fetchParts(); } catch (err: any) { setCreateError(err.message || "เกิดข้อผิดพลาด"); } finally { setCreateSaving(false); } }} disabled={createSaving} className="flex-1 bg-orange-500 hover:bg-orange-400 text-white font-semibold rounded-lg py-2.5 text-sm cursor-pointer disabled:opacity-50">{createSaving ? "กำลังบันทึก..." : "สร้างอะไหล่"}</button>
                         </div>
                     </div>
                 </div>
@@ -505,7 +678,7 @@ export default function InsurancePage() {
             {editingPart && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "var(--t-modal-overlay)", animation: "fadeIn 150ms ease" }} onClick={() => setEditingPart(null)}>
                     <div className="rounded-2xl p-6 w-[90%] max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl" style={{ background: "var(--t-modal-bg)", border: "1px solid var(--t-modal-border)", animation: "slideUp 200ms ease" }} onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-between mb-5"><div className="flex items-center gap-3"><div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "rgba(59,130,246,0.15)" }}><Pencil className="w-5 h-5" style={{ color: "#3b82f6" }} /></div><div><h3 className="font-bold" style={{ color: "var(--t-text)" }}>แก้ไขอะไหล่</h3><p className="text-xs" style={{ color: "var(--t-text-muted)" }}>{editingPart.name}</p></div></div><button onClick={() => setEditingPart(null)} className="p-1 rounded-lg cursor-pointer" style={{ color: "var(--t-text-muted)" }}><X className="w-5 h-5" /></button></div>
+                        <div className="flex items-center justify-between mb-5"><div className="flex items-center gap-3"><div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "rgba(249,115,22,0.15)" }}><Pencil className="w-5 h-5" style={{ color: "#F97316" }} /></div><div><h3 className="font-bold" style={{ color: "var(--t-text)" }}>แก้ไขอะไหล่</h3><p className="text-xs" style={{ color: "var(--t-text-muted)" }}>{editingPart.name}</p></div></div><button onClick={() => setEditingPart(null)} className="p-1 rounded-lg cursor-pointer" style={{ color: "var(--t-text-muted)" }}><X className="w-5 h-5" /></button></div>
                         {editPartError && <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-500 text-sm">{editPartError}</div>}
                         <div className="space-y-3">
                             <div className="grid grid-cols-2 gap-3"><div><label className="text-sm mb-1 block" style={{ color: "var(--t-text-secondary)" }}>รหัส *</label><input value={editPartForm.code} onChange={(e) => setEditPartForm({ ...editPartForm, code: e.target.value })} className={inputCls} style={inputStyle} /></div><div><label className="text-sm mb-1 block" style={{ color: "var(--t-text-secondary)" }}>คุณภาพ</label><input value={editPartForm.brand} onChange={(e) => setEditPartForm({ ...editPartForm, brand: e.target.value })} className={inputCls} style={inputStyle} /></div></div>
@@ -514,7 +687,7 @@ export default function InsurancePage() {
                         </div>
                         <div className="flex gap-3 mt-5 pt-4" style={{ borderTop: "1px solid var(--t-border-subtle)" }}>
                             <button onClick={() => setEditingPart(null)} className="flex-1 rounded-lg py-2.5 text-sm font-medium cursor-pointer" style={{ background: "var(--t-input-bg)", color: "var(--t-text-secondary)", border: "1px solid var(--t-input-border)" }}>ยกเลิก</button>
-                            <button onClick={async () => { if (!editPartForm.code || !editPartForm.name) { setEditPartError("กรุณากรอกรหัสและชื่อ"); return; } setEditPartSaving(true); setEditPartError(""); try { await updatePart(editingPart.id, editPartForm); setEditingPart(null); toast.success("แก้ไขเรียบร้อย"); fetchParts(); } catch (err: any) { setEditPartError(err.message || "เกิดข้อผิดพลาด"); } finally { setEditPartSaving(false); } }} disabled={editPartSaving} className="flex-1 bg-blue-500 hover:bg-blue-400 text-white font-semibold rounded-lg py-2.5 text-sm cursor-pointer disabled:opacity-50">{editPartSaving ? "กำลังบันทึก..." : "บันทึก"}</button>
+                            <button onClick={async () => { if (!editPartForm.code || !editPartForm.name) { setEditPartError("กรุณากรอกรหัสและชื่อ"); return; } setEditPartSaving(true); setEditPartError(""); try { await updatePart(editingPart.id, editPartForm); setEditingPart(null); toast.success("แก้ไขเรียบร้อย"); fetchParts(); } catch (err: any) { setEditPartError(err.message || "เกิดข้อผิดพลาด"); } finally { setEditPartSaving(false); } }} disabled={editPartSaving} className="flex-1 bg-orange-500 hover:bg-orange-400 text-white font-semibold rounded-lg py-2.5 text-sm cursor-pointer disabled:opacity-50">{editPartSaving ? "กำลังบันทึก..." : "บันทึก"}</button>
                         </div>
                     </div>
                 </div>
@@ -535,6 +708,7 @@ export default function InsurancePage() {
                     </div>
                 </div>
             )}
+            <BarcodeModal part={barcodePart} onClose={() => setBarcodePart(null)} />
         </div>
     );
 }

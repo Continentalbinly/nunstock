@@ -24,7 +24,7 @@ partsRouter.get("/lookup/:code", async (c) => {
 // GET /api/parts - ดึงอะไหล่ทั้งหมด (paginated)
 partsRouter.get("/", async (c) => {
     try {
-        const { search, categoryId } = c.req.query();
+        const { search, categoryId, brand } = c.req.query();
         const pag = parsePagination(c);
 
         const where: any = {
@@ -36,6 +36,7 @@ partsRouter.get("/", async (c) => {
                 ],
             }),
             ...(categoryId && { categoryId }),
+            ...(brand && { brand: { contains: brand, mode: "insensitive" } }),
         };
 
         const [parts, total] = await Promise.all([
