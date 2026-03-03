@@ -263,12 +263,7 @@ export default function InsurancePage() {
                         </button>
                     </div>
 
-                    {companies.length === 0 && (
-                        <div className="rounded-xl text-center py-16" style={{ background: "var(--t-card)", border: "1px solid var(--t-border-subtle)" }}>
-                            <Building2 className="w-10 h-10 mx-auto mb-3" style={{ color: "var(--t-text-dim)" }} />
-                            <p style={{ color: "var(--t-text-muted)" }}>ยังไม่มีบริษัทประกัน</p>
-                        </div>
-                    )}
+
 
                     {/* Add Company Modal */}
                     {showAddCompany && (

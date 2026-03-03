@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { getStockSummary } from "@/lib/api";
-import { Package, Layers, AlertTriangle, ShieldCheck, ArrowUpFromLine, ArrowDownToLine, TrendingDown, History, BarChart3, Trophy } from "lucide-react";
+import { Package, Layers, AlertTriangle, ShieldCheck, ArrowUpFromLine, ArrowDownToLine, TrendingDown, BarChart3, Trophy } from "lucide-react";
 import Link from "next/link";
 
 const statusLabel: Record<string, string> = {
@@ -42,7 +42,7 @@ export default function DashboardPage() {
       <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold" style={{ color: "var(--t-text)" }}>แดชบอร์ด</h1>
-          <p className="mt-1 text-sm" style={{ color: "var(--t-text-muted)" }}>ภาพรวมระบบจัดการอะไหล่ นันการช่าง</p>
+          <p className="mt-1 text-sm" style={{ color: "var(--t-text-muted)" }}>ภาพรวมระบบจัดการสต็อก นันการช่าง</p>
         </div>
         <Link href="/reports" className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all hover:shadow-md cursor-pointer"
           style={{ background: "var(--t-card)", border: "1px solid var(--t-border-subtle)", color: "var(--t-text)" }}>
@@ -123,7 +123,7 @@ export default function DashboardPage() {
         <div className="rounded-xl p-5" style={{ background: "var(--t-card)", border: "1px solid var(--t-border-subtle)" }}>
           <div className="flex items-center gap-2 mb-4">
             <AlertTriangle className="w-5 h-5 text-amber-500" />
-            <h2 className="font-semibold" style={{ color: "var(--t-text)" }}>อะไหล่ใกล้หมด</h2>
+            <h2 className="font-semibold" style={{ color: "var(--t-text)" }}>สต็อกใกล้หมด</h2>
           </div>
           {!summary?.lowStockParts?.length ? (
             <div className="text-center py-8"><ShieldCheck className="w-8 h-8 mx-auto mb-2" style={{ color: "var(--t-text-dim)" }} /><p style={{ color: "var(--t-text-muted)" }} className="text-sm">สต็อกปกติทั้งหมด</p></div>
@@ -173,67 +173,27 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-        {/* Pending Claims */}
-        <div className="rounded-xl p-5" style={{ background: "var(--t-card)", border: "1px solid var(--t-border-subtle)" }}>
-          <div className="flex items-center gap-2 mb-4">
-            <ShieldCheck className="w-5 h-5 text-orange-500" />
-            <h2 className="font-semibold" style={{ color: "var(--t-text)" }}>เคลมค้างดำเนินการ</h2>
-          </div>
-          {!summary?.pendingClaims?.length ? (
-            <div className="text-center py-8"><ShieldCheck className="w-8 h-8 mx-auto mb-2" style={{ color: "var(--t-text-dim)" }} /><p style={{ color: "var(--t-text-muted)" }} className="text-sm">ไม่มีเคลมค้าง</p></div>
-          ) : (
-            <div className="space-y-1">
-              {summary.pendingClaims.slice(0, 5).map((c: any) => (
-                <Link key={c.id} href="/claims" className="flex items-center justify-between py-2.5 px-2 rounded-lg transition-colors cursor-pointer" onMouseEnter={(e) => e.currentTarget.style.background = "var(--t-hover-overlay)"} onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
-                  <div>
-                    <p className="text-sm font-medium" style={{ color: "var(--t-text)" }}>{c.customerName}</p>
-                    <p className="text-xs" style={{ color: "var(--t-text-muted)" }}>{c.claimNo} • {c.carBrand} {c.carModel} • {c.plateNo}</p>
-                  </div>
-                  <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${statusBadge[c.status]}`}>{statusLabel[c.status]}</span>
-                </Link>
-              ))}
-            </div>
-          )}
+      {/* Pending Claims */}
+      <div className="rounded-xl p-5 mt-6" style={{ background: "var(--t-card)", border: "1px solid var(--t-border-subtle)" }}>
+        <div className="flex items-center gap-2 mb-4">
+          <ShieldCheck className="w-5 h-5 text-orange-500" />
+          <h2 className="font-semibold" style={{ color: "var(--t-text)" }}>เคลมค้างดำเนินการ</h2>
         </div>
-
-        {/* Recent Stock Movements */}
-        <div className="rounded-xl p-5" style={{ background: "var(--t-card)", border: "1px solid var(--t-border-subtle)" }}>
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <History className="w-5 h-5 text-cyan-500" />
-              <h2 className="font-semibold" style={{ color: "var(--t-text)" }}>การเบิกล่าสุด</h2>
-            </div>
-            <Link href="/reports" className="text-xs text-emerald-500 hover:text-emerald-400 transition-colors">ดูทั้งหมด →</Link>
+        {!summary?.pendingClaims?.length ? (
+          <div className="text-center py-8"><ShieldCheck className="w-8 h-8 mx-auto mb-2" style={{ color: "var(--t-text-dim)" }} /><p style={{ color: "var(--t-text-muted)" }} className="text-sm">ไม่มีเคลมค้าง</p></div>
+        ) : (
+          <div className="space-y-1">
+            {summary.pendingClaims.slice(0, 5).map((c: any) => (
+              <Link key={c.id} href="/claims" className="flex items-center justify-between py-2.5 px-2 rounded-lg transition-colors cursor-pointer" onMouseEnter={(e) => e.currentTarget.style.background = "var(--t-hover-overlay)"} onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
+                <div>
+                  <p className="text-sm font-medium" style={{ color: "var(--t-text)" }}>{c.customerName}</p>
+                  <p className="text-xs" style={{ color: "var(--t-text-muted)" }}>{c.claimNo} • {c.carBrand} {c.carModel} • {c.plateNo}</p>
+                </div>
+                <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${statusBadge[c.status]}`}>{statusLabel[c.status]}</span>
+              </Link>
+            ))}
           </div>
-          {!summary?.recentMovements?.length ? (
-            <div className="text-center py-8"><History className="w-8 h-8 mx-auto mb-2" style={{ color: "var(--t-text-dim)" }} /><p style={{ color: "var(--t-text-muted)" }} className="text-sm">ยังไม่มีประวัติสต็อก</p></div>
-          ) : (
-            <div className="space-y-1">
-              {summary.recentMovements.slice(0, 6).map((m: any) => {
-                const isIn = m.type === "IN";
-                return (
-                  <div key={m.id} className="flex items-center justify-between py-2.5 px-2 rounded-lg transition-colors" onMouseEnter={(e) => e.currentTarget.style.background = "var(--t-hover-overlay)"} onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
-                    <div className="flex items-center gap-3">
-                      <span className={`inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded-full font-semibold ${isIn ? "bg-emerald-500/15 text-emerald-500" : "bg-orange-500/15 text-orange-500"}`}>
-                        {isIn ? <ArrowDownToLine className="w-3 h-3" /> : <ArrowUpFromLine className="w-3 h-3" />}
-                        {isIn ? "เข้า" : "ออก"}
-                      </span>
-                      <div>
-                        <p className="text-sm font-medium" style={{ color: "var(--t-text)" }}>{m.part?.name}</p>
-                        <p className="font-mono text-[10px]" style={{ color: "var(--t-text-muted)" }}>{m.part?.code} • {m.user?.name || "-"}</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <span className={`text-sm font-bold ${isIn ? "text-emerald-500" : "text-orange-500"}`}>{isIn ? "+" : "-"}{m.quantity}</span>
-                      <p className="text-[10px]" style={{ color: "var(--t-text-muted)" }}>{new Date(m.createdAt).toLocaleDateString("th-TH", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
+        )}
       </div>
     </div>
   );

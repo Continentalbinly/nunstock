@@ -28,7 +28,11 @@ stockRouter.get("/summary", async (c) => {
             prisma.part.count(),
             prisma.partCategory.count(),
             prisma.part.findMany({
-                where: { quantity: { lte: 5 } },
+                where: {
+                    quantity: { lte: 5 },
+                    minStock: { gt: 0 },
+                    NOT: { code: { startsWith: "INS-" } },
+                },
                 include: { category: true },
                 orderBy: { quantity: "asc" },
                 take: 10,
