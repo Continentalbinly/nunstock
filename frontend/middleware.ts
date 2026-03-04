@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const PUBLIC_PATHS = ["/login"];
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:1100";
 
 export async function middleware(req: NextRequest) {
     const { pathname } = req.nextUrl;
@@ -26,20 +25,12 @@ export async function middleware(req: NextRequest) {
         return NextResponse.redirect(new URL("/login", req.url));
     }
 
-    try {
-        const res = await fetch(`${API_URL}/api/auth/me`, {
-            headers: { Cookie: `nunstock_token=${token}` },
-            cache: "no-store",
-        });
-        if (!res.ok) throw new Error("Unauthorized");
-        return NextResponse.next({ request: { headers: requestHeaders } });
-    } catch {
-        const response = NextResponse.redirect(new URL("/login", req.url));
-        response.cookies.delete("nunstock_token");
-        return response;
-    }
+    // Token exists → let the page load immediately
+    // AuthProvider จะ validate token แบบ non-blocking ฝั่ง client
+    return NextResponse.next({ request: { headers: requestHeaders } });
 }
 
 export const config = {
     matcher: ["/((?!_next/static|_next/image|favicon.ico|api|manifest\\.json|sw\\.js|icons/).*)"],
 };
+
