@@ -238,8 +238,13 @@ jobs:
             cd /var/www/nunstock/frontend
             npm install --prefer-offline
             npm run build
-            pm2 reload nunstock-frontend --update-env 2>/dev/null \
-              || PORT=9090 pm2 start npm --name nunstock-frontend -- start
+            # Copy static assets into standalone directory (required by standalone mode)
+            cp -r public .next/standalone/public
+            mkdir -p .next/standalone/.next
+            cp -r .next/static .next/standalone/.next/static
+            # Restart PM2 with standalone server
+            pm2 delete nunstock-frontend 2>/dev/null || true
+            PORT=9090 pm2 start .next/standalone/server.js --name nunstock-frontend
 
             pm2 save
             echo "======================================"
