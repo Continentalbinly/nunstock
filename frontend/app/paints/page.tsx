@@ -1,7 +1,7 @@
 "use client";
 import { toast } from "sonner";
 import { useEffect, useState, useRef } from "react";
-import { getParts, getCategories, createMovement, createPart, updatePart, deletePart, deletePartForce, getLookupOptions } from "@/lib/api";
+import { getParts, getCategories, createCategory, createMovement, createPart, updatePart, deletePart, deletePartForce, getLookupOptions } from "@/lib/api";
 import { Palette, Search, Filter, TrendingDown, CheckCircle2, ScanBarcode, ArrowDownToLine, ArrowUpFromLine, Minus, Plus, X, AlertCircle, PackagePlus, Pencil, Trash2, Droplets } from "lucide-react";
 import { Pagination } from "@/components/Pagination";
 import BarcodeModal from "@/components/BarcodeModal";
@@ -70,9 +70,15 @@ export default function PaintsPage() {
 
     useEffect(() => {
         getCategories()
-            .then(c => {
+            .then(async (c) => {
                 setAllCategories(c);
-                const root = c.find((cat: any) => cat.name === "สีพ่นรถยนต์" && !cat.parentId);
+                let root = c.find((cat: any) => cat.name === "สีพ่นรถยนต์" && !cat.parentId);
+                if (!root) {
+                    // Auto-create paint category if missing
+                    try {
+                        root = await createCategory({ name: "สีพ่นรถยนต์" });
+                    } catch { }
+                }
                 if (root) setPaintCatId(root.id);
             })
             .catch(console.error)
