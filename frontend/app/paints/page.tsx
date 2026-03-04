@@ -7,11 +7,13 @@ import { Pagination } from "@/components/Pagination";
 import BarcodeModal from "@/components/BarcodeModal";
 
 
-const PAINT_TYPES = ["ทั้งหมด", "แม่สี", "สีรองพื้น"];
+const PAINT_TYPES = ["ทั้งหมด", "แม่สี", "สีรองพื้น", "สีผสม", "สั่งร้านนอก"];
 
 const TYPE_COLORS: Record<string, { bg: string; text: string }> = {
     "แม่สี": { bg: "rgba(239,68,68,0.12)", text: "#EF4444" },
     "สีรองพื้น": { bg: "rgba(245,158,11,0.12)", text: "#F59E0B" },
+    "สีผสม": { bg: "rgba(59,130,246,0.12)", text: "#3B82F6" },
+    "สั่งร้านนอก": { bg: "rgba(16,185,129,0.12)", text: "#10B981" },
 };
 
 export default function PaintsPage() {
@@ -310,7 +312,7 @@ export default function PaintsPage() {
                         <div className="space-y-4">
                             <div className="grid grid-cols-2 gap-3">
                                 <div><label className="text-sm mb-1 block" style={{ color: "var(--t-text-secondary)" }}>รหัสสี (สีเบอร์) *</label><input value={createForm.code} onChange={(e) => setCreateForm({ ...createForm, code: e.target.value })} className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-purple-500/30" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} placeholder="PT-013" /></div>
-                                <div><label className="text-sm mb-1 block" style={{ color: "var(--t-text-secondary)" }}>แม่สี / ยี่ห้อ</label><input value={createForm.brand} onChange={(e) => setCreateForm({ ...createForm, brand: e.target.value })} className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-purple-500/30" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} placeholder="Sikkens, Standox" /></div>
+                                <div><label className="text-sm mb-1 block" style={{ color: "var(--t-text-secondary)" }}>ยี่ห้อ</label><input value={createForm.brand} onChange={(e) => setCreateForm({ ...createForm, brand: e.target.value })} className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-purple-500/30" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} placeholder="Sikkens, Standox" /></div>
                             </div>
                             <div className="grid grid-cols-2 gap-3">
                                 <div><label className="text-sm mb-1 block" style={{ color: "var(--t-text-secondary)" }}>ชื่อสี *</label><input value={createForm.name} onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })} className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-purple-500/30" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} placeholder="สีแดงมิลาน 3P0" /></div>
@@ -349,7 +351,7 @@ export default function PaintsPage() {
                         <div className="space-y-3">
                             <div className="grid grid-cols-2 gap-3">
                                 <div><label className="text-sm mb-1 block" style={{ color: "var(--t-text-secondary)" }}>รหัสสี *</label><input value={editPartForm.code} onChange={(e) => setEditPartForm({ ...editPartForm, code: e.target.value })} className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-purple-500/30" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} /></div>
-                                <div><label className="text-sm mb-1 block" style={{ color: "var(--t-text-secondary)" }}>แม่สี / ยี่ห้อ</label><input value={editPartForm.brand} onChange={(e) => setEditPartForm({ ...editPartForm, brand: e.target.value })} className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-purple-500/30" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} /></div>
+                                <div><label className="text-sm mb-1 block" style={{ color: "var(--t-text-secondary)" }}>ยี่ห้อ</label><input value={editPartForm.brand} onChange={(e) => setEditPartForm({ ...editPartForm, brand: e.target.value })} className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-purple-500/30" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} /></div>
                             </div>
                             <div className="grid grid-cols-2 gap-3">
                                 <div><label className="text-sm mb-1 block" style={{ color: "var(--t-text-secondary)" }}>ชื่อสี *</label><input value={editPartForm.name} onChange={(e) => setEditPartForm({ ...editPartForm, name: e.target.value })} className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-purple-500/30" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} /></div>
