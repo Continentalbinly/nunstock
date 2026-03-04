@@ -75,7 +75,7 @@ partsRouter.get("/:id", async (c) => {
 const partSchema = z.object({
     code: z.string().min(1, "กรุณาระบุรหัสอะไหล่"),
     name: z.string().min(1, "กรุณาระบุชื่ออะไหล่"),
-    type: z.enum(["CONSUMABLE", "INSURANCE"]),
+    type: z.enum(["CONSUMABLE", "INSURANCE"]).optional(),
     description: z.string().optional(),
     brand: z.string().optional(),
     specification: z.string().optional(),
@@ -101,7 +101,7 @@ partsRouter.post("/", zValidator("json", partSchema), async (c) => {
     try {
         const body = c.req.valid("json");
         const part = await prisma.part.create({
-            data: body,
+            data: body as any,
             include: { category: true },
         });
         return c.json({ success: true, data: part }, 201);
