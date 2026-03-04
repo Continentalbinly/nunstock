@@ -14,7 +14,7 @@ app.get("/", async (c) => {
         where,
         orderBy: [{ sortOrder: "asc" }, { value: "asc" }],
     });
-    return c.json(options);
+    return c.json({ success: true, data: options });
 });
 
 // POST — create new option
@@ -30,7 +30,7 @@ app.post("/", zValidator("json", createSchema), async (c) => {
     const existing = await prisma.lookupOption.findUnique({
         where: { group_value: { group, value } },
     });
-    if (existing) return c.json(existing);
+    if (existing) return c.json({ success: true, data: existing });
 
     // Find max sortOrder for this group
     const maxSort = await prisma.lookupOption.aggregate({
@@ -42,7 +42,7 @@ app.post("/", zValidator("json", createSchema), async (c) => {
     const option = await prisma.lookupOption.create({
         data: { group, value, sortOrder: nextSort },
     });
-    return c.json(option, 201);
+    return c.json({ success: true, data: option }, 201);
 });
 
 export default app;
