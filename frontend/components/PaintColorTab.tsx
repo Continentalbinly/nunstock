@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { getPaintBrands, createPaintBrand, updatePaintBrand, deletePaintBrand, getPaintColors, createPaintColor, updatePaintColor, deletePaintColor } from "@/lib/api";
+import { getPaintBrands, createPaintBrand, updatePaintBrand, deletePaintBrand, getPaintColors, createPaintColor, updatePaintColor, deletePaintColor, getLookupOptions } from "@/lib/api";
 import { getCarLogoUrl } from "@/lib/carLogos";
 import { Palette, Plus, X, Pencil, Trash2, ChevronLeft, Search, Droplets } from "lucide-react";
 
@@ -32,6 +32,12 @@ export default function PaintColorTab() {
         finally { setLoading(false); }
     };
     useEffect(() => { fetchBrands(); }, []);
+
+    // Dynamic unit options from DB
+    const [unitOptions, setUnitOptions] = useState<string[]>([]);
+    useEffect(() => {
+        getLookupOptions("UNIT_PAINT").then(r => setUnitOptions(r.map((o: any) => o.value))).catch(() => { });
+    }, []);
 
     const fetchColors = async (brandId: string) => {
         setColorsLoading(true);
@@ -205,7 +211,7 @@ export default function PaintColorTab() {
                                 <div><label className="text-xs font-medium mb-1 block" style={{ color: "var(--t-text-muted)" }}>จำนวน</label><input type="number" value={newColor.quantity} onChange={e => setNewColor({ ...newColor, quantity: e.target.value })} className="w-full rounded-lg px-3 py-2.5 text-sm focus:outline-none" style={inputStyle} min={0} /></div>
                                 <div><label className="text-xs font-medium mb-1 block" style={{ color: "var(--t-text-muted)" }}>หน่วย</label>
                                     <select value={newColor.unit} onChange={e => setNewColor({ ...newColor, unit: e.target.value })} className="w-full rounded-lg px-3 py-2.5 text-sm focus:outline-none cursor-pointer" style={inputStyle}>
-                                        {["กระป๋อง", "แกลลอน", "ลิตร", "ขวด", "ถัง"].map(u => <option key={u} value={u}>{u}</option>)}
+                                        {unitOptions.map(u => <option key={u} value={u}>{u}</option>)}
                                     </select>
                                 </div>
                             </div>
@@ -232,7 +238,7 @@ export default function PaintColorTab() {
                                 <div><label className="text-xs font-medium mb-1 block" style={{ color: "var(--t-text-muted)" }}>จำนวน</label><input type="number" value={editColor.quantity} onChange={e => setEditColor({ ...editColor, quantity: e.target.value })} className="w-full rounded-lg px-3 py-2.5 text-sm focus:outline-none" style={inputStyle} min={0} /></div>
                                 <div><label className="text-xs font-medium mb-1 block" style={{ color: "var(--t-text-muted)" }}>หน่วย</label>
                                     <select value={editColor.unit} onChange={e => setEditColor({ ...editColor, unit: e.target.value })} className="w-full rounded-lg px-3 py-2.5 text-sm focus:outline-none cursor-pointer" style={inputStyle}>
-                                        {["กระป๋อง", "แกลลอน", "ลิตร", "ขวด", "ถัง"].map(u => <option key={u} value={u}>{u}</option>)}
+                                        {unitOptions.map(u => <option key={u} value={u}>{u}</option>)}
                                     </select>
                                 </div>
                             </div>

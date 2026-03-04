@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
-    createJob, getCategories, createCategory, getShopStock, getParts, getJobSuggestions,
+    createJob, getCategories, createCategory, getShopStock, getParts, getJobSuggestions, createPart,
 } from "@/lib/api";
 import {
     ShieldCheck, Banknote, Car, ArrowLeft, Plus, X, Search, Package, Wrench, CheckCircle2, Trash2, Minus,
@@ -175,6 +175,44 @@ export default function NewJobPage() {
             setShowNewModel(false);
             toast.success(`สร้าง "${created.name}" สำเร็จ`);
         } catch (err: any) { toast.error(err.message || "ไม่สามารถสร้างได้"); }
+    };
+
+    // Inline insurance part creation
+    const [showNewInsPart, setShowNewInsPart] = useState(false);
+    const [newInsPartName, setNewInsPartName] = useState("");
+    const [newInsPartUnit, setNewInsPartUnit] = useState("ชิ้น");
+    const [creatingInsPart, setCreatingInsPart] = useState(false);
+
+    const handleCreateInsPart = async () => {
+        if (!newInsPartName.trim() || !selModelId) return;
+        setCreatingInsPart(true);
+        try {
+            const partCode = `INS-${Date.now().toString(36).toUpperCase()}`;
+            const created = await createPart({
+                code: partCode,
+                name: newInsPartName.trim(),
+                unit: newInsPartUnit || "ชิ้น",
+                quantity: 0,
+                minStock: 0,
+                type: "INSURANCE",
+                categoryId: selModelId,
+            });
+            // Reload parts list
+            const r = await getParts({ categoryId: selModelId, pageSize: "100" });
+            setInsuranceParts(r.data || []);
+            // Auto-select the newly created part
+            if (created?.id) {
+                setSelectedInsParts(prev => ({
+                    ...prev,
+                    [created.id]: { qty: 1, name: created.name, unit: created.unit || "ชิ้น" },
+                }));
+            }
+            setNewInsPartName("");
+            setNewInsPartUnit("ชิ้น");
+            setShowNewInsPart(false);
+            toast.success(`เพิ่ม "${created.name}" สำเร็จ`);
+        } catch (err: any) { toast.error(err.message || "ไม่สามารถสร้างอะไหล่ได้"); }
+        finally { setCreatingInsPart(false); }
     };
 
     const toggleInsPart = (part: any) => {
@@ -455,6 +493,43 @@ export default function NewJobPage() {
                                     <p className="text-xs font-medium mt-2" style={{ color: "#F97316" }}>
                                         เลือกแล้ว {Object.keys(selectedInsParts).length} รายการ
                                     </p>
+                                )}
+
+                                {/* Inline add new insurance part */}
+                                {!showNewInsPart ? (
+                                    <button type="button" onClick={() => setShowNewInsPart(true)}
+                                        className="mt-3 w-full flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold cursor-pointer transition-all border-2 border-dashed"
+                                        style={{ borderColor: "var(--t-border-subtle)", color: "#F97316" }}
+                                        onMouseEnter={e => { e.currentTarget.style.borderColor = "#F9731660"; e.currentTarget.style.background = "rgba(249,115,22,0.03)"; }}
+                                        onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--t-border-subtle)"; e.currentTarget.style.background = "transparent"; }}
+                                    >
+                                        <Plus className="w-3.5 h-3.5" /> เพิ่มอะไหล่ใหม่
+                                    </button>
+                                ) : (
+                                    <div className="mt-3 rounded-lg p-3" style={{ background: "rgba(249,115,22,0.04)", border: "1.5px solid rgba(249,115,22,0.2)" }}>
+                                        <p className="text-xs font-bold mb-2" style={{ color: "#F97316" }}>เพิ่มอะไหล่ใหม่เข้ารุ่นนี้</p>
+                                        <div className="grid grid-cols-3 gap-2 mb-2">
+                                            <div className="col-span-2">
+                                                <input value={newInsPartName} onChange={e => setNewInsPartName(e.target.value)}
+                                                    onKeyDown={e => { if (e.key === "Enter") handleCreateInsPart(); }}
+                                                    className="w-full rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-orange-500/30" style={inputStyle}
+                                                    placeholder="ชื่ออะไหล่ (เช่น กันชนหน้า)" autoFocus />
+                                            </div>
+                                            <div>
+                                                <input value={newInsPartUnit} onChange={e => setNewInsPartUnit(e.target.value)}
+                                                    className="w-full rounded-lg px-3 py-2 text-xs focus:outline-none" style={inputStyle}
+                                                    placeholder="หน่วย" />
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <button type="button" onClick={() => setShowNewInsPart(false)}
+                                                className="flex-1 rounded-lg py-2 text-xs font-medium cursor-pointer" style={{ background: "var(--t-input-bg)", color: "var(--t-text-secondary)", border: "1px solid var(--t-input-border)" }}>ยกเลิก</button>
+                                            <button type="button" onClick={handleCreateInsPart} disabled={creatingInsPart}
+                                                className="flex-1 rounded-lg py-2 text-xs font-bold text-white cursor-pointer disabled:opacity-50" style={{ background: "#F97316" }}>
+                                                {creatingInsPart ? "กำลังสร้าง..." : "เพิ่มอะไหล่"}
+                                            </button>
+                                        </div>
+                                    </div>
                                 )}
                             </div>
                         )}

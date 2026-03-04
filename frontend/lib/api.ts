@@ -86,6 +86,12 @@ export const updateCategory = (id: string, data: { name: string }) =>
 export const deleteCategory = (id: string) =>
     apiFetch<any>(`/api/categories/${id}`, { method: "DELETE" });
 
+// ---- Lookup Options (UNIT / SPEC) ----
+export const getLookupOptions = (group: string) =>
+    apiFetch<any[]>(`/api/lookup-options?group=${group}`);
+export const createLookupOption = (data: { group: string; value: string }) =>
+    apiFetch<any>("/api/lookup-options", { method: "POST", body: JSON.stringify(data) });
+
 // ---- เคลื่อนไหวสต็อก (paginated) ----
 export const getMovements = (params?: Record<string, string>) =>
     apiFetchPaginated<any>(`/api/movements?${new URLSearchParams(params)}`);

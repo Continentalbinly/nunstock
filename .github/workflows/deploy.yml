@@ -158,6 +158,8 @@ jobs:
               npx prisma migrate resolve --applied "20260303023531_repair_templates_and_withdrawn"
               npx prisma migrate resolve --applied "20260303032534_add_jobpart_barcode"
               npx prisma migrate resolve --applied "20260304040000_separate_part_types"
+              npx prisma migrate resolve --applied "20260304050000_lookup_options"
+              npx prisma migrate resolve --applied "20260304054000_split_unit_groups"
             else
               echo ">>> Migration history found, skipping baseline"
             fi

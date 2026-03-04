@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import {
     getShopStock, getShopStockSummary, createShopStock,
     updateShopStockCondition, deleteShopStock,
+    getLookupOptions,
 } from "@/lib/api";
 import {
     Warehouse, Search, Filter, Plus, X, AlertCircle, CheckCircle2,
@@ -58,6 +59,13 @@ export default function ShopStockPage() {
     // Delete
     const [confirmDelete, setConfirmDelete] = useState<any>(null);
     const [barcodePart, setBarcodePart] = useState<any>(null);
+    const [customUnit, setCustomUnit] = useState(false);
+
+    // Dynamic unit options from DB
+    const [unitOptions, setUnitOptions] = useState<string[]>([]);
+    useEffect(() => {
+        getLookupOptions("UNIT_SHOP").then(r => setUnitOptions(r.map((o: any) => o.value))).catch(() => { });
+    }, []);
 
     useEffect(() => {
         const t = setTimeout(() => setDebouncedSearch(search), 400);
@@ -325,7 +333,7 @@ export default function ShopStockPage() {
                                     </select>
                                 </div>
                                 <div><label className="text-sm mb-1 block" style={{ color: "var(--t-text-secondary)" }}>จำนวน</label><input type="number" value={addForm.quantity} onChange={(e) => setAddForm({ ...addForm, quantity: Math.max(1, Number(e.target.value)) })} className="w-full rounded-lg px-3 py-2.5 text-sm focus:outline-none" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} min={1} /></div>
-                                <div><label className="text-sm mb-1 block" style={{ color: "var(--t-text-secondary)" }}>หน่วย</label><input value={addForm.unit} onChange={(e) => setAddForm({ ...addForm, unit: e.target.value })} className="w-full rounded-lg px-3 py-2.5 text-sm focus:outline-none" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} /></div>
+                                <div><label className="text-sm mb-1 block" style={{ color: "var(--t-text-secondary)" }}>หน่วย</label>{customUnit ? (<div className="flex gap-1.5"><input value={addForm.unit} onChange={(e) => setAddForm({ ...addForm, unit: e.target.value })} className="w-full rounded-lg px-3 py-2.5 text-sm focus:outline-none" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} placeholder="กรอกหน่วย..." autoFocus /><button type="button" onClick={() => { setCustomUnit(false); setAddForm({ ...addForm, unit: "ชิ้น" }); }} className="px-2 rounded-lg text-xs shrink-0 cursor-pointer" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-text-muted)" }}>เลือก</button></div>) : (<select value={addForm.unit} onChange={(e) => { if (e.target.value === "__custom__") { setCustomUnit(true); setAddForm({ ...addForm, unit: "" }); } else { setAddForm({ ...addForm, unit: e.target.value }); } }} className="w-full rounded-lg px-3 py-2.5 text-sm focus:outline-none cursor-pointer" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }}>{unitOptions.map(u => <option key={u} value={u}>{u}</option>)}<option value="__custom__">+ กรอกเอง...</option></select>)}</div>
                             </div>
 
                             {/* Description */}

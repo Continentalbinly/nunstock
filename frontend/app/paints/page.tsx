@@ -1,7 +1,7 @@
 "use client";
 import { toast } from "sonner";
 import { useEffect, useState, useRef } from "react";
-import { getParts, getCategories, createMovement, createPart, updatePart, deletePart, deletePartForce } from "@/lib/api";
+import { getParts, getCategories, createMovement, createPart, updatePart, deletePart, deletePartForce, getLookupOptions } from "@/lib/api";
 import { Palette, Search, Filter, TrendingDown, CheckCircle2, ScanBarcode, ArrowDownToLine, ArrowUpFromLine, Minus, Plus, X, AlertCircle, PackagePlus, Pencil, Trash2, Droplets } from "lucide-react";
 import { Pagination } from "@/components/Pagination";
 import BarcodeModal from "@/components/BarcodeModal";
@@ -49,6 +49,14 @@ export default function PaintsPage() {
     const [confirmDeletePart, setConfirmDeletePart] = useState<any>(null);
     const [deletePartMsg, setDeletePartMsg] = useState("");
     const [deletePartCanForce, setDeletePartCanForce] = useState(false);
+    const [customUnit, setCustomUnit] = useState(false);
+    const [customEditUnit, setCustomEditUnit] = useState(false);
+
+    // Dynamic unit options from DB
+    const [unitOptions, setUnitOptions] = useState<string[]>([]);
+    useEffect(() => {
+        getLookupOptions("UNIT_PAINT").then(r => setUnitOptions(r.map((o: any) => o.value))).catch(() => { });
+    }, []);
     const [barcodePart, setBarcodePart] = useState<any>(null);
 
     // Top-level tab
@@ -331,9 +339,7 @@ export default function PaintsPage() {
                                         <div><label className="text-sm mb-1 block" style={{ color: "var(--t-text-secondary)" }}>จำนวน</label><input type="number" value={createForm.quantity} onChange={(e) => setCreateForm({ ...createForm, quantity: Number(e.target.value) })} className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} min={0} /></div>
                                         <div><label className="text-sm mb-1 block" style={{ color: "var(--t-text-secondary)" }}>ขั้นต่ำ</label><input type="number" value={createForm.minStock} onChange={(e) => setCreateForm({ ...createForm, minStock: Number(e.target.value) })} className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} min={0} /></div>
                                         <div><label className="text-sm mb-1 block" style={{ color: "var(--t-text-secondary)" }}>หน่วย</label>
-                                            <select value={createForm.unit} onChange={(e) => setCreateForm({ ...createForm, unit: e.target.value })} className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none cursor-pointer" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }}>
-                                                {["กระป๋อง", "แกลลอน", "ลิตร", "ขวด", "ถัง", "กก."].map(u => <option key={u} value={u}>{u}</option>)}
-                                            </select>
+                                            {customUnit ? (<div className="flex gap-1.5"><input value={createForm.unit} onChange={(e) => setCreateForm({ ...createForm, unit: e.target.value })} className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} placeholder="กรอกหน่วย..." autoFocus /><button type="button" onClick={() => { setCustomUnit(false); setCreateForm({ ...createForm, unit: "กระป๋อง" }); }} className="px-2 rounded-lg text-xs shrink-0 cursor-pointer" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-text-muted)" }}>เลือก</button></div>) : (<select value={createForm.unit} onChange={(e) => { if (e.target.value === "__custom__") { setCustomUnit(true); setCreateForm({ ...createForm, unit: "" }); } else { setCreateForm({ ...createForm, unit: e.target.value }); } }} className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none cursor-pointer" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }}>{unitOptions.map(u => <option key={u} value={u}>{u}</option>)}<option value="__custom__">+ กรอกเอง...</option></select>)}
                                         </div>
                                     </div>
                                 </div>
@@ -371,9 +377,7 @@ export default function PaintsPage() {
                                     <div className="grid grid-cols-2 gap-3">
                                         <div><label className="text-sm mb-1 block" style={{ color: "var(--t-text-secondary)" }}>สต็อกขั้นต่ำ</label><input type="number" value={editPartForm.minStock} onChange={(e) => setEditPartForm({ ...editPartForm, minStock: Number(e.target.value) })} className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} min={0} /></div>
                                         <div><label className="text-sm mb-1 block" style={{ color: "var(--t-text-secondary)" }}>หน่วย</label>
-                                            <select value={editPartForm.unit} onChange={(e) => setEditPartForm({ ...editPartForm, unit: e.target.value })} className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none cursor-pointer" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }}>
-                                                {["กระป๋อง", "แกลลอน", "ลิตร", "ขวด", "ถัง", "กก."].map(u => <option key={u} value={u}>{u}</option>)}
-                                            </select>
+                                            {customEditUnit ? (<div className="flex gap-1.5"><input value={editPartForm.unit} onChange={(e) => setEditPartForm({ ...editPartForm, unit: e.target.value })} className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} placeholder="กรอกหน่วย..." autoFocus /><button type="button" onClick={() => { setCustomEditUnit(false); setEditPartForm({ ...editPartForm, unit: "กระป๋อง" }); }} className="px-2 rounded-lg text-xs shrink-0 cursor-pointer" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-text-muted)" }}>เลือก</button></div>) : (<select value={editPartForm.unit} onChange={(e) => { if (e.target.value === "__custom__") { setCustomEditUnit(true); setEditPartForm({ ...editPartForm, unit: "" }); } else { setEditPartForm({ ...editPartForm, unit: e.target.value }); } }} className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none cursor-pointer" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }}>{unitOptions.map(u => <option key={u} value={u}>{u}</option>)}<option value="__custom__">+ กรอกเอง...</option></select>)}
                                         </div>
                                     </div>
                                 </div>

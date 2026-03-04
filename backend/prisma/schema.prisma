@@ -12,6 +12,17 @@ enum PartType {
   INSURANCE
 }
 
+model LookupOption {
+  id        String   @id @default(cuid())
+  group     String   // "UNIT" | "SPEC"
+  value     String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@unique([group, value])
+  @@map("lookup_options")
+}
+
 model PartCategory {
   id        String   @id @default(cuid())
   name      String
