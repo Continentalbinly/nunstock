@@ -1,6 +1,6 @@
 "use client";
 import { toast } from "sonner";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { getParts, getCategories, createPart, updatePart, deletePart, deletePartForce, createCategory, deleteCategory, updateCategory, getCarTypes, createCarType, updateCarType, deleteCarType } from "@/lib/api";
 import { getCarLogoUrl } from "@/lib/carLogos";
@@ -24,6 +24,21 @@ function getCarTypeFromList(brandName: string, types: CarTypeItem[]): string {
 }
 
 export default function InsurancePage() {
+    return (
+        <Suspense fallback={
+            <div className="p-8 flex items-center justify-center min-h-screen">
+                <div className="text-center">
+                    <div className="w-10 h-10 border-3 rounded-full animate-spin mx-auto mb-4" style={{ borderColor: "var(--t-border)", borderTopColor: "#F97316" }} />
+                    <p style={{ color: "var(--t-text-muted)" }} className="text-sm">กำลังโหลดข้อมูล...</p>
+                </div>
+            </div>
+        }>
+            <InsurancePageInner />
+        </Suspense>
+    );
+}
+
+function InsurancePageInner() {
     const searchParams = useSearchParams();
     const router = useRouter();
     const [allCategories, setAllCategories] = useState<any[]>([]);

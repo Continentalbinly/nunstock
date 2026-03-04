@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { BarChart3, Download, Search, ArrowDownToLine, ArrowUpFromLine, Filter, CalendarDays, AlertTriangle, Package, Shield, Wrench, Car, Briefcase, ExternalLink, Droplets, User, Palette, Printer, Truck, Lock, FileText, StickyNote, CalendarRange } from "lucide-react";
 
@@ -26,6 +26,21 @@ const JOB_STATUS_MAP: Record<string, { label: string; color: string }> = {
 };
 
 export default function ReportsPage() {
+    return (
+        <Suspense fallback={
+            <div className="p-8 flex items-center justify-center min-h-screen">
+                <div className="text-center">
+                    <div className="w-10 h-10 border-3 rounded-full animate-spin mx-auto mb-4" style={{ borderColor: "var(--t-border)", borderTopColor: "#F97316" }} />
+                    <p style={{ color: "var(--t-text-muted)" }} className="text-sm">กำลังโหลดข้อมูล...</p>
+                </div>
+            </div>
+        }>
+            <ReportsPageInner />
+        </Suspense>
+    );
+}
+
+function ReportsPageInner() {
     const searchParams = useSearchParams();
     const router = useRouter();
     const tab = searchParams.get("tab") || "jobs";
