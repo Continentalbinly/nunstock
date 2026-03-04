@@ -86,10 +86,24 @@ export default function InsurancePage() {
     const models = selectedBrand ? allCategories.filter((c: any) => c.parentId === selectedBrand.id) : [];
 
     useEffect(() => {
-        Promise.all([getCategories(), getCarTypes()])
-            .then(([c, ct]) => { setAllCategories(c); setCarTypes(ct); })
-            .catch(console.error)
-            .finally(() => setLoading(false));
+        (async () => {
+            try {
+                const [c, ct] = await Promise.all([getCategories(), getCarTypes()]);
+                // Auto-create "รถประกัน" root if it doesn't exist
+                let cats = c;
+                const hasRoot = c.some((cat: any) => cat.name === "รถประกัน" && !cat.parentId);
+                if (!hasRoot) {
+                    await createCategory({ name: "รถประกัน", icon: "shield", color: "#3b82f6" });
+                    cats = await getCategories();
+                }
+                setAllCategories(cats);
+                setCarTypes(ct);
+            } catch (err) {
+                console.error(err);
+            } finally {
+                setLoading(false);
+            }
+        })();
     }, []);
 
     // Sync state with URL on back/forward navigation
@@ -661,7 +675,7 @@ export default function InsurancePage() {
                         </div>
                         <div className="flex gap-3 mt-6 pt-4" style={{ borderTop: "1px solid var(--t-border-subtle)" }}>
                             <button onClick={() => setShowCreate(false)} className="flex-1 rounded-lg py-2.5 text-sm font-medium cursor-pointer" style={{ background: "var(--t-input-bg)", color: "var(--t-text-secondary)", border: "1px solid var(--t-input-border)" }}>ยกเลิก</button>
-                            <button onClick={async () => { if (!createForm.code || !createForm.name) { setCreateError("กรุณากรอกรหัสและชื่อ"); return; } setCreateSaving(true); setCreateError(""); try { await createPart({ ...createForm, quantity: 0, minStock: 0, categoryId: selectedModel.id }); setShowCreate(false); fetchParts(); } catch (err: any) { setCreateError(err.message || "เกิดข้อผิดพลาด"); } finally { setCreateSaving(false); } }} disabled={createSaving} className="flex-1 bg-orange-500 hover:bg-orange-400 text-white font-semibold rounded-lg py-2.5 text-sm cursor-pointer disabled:opacity-50">{createSaving ? "กำลังบันทึก..." : "สร้างอะไหล่"}</button>
+                            <button onClick={async () => { if (!createForm.code || !createForm.name) { setCreateError("กรุณากรอกรหัสและชื่อ"); return; } setCreateSaving(true); setCreateError(""); try { await createPart({ ...createForm, quantity: 0, minStock: 0, type: "INSURANCE", categoryId: selectedModel.id }); setShowCreate(false); fetchParts(); } catch (err: any) { setCreateError(err.message || "เกิดข้อผิดพลาด"); } finally { setCreateSaving(false); } }} disabled={createSaving} className="flex-1 bg-orange-500 hover:bg-orange-400 text-white font-semibold rounded-lg py-2.5 text-sm cursor-pointer disabled:opacity-50">{createSaving ? "กำลังบันทึก..." : "สร้างอะไหล่"}</button>
                         </div>
                     </div>
                 </div>

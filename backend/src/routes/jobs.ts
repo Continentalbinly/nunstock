@@ -602,15 +602,11 @@ jobsRouter.patch("/:id/cancel", async (c) => {
                     await prisma.shopStock.update({ where: { id: part.sourceId }, data: { quantity: { increment: part.quantity } } }).catch(() => { });
                 } else {
                     // ประกัน / หน้าร้าน / อื่นๆ → สร้างเป็น shop stock ใหม่
-                    // หา/สร้าง category "ยกเลิก Job"
-                    let cat = await prisma.partCategory.findFirst({ where: { name: "ยกเลิก Job", parentId: null } });
-                    if (!cat) cat = await prisma.partCategory.create({ data: { name: "ยกเลิก Job" } });
                     await prisma.shopStock.create({
                         data: {
                             name: part.partName,
                             quantity: part.quantity,
                             unit: part.unit || "ชิ้น",
-                            categoryId: cat.id,
                             source: "JOB_CANCEL",
                             sourceNote: `โอนจาก ${existing.jobNo} (${SOURCE_LABELS_TH[part.source] || part.source})`,
                         },

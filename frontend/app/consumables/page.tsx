@@ -1,7 +1,7 @@
 "use client";
 import { toast } from "sonner";
 import { useEffect, useState, useRef } from "react";
-import { getParts, getCategories, createMovement, createPart, updatePart, deletePart, deletePartForce } from "@/lib/api";
+import { getParts, createMovement, createPart, updatePart, deletePart, deletePartForce } from "@/lib/api";
 import { Package, Search, Filter, TrendingDown, CheckCircle2, ScanBarcode, ArrowDownToLine, ArrowUpFromLine, Minus, Plus, X, AlertCircle, PackagePlus, Pencil, Trash2, Wrench } from "lucide-react";
 import { Pagination } from "@/components/Pagination";
 import { useCart } from "@/components/CartContext";
@@ -11,8 +11,6 @@ import { Barcode } from "lucide-react";
 
 export default function ConsumablesPage() {
     const { addToCart } = useCart();
-    const [allCategories, setAllCategories] = useState<any[]>([]);
-    const [consumableId, setConsumableId] = useState<string>("");
     const [parts, setParts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
@@ -71,14 +69,7 @@ export default function ConsumablesPage() {
     ];
 
     useEffect(() => {
-        getCategories()
-            .then(c => {
-                setAllCategories(c);
-                const root = c.find((cat: any) => cat.name === "อุปกรณ์สิ้นเปลือง" && !cat.parentId);
-                if (root) setConsumableId(root.id);
-            })
-            .catch(console.error)
-            .finally(() => setLoading(false));
+        setLoading(false);
     }, []);
 
     // Debounce search — gives barcode scanner time to finish
@@ -88,9 +79,8 @@ export default function ConsumablesPage() {
     }, [search]);
 
     const fetchParts = async () => {
-        if (!consumableId) return;
         try {
-            const params: Record<string, string> = { page: String(page), pageSize: "20", categoryId: consumableId };
+            const params: Record<string, string> = { page: String(page), pageSize: "20", type: "CONSUMABLE" };
             if (debouncedSearch) params.search = debouncedSearch;
             if (lowStockOnly) params.lowStock = "true";
             const result = await getParts(params);
@@ -102,8 +92,8 @@ export default function ConsumablesPage() {
     };
 
     useEffect(() => {
-        if (consumableId) fetchParts();
-    }, [consumableId, page, debouncedSearch, lowStockOnly]);
+        fetchParts();
+    }, [page, debouncedSearch, lowStockOnly]);
 
     const handleFilterChange = (setter: (v: any) => void, value: any) => { setPage(1); setter(value); };
 
@@ -339,7 +329,7 @@ export default function ConsumablesPage() {
                         {/* Footer */}
                         <div className="px-5 py-4 flex gap-3 shrink-0" style={{ borderTop: "1px solid var(--t-border-subtle)" }}>
                             <button onClick={() => setShowCreate(false)} className="flex-1 rounded-xl py-2.5 text-sm font-medium cursor-pointer" style={{ background: "var(--t-input-bg)", color: "var(--t-text-secondary)", border: "1px solid var(--t-input-border)" }}>ยกเลิก</button>
-                            <button onClick={async () => { if (!createForm.name.trim()) { setCreateError("กรุณากรอกชื่อวัสดุ"); return; } setCreateSaving(true); setCreateError(""); try { await createPart({ ...createForm, quantity: Number(createForm.quantity), minStock: Number(createForm.minStock), categoryId: consumableId }); setShowCreate(false); toast.success("สร้างวัสดุเรียบร้อย"); fetchParts(); } catch (err: any) { setCreateError(err.message || "เกิดข้อผิดพลาด"); } finally { setCreateSaving(false); } }} disabled={createSaving} className="flex-1 text-white font-bold rounded-xl py-2.5 text-sm cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-lg hover:-translate-y-0.5" style={{ background: "linear-gradient(135deg, #f59e0b, #d97706)", boxShadow: "0 4px 14px rgba(245,158,11,0.35)" }}>{createSaving ? "กำลังบันทึก..." : "สร้างวัสดุ"}</button>
+                            <button onClick={async () => { if (!createForm.name.trim()) { setCreateError("กรุณากรอกชื่อวัสดุ"); return; } setCreateSaving(true); setCreateError(""); try { await createPart({ ...createForm, quantity: Number(createForm.quantity), minStock: Number(createForm.minStock), type: "CONSUMABLE" }); setShowCreate(false); toast.success("สร้างวัสดุเรียบร้อย"); fetchParts(); } catch (err: any) { setCreateError(err.message || "เกิดข้อผิดพลาด"); } finally { setCreateSaving(false); } }} disabled={createSaving} className="flex-1 text-white font-bold rounded-xl py-2.5 text-sm cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-lg hover:-translate-y-0.5" style={{ background: "linear-gradient(135deg, #f59e0b, #d97706)", boxShadow: "0 4px 14px rgba(245,158,11,0.35)" }}>{createSaving ? "กำลังบันทึก..." : "สร้างวัสดุ"}</button>
                         </div>
                     </div>
                 </div>

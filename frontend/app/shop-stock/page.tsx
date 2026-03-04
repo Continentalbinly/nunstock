@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import { useEffect, useState } from "react";
 import {
     getShopStock, getShopStockSummary, createShopStock,
-    updateShopStockCondition, deleteShopStock, getCategories,
+    updateShopStockCondition, deleteShopStock,
 } from "@/lib/api";
 import {
     Warehouse, Search, Filter, Plus, X, AlertCircle, CheckCircle2,
@@ -33,20 +33,19 @@ const CONDITION_CONFIG: Record<string, { label: string; icon: any; color: string
 export default function ShopStockPage() {
     const [items, setItems] = useState<any[]>([]);
     const [summary, setSummary] = useState<any>(null);
-    const [categories, setCategories] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
     const [debouncedSearch, setDebouncedSearch] = useState("");
     const [filterSource, setFilterSource] = useState("");
     const [filterCondition, setFilterCondition] = useState("");
-    const [filterCategory, setFilterCategory] = useState("");
+
     const [page, setPage] = useState(1);
     const [pagination, setPagination] = useState({ page: 1, pageSize: 20, total: 0, totalPages: 1 });
 
     // Modals
     const [showAdd, setShowAdd] = useState(false);
     const [addForm, setAddForm] = useState({
-        name: "", description: "", categoryId: "", carBrand: "", carModel: "",
+        name: "", description: "", carBrand: "", carModel: "",
         quantity: 1, unit: "ชิ้น", source: "EXCESS_ORDER" as string, sourceRef: "", sourceNote: "",
         condition: "USABLE" as string,
     });
@@ -72,27 +71,25 @@ export default function ShopStockPage() {
             if (debouncedSearch) params.search = debouncedSearch;
             if (filterSource) params.source = filterSource;
             if (filterCondition) params.condition = filterCondition;
-            if (filterCategory) params.categoryId = filterCategory;
-            const [result, sum, cats] = await Promise.all([
+
+            const [result, sum] = await Promise.all([
                 getShopStock(params),
                 getShopStockSummary(),
-                getCategories(),
             ]);
             setItems(result.data);
             setPagination(result.pagination);
             setSummary(sum);
-            setCategories(cats);
         } catch (err) { console.error(err); }
         finally { setLoading(false); }
     };
 
-    useEffect(() => { fetchAll(); }, [page, debouncedSearch, filterSource, filterCondition, filterCategory]);
+    useEffect(() => { fetchAll(); }, [page, debouncedSearch, filterSource, filterCondition]);
 
     const resetPage = (setter: (v: any) => void, val: any) => { setPage(1); setter(val); };
 
     // ---- Add handler ----
     const handleAdd = async () => {
-        if (!addForm.name || !addForm.categoryId) { setAddError("กรุณากรอกชื่อและเลือกประเภท"); return; }
+        if (!addForm.name) { setAddError("กรุณากรอกชื่อ"); return; }
         setAddSaving(true); setAddError("");
         try {
             await createShopStock({ ...addForm, quantity: Number(addForm.quantity) });
@@ -150,7 +147,7 @@ export default function ShopStockPage() {
                     <p className="mt-1 text-sm" style={{ color: "var(--t-text-muted)" }}>อะไหล่ที่เก็บสะสมจากการซ่อมและเคลม</p>
                 </div>
                 <button onClick={() => {
-                    setAddForm({ name: "", description: "", categoryId: "", carBrand: "", carModel: "", quantity: 1, unit: "ชิ้น", source: "EXCESS_ORDER", sourceRef: "", sourceNote: "", condition: "USABLE" });
+                    setAddForm({ name: "", description: "", carBrand: "", carModel: "", quantity: 1, unit: "ชิ้น", source: "EXCESS_ORDER", sourceRef: "", sourceNote: "", condition: "USABLE" });
                     setAddError(""); setShowAdd(true);
                 }} className="flex items-center gap-2 text-white font-semibold rounded-lg px-4 py-2 text-sm transition-colors cursor-pointer" style={{ background: "#8B5CF6" }}
                     onMouseEnter={(e) => e.currentTarget.style.background = "#7C3AED"}
@@ -217,7 +214,7 @@ export default function ShopStockPage() {
                                 {items.map((item) => {
                                     const cond = CONDITION_CONFIG[item.condition] || CONDITION_CONFIG.USABLE;
                                     const CondIcon = cond.icon;
-                                    const barcodeItem = { code: `SS-${item.id.slice(-6).toUpperCase()}`, name: item.name, brand: item.carBrand ? `${item.carBrand} ${item.carModel || ""}`.trim() : "", quantity: item.quantity, minStock: 0, unit: item.unit, category: item.category };
+                                    const barcodeItem = { code: `SS-${item.id.slice(-6).toUpperCase()}`, name: item.name, brand: item.carBrand ? `${item.carBrand} ${item.carModel || ""}`.trim() : "", quantity: item.quantity, minStock: 0, unit: item.unit };
                                     return (
                                         <tr key={item.id} className="transition-colors cursor-pointer" style={{ borderBottom: "1px solid var(--t-border-subtle)" }}
                                             onMouseEnter={(e) => e.currentTarget.style.background = "var(--t-hover-overlay)"}
@@ -226,7 +223,7 @@ export default function ShopStockPage() {
                                             <td className="px-4 py-3">
                                                 <p className="text-sm font-medium" style={{ color: "var(--t-text)" }}>{item.name}</p>
                                                 {item.description && <p className="text-xs mt-0.5" style={{ color: "var(--t-text-muted)" }}>{item.description}</p>}
-                                                <p className="text-[10px] mt-0.5" style={{ color: "var(--t-text-dim)" }}>{item.category?.name}</p>
+
                                             </td>
                                             <td className="px-4 py-3">
                                                 {item.carBrand || item.carModel ? (
@@ -289,15 +286,7 @@ export default function ShopStockPage() {
                             {/* ชื่อ */}
                             <div><label className="text-sm mb-1 block font-medium" style={{ color: "var(--t-text-secondary)" }}>ชื่ออะไหล่ *</label><input value={addForm.name} onChange={(e) => setAddForm({ ...addForm, name: e.target.value })} className="w-full rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-purple-500/30" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} placeholder="เช่น ไฟหน้า, กันชนหน้า" /></div>
 
-                            {/* ประเภท */}
-                            <div><label className="text-sm mb-1 block font-medium" style={{ color: "var(--t-text-secondary)" }}>ประเภท *</label>
-                                <select value={addForm.categoryId} onChange={(e) => setAddForm({ ...addForm, categoryId: e.target.value })} className="w-full rounded-lg px-3 py-2.5 text-sm cursor-pointer focus:outline-none" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }}>
-                                    <option value="">-- เลือกประเภท --</option>
-                                    {categories.filter(c => !c.parentId).map((cat) => (
-                                        <option key={cat.id} value={cat.id}>{cat.icon} {cat.name}</option>
-                                    ))}
-                                </select>
-                            </div>
+
 
                             {/* ยี่ห้อ/รุ่นรถ */}
                             <div className="grid grid-cols-2 gap-3">

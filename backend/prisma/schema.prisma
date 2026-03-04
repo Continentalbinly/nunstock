@@ -7,6 +7,11 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum PartType {
+  CONSUMABLE
+  INSURANCE
+}
+
 model PartCategory {
   id        String   @id @default(cuid())
   name      String
@@ -18,7 +23,6 @@ model PartCategory {
   parent        PartCategory?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
   subCategories PartCategory[] @relation("CategoryHierarchy")
   parts         Part[]
-  shopStocks    ShopStock[]
 
   @@unique([name, parentId])
   @@map("part_categories")
@@ -28,17 +32,18 @@ model Part {
   id          String          @id @default(cuid())
   code        String          @unique
   name        String
+  type        PartType
   description String?
   brand       String?
   specification String?
   unit        String          @default("ชิ้น")
   quantity    Int             @default(0)
   minStock    Int             @default(5)
-  categoryId  String
+  categoryId  String?
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 
-  category    PartCategory    @relation(fields: [categoryId], references: [id])
+  category    PartCategory?   @relation(fields: [categoryId], references: [id])
   movements   StockMovement[]
 
   @@map("parts")
@@ -145,7 +150,6 @@ model ShopStock {
   id          String             @id @default(cuid())
   name        String
   description String?
-  categoryId  String
   carBrand    String?
   carModel    String?
   quantity    Int                @default(1)
@@ -157,7 +161,6 @@ model ShopStock {
   createdAt   DateTime           @default(now())
   updatedAt   DateTime           @updatedAt
 
-  category    PartCategory       @relation(fields: [categoryId], references: [id])
   usages      ShopStockUsage[]
 
   @@map("shop_stocks")

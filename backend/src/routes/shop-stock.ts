@@ -10,7 +10,6 @@ export const shopStockRouter = new Hono();
 const createSchema = z.object({
     name: z.string().min(1, "กรุณาระบุชื่ออะไหล่"),
     description: z.string().optional(),
-    categoryId: z.string().min(1, "กรุณาเลือกประเภท"),
     carBrand: z.string().optional(),
     carModel: z.string().optional(),
     quantity: z.number().int().min(1).default(1),
@@ -24,7 +23,6 @@ const createSchema = z.object({
 const updateSchema = z.object({
     name: z.string().min(1).optional(),
     description: z.string().optional().nullable(),
-    categoryId: z.string().min(1).optional(),
     carBrand: z.string().optional().nullable(),
     carModel: z.string().optional().nullable(),
     unit: z.string().optional(),
@@ -80,7 +78,7 @@ shopStockRouter.get("/summary", async (c) => {
 // GET /api/shop-stock — รายการสต็อกหน้าร้าน (paginated + filter)
 shopStockRouter.get("/", async (c) => {
     try {
-        const { search, source, condition, categoryId, carBrand, carModel } = c.req.query();
+        const { search, source, condition, carBrand, carModel } = c.req.query();
         const pag = parsePagination(c);
 
         const where: any = {};
@@ -94,7 +92,6 @@ shopStockRouter.get("/", async (c) => {
         }
         if (source) where.source = source;
         if (condition) where.condition = condition;
-        if (categoryId) where.categoryId = categoryId;
         if (carBrand) where.carBrand = { contains: carBrand, mode: "insensitive" };
         if (carModel) where.carModel = { contains: carModel, mode: "insensitive" };
 
@@ -102,7 +99,6 @@ shopStockRouter.get("/", async (c) => {
             prisma.shopStock.findMany({
                 where,
                 include: {
-                    category: true,
                     usages: { orderBy: { usedAt: "desc" }, take: 5 },
                 },
                 orderBy: { createdAt: "desc" },
@@ -124,7 +120,7 @@ shopStockRouter.post("/", zValidator("json", createSchema), async (c) => {
         const body = c.req.valid("json");
         const item = await prisma.shopStock.create({
             data: body,
-            include: { category: true },
+            include: { usages: true },
         });
         return c.json({ success: true, data: item }, 201);
     } catch (error) {
@@ -144,7 +140,7 @@ shopStockRouter.patch("/:id", zValidator("json", updateSchema), async (c) => {
         const item = await prisma.shopStock.update({
             where: { id },
             data: body,
-            include: { category: true },
+            include: { usages: true },
         });
         return c.json({ success: true, data: item });
     } catch (error) {
@@ -164,7 +160,7 @@ shopStockRouter.patch("/:id/condition", zValidator("json", conditionSchema), asy
         const item = await prisma.shopStock.update({
             where: { id },
             data: { condition },
-            include: { category: true },
+            include: { usages: true },
         });
         return c.json({ success: true, data: item });
     } catch (error) {
@@ -188,7 +184,7 @@ shopStockRouter.post("/:id/use", zValidator("json", useSchema), async (c) => {
             prisma.shopStock.update({
                 where: { id },
                 data: { quantity: { decrement: quantity } },
-                include: { category: true },
+                include: { usages: true },
             }),
             prisma.shopStockUsage.create({
                 data: { shopStockId: id, quantity, jobNo, note },

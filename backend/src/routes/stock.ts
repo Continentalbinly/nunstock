@@ -14,9 +14,7 @@ stockRouter.get("/summary", async (c) => {
         thisMonthStart.setDate(1);
         thisMonthStart.setHours(0, 0, 0, 0);
 
-        // Find paint & consumable category IDs
-        const paintCat = await prisma.partCategory.findFirst({ where: { name: "สีพ่นรถยนต์", parentId: null } });
-        const consumableCat = await prisma.partCategory.findFirst({ where: { name: "วัสดุสิ้นเปลือง", parentId: null } });
+        // No longer need category lookups — use type enum directly
 
         const [
             totalParts,
@@ -71,10 +69,10 @@ stockRouter.get("/summary", async (c) => {
                 orderBy: { _sum: { quantity: "desc" } },
                 take: 5,
             }),
-            // Paint parts count (in สีพ่นรถยนต์ category)
-            paintCat ? prisma.part.count({ where: { categoryId: paintCat.id } }) : Promise.resolve(0),
-            // Consumable parts count (in วัสดุสิ้นเปลือง category)
-            consumableCat ? prisma.part.count({ where: { categoryId: consumableCat.id } }) : Promise.resolve(0),
+            // Paint colors count (uses PaintColor model)
+            prisma.paintColor.count(),
+            // Consumable parts count (by type enum)
+            prisma.part.count({ where: { type: "CONSUMABLE" } }),
             // Shop stock total quantity
             prisma.shopStock.aggregate({ _sum: { quantity: true } }),
         ]);

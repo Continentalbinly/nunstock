@@ -24,7 +24,7 @@ partsRouter.get("/lookup/:code", async (c) => {
 // GET /api/parts - ดึงอะไหล่ทั้งหมด (paginated)
 partsRouter.get("/", async (c) => {
     try {
-        const { search, categoryId, brand } = c.req.query();
+        const { search, categoryId, brand, type } = c.req.query();
         const pag = parsePagination(c);
 
         const where: any = {
@@ -35,6 +35,7 @@ partsRouter.get("/", async (c) => {
                     { brand: { contains: search, mode: "insensitive" } },
                 ],
             }),
+            ...(type && { type }),
             ...(categoryId && { categoryId }),
             ...(brand && { brand: { contains: brand, mode: "insensitive" } }),
         };
@@ -74,13 +75,14 @@ partsRouter.get("/:id", async (c) => {
 const partSchema = z.object({
     code: z.string().min(1, "กรุณาระบุรหัสอะไหล่"),
     name: z.string().min(1, "กรุณาระบุชื่ออะไหล่"),
+    type: z.enum(["CONSUMABLE", "INSURANCE"]),
     description: z.string().optional(),
     brand: z.string().optional(),
     specification: z.string().optional(),
     unit: z.string().optional(),
     quantity: z.number().int().min(0).optional(),
     minStock: z.number().int().min(0).optional(),
-    categoryId: z.string().min(1, "กรุณาเลือกประเภท"),
+    categoryId: z.string().optional(),
 });
 
 const partUpdateSchema = z.object({
