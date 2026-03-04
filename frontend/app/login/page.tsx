@@ -2,12 +2,14 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "@/components/ThemeProvider";
+import { useAuth } from "@/components/AuthContext";
 import { Wrench, Eye, EyeOff, LogIn, Sun, Moon, Download } from "lucide-react";
 import { isElectron } from "@/lib/electron";
 
 export default function LoginPage() {
     const router = useRouter();
     const { theme, toggleTheme } = useTheme();
+    const { login: authLogin } = useAuth();
     const isDark = theme === "dark";
     const [form, setForm] = useState({ username: "", password: "" });
     const [showPassword, setShowPassword] = useState(false);
@@ -46,10 +48,9 @@ export default function LoginPage() {
             });
             const data = await res.json();
             if (!data.success) throw new Error(data.error);
-            // Cache user data immediately → AuthProvider picks it up instantly on next page
-            try { sessionStorage.setItem("nunstock_user", JSON.stringify(data.data)); } catch { }
+            // Update AuthProvider state directly → user/isAdmin available immediately
+            authLogin(data.data);
             router.push("/");
-            router.refresh();
         } catch (err: any) {
             setError(err.message || "เข้าสู่ระบบไม่สำเร็จ");
         } finally {

@@ -1,5 +1,5 @@
 "use client";
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from "react";
 import { useRouter, usePathname } from "next/navigation";
 
 interface AuthUser {
@@ -14,6 +14,8 @@ interface AuthContextType {
     loading: boolean;
     isAdmin: boolean;
     refresh: () => Promise<void>;
+    login: (userData: AuthUser) => void;
+    logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -21,6 +23,8 @@ const AuthContext = createContext<AuthContextType>({
     loading: true,
     isAdmin: false,
     refresh: async () => { },
+    login: () => { },
+    logout: async () => { },
 });
 
 const CACHE_KEY = "nunstock_user";
@@ -44,11 +48,29 @@ function setCachedUser(user: AuthUser | null) {
 export function AuthProvider({ children }: { children: ReactNode }) {
     const router = useRouter();
     const pathname = usePathname();
-    // Initialize from cache → instant UI, no blank flash
+    // Initialize from cache → instant UI
     const [user, setUser] = useState<AuthUser | null>(() => getCachedUser());
     const [loading, setLoading] = useState(() => !getCachedUser());
 
-    const fetchUser = async () => {
+    // Called by login page after successful auth → updates state immediately
+    const login = useCallback((userData: AuthUser) => {
+        setUser(userData);
+        setCachedUser(userData);
+        setLoading(false);
+    }, []);
+
+    // Logout: clear everything
+    const logout = useCallback(async () => {
+        setCachedUser(null);
+        setUser(null);
+        try {
+            await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+        } catch { }
+        router.push("/login");
+    }, [router]);
+
+    // Background validation of token
+    const fetchUser = useCallback(async () => {
         try {
             const res = await fetch("/api/auth/me", { credentials: "include" });
             const data = await res.json();
@@ -58,26 +80,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             } else {
                 setUser(null);
                 setCachedUser(null);
-                // Token invalid → redirect to login (only if not already on login)
-                if (pathname !== "/login") {
-                    router.replace("/login");
-                }
+                if (pathname !== "/login") router.replace("/login");
             }
         } catch {
             setUser(null);
             setCachedUser(null);
-            if (pathname !== "/login") {
-                router.replace("/login");
-            }
+            if (pathname !== "/login") router.replace("/login");
         } finally {
             setLoading(false);
         }
-    };
+    }, [pathname, router]);
 
     useEffect(() => {
         fetchUser();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     return (
         <AuthContext.Provider value={{
@@ -85,6 +101,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             loading,
             isAdmin: user?.role === "ADMIN",
             refresh: fetchUser,
+            login,
+            logout,
         }}>
             {children}
         </AuthContext.Provider>

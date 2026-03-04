@@ -63,19 +63,10 @@ export function Sidebar() {
     const pathname = usePathname();
     const router = useRouter();
     const { theme, toggleTheme } = useTheme();
-    const { user, isAdmin, loading } = useAuth();
+    const { user, isAdmin, loading, logout } = useAuth();
     const isDark = theme === "dark";
 
-    const handleLogout = async () => {
-        // Clear sessionStorage cache on logout
-        try { sessionStorage.removeItem("nunstock_user"); } catch { }
-        await fetch("/api/auth/logout", {
-            method: "POST",
-            credentials: "include",
-        });
-        router.push("/login");
-        router.refresh();
-    };
+    const handleLogout = () => logout();
 
     // While loading, show all items (optimistic) to avoid flash
     const filterItems = (items: typeof navItems) =>
