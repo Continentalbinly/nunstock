@@ -63,11 +63,10 @@ notificationsRouter.post("/send", async (c) => {
 
         const job = await prisma.job.findUnique({
             where: { id: jobId },
-            include: { claim: { select: { lineUserId: true } } },
         });
         if (!job) return c.json({ success: false, error: "ไม่พบ Job" }, 404);
 
-        const lineUserId = job.claim?.lineUserId;
+        const lineUserId = job.lineUserId;
         let notifStatus = "SENT";
         let notifError: string | undefined;
 

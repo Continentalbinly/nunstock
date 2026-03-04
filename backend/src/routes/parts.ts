@@ -142,17 +142,17 @@ partsRouter.delete("/:id", async (c) => {
         const existing = await prisma.part.findUnique({
             where: { id },
             include: {
-                _count: { select: { movements: true, withdrawals: true, claimItems: true } },
+                _count: { select: { movements: true } },
             },
         });
         if (!existing) return c.json({ success: false, error: "ไม่พบอะไหล่นี้" }, 404);
 
         // ถ้ามีประวัติการใช้งาน ให้แจ้งจำนวนด้วย
-        const totalUsage = existing._count.movements + existing._count.withdrawals + existing._count.claimItems;
+        const totalUsage = existing._count.movements;
         if (totalUsage > 0) {
             return c.json({
                 success: false,
-                error: `ไม่สามารถลบได้ อะไหล่นี้มีประวัติการใช้งาน ${totalUsage} รายการ (สต็อก ${existing._count.movements}, เบิก ${existing._count.withdrawals}, เคลม ${existing._count.claimItems})`,
+                error: `ไม่สามารถลบได้ อะไหล่นี้มีประวัติการใช้งาน ${totalUsage} รายการ`,
                 canForce: true,
             }, 409);
         }
@@ -173,8 +173,6 @@ partsRouter.delete("/:id/force", async (c) => {
 
         // ลบ dependency ก่อน แล้วค่อยลบ part
         await prisma.$transaction([
-            prisma.claimItem.deleteMany({ where: { partId: id } }),
-            prisma.withdrawal.deleteMany({ where: { partId: id } }),
             prisma.stockMovement.deleteMany({ where: { partId: id } }),
             prisma.part.delete({ where: { id } }),
         ]);
