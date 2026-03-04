@@ -52,6 +52,15 @@ async function seed() {
         console.log(`[OK] Lookup options: ${created} created`);
     }
 
+    // ── Seed Paint Category ──
+    const paintCat = await prisma.partCategory.findFirst({ where: { name: "สีพ่นรถยนต์", parentId: null } });
+    if (!paintCat) {
+        await prisma.partCategory.create({ data: { name: "สีพ่นรถยนต์" } });
+        console.log("[OK] Created 'สีพ่นรถยนต์' category");
+    } else {
+        console.log("[INFO] Paint category already exists — skipped");
+    }
+
     console.log("\n✅ Seed complete!");
 }
 
