@@ -145,12 +145,28 @@ jobs:
               npx prisma migrate resolve --applied "20260225062526_add_line_registration"
               npx prisma migrate resolve --applied "20260225172600_add_line_user_id_to_claims"
               npx prisma migrate resolve --applied "20260301113000_add_specification_field"
+              npx prisma migrate resolve --applied "20260302050618_add_shop_stock"
+              npx prisma migrate resolve --applied "20260302085510_add_jobs"
+              npx prisma migrate resolve --applied "20260302093550_add_job_part_status"
+              npx prisma migrate resolve --applied "20260302095227_add_job_claim_fields"
+              npx prisma migrate resolve --applied "20260302155111_job_status_flow_restructure"
+              npx prisma migrate resolve --applied "20260302161411_add_repair_steps"
+              npx prisma migrate resolve --applied "20260302162919_job_repair_steps_model"
+              npx prisma migrate resolve --applied "20260302165309_add_notification_model"
+              npx prisma migrate resolve --applied "20260303021301_add_cancelled_status"
+              npx prisma migrate resolve --applied "20260303021435_add_job_cancel_source"
+              npx prisma migrate resolve --applied "20260303023531_repair_templates_and_withdrawn"
+              npx prisma migrate resolve --applied "20260303032534_add_jobpart_barcode"
             else
               echo ">>> Migration history found, skipping baseline"
             fi
 
             echo ">>> Running database migrations..."
             npx prisma migrate deploy
+
+            # Safety: ensure DB schema matches schema.prisma
+            echo ">>> Syncing schema (db push)..."
+            npx prisma db push --accept-data-loss 2>/dev/null || npx prisma db push
 
             # Only seed if seed files changed (check last 5 commits)
             if git diff HEAD~5 --name-only 2>/dev/null | grep -q "backend/src/seed"; then
