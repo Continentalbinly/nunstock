@@ -70,7 +70,7 @@ stockRouter.get("/summary", async (c) => {
                 take: 5,
             }),
             // Paint/regular parts count (not CONSUMABLE or INSURANCE)
-            prisma.part.count({ where: { NOT: { type: { in: ["CONSUMABLE", "INSURANCE"] } } } }),
+            prisma.part.count({ where: { type: "PAINT" } }),
             // Consumable parts count (by type enum)
             prisma.part.count({ where: { type: "CONSUMABLE" } }),
             // Shop stock total quantity

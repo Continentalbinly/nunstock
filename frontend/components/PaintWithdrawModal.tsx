@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { X, Search, CheckCircle2, Minus, Plus, Briefcase, User, Palette } from "lucide-react";
-import { getParts, getCategories, addJobPart } from "@/lib/api";
+import { getParts, addJobPart } from "@/lib/api";
 import { toast } from "sonner";
 
 interface Props {
@@ -63,13 +63,8 @@ export default function PaintWithdrawModal({ open, jobId, jobLabel, preSelectedP
     const loadPaints = async () => {
         setLoadingPaints(true);
         try {
-            const cats: any = await getCategories();
-            const catList = Array.isArray(cats) ? cats : (cats.data || []);
-            const paintCat = catList.find((c: any) => c.name === "สีพ่นรถยนต์" && !c.parentId);
-            if (paintCat) {
-                const r = await getParts({ categoryId: paintCat.id, pageSize: "100" });
-                setPaints(r.data || []);
-            }
+            const r = await getParts({ type: "PAINT", pageSize: "100" });
+            setPaints(r.data || []);
         } catch { setPaints([]); }
         finally { setLoadingPaints(false); }
     };

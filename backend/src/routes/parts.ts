@@ -75,7 +75,7 @@ partsRouter.get("/:id", async (c) => {
 const partSchema = z.object({
     code: z.string().min(1, "กรุณาระบุรหัสอะไหล่"),
     name: z.string().min(1, "กรุณาระบุชื่ออะไหล่"),
-    type: z.enum(["CONSUMABLE", "INSURANCE"]).optional(),
+    type: z.enum(["CONSUMABLE", "INSURANCE", "PAINT"]).optional(),
     description: z.string().optional(),
     brand: z.string().optional(),
     specification: z.string().optional(),

@@ -1,7 +1,7 @@
 "use client";
 import { toast } from "sonner";
 import { useEffect, useState, useRef } from "react";
-import { getParts, getCategories, createCategory, createMovement, createPart, updatePart, deletePart, deletePartForce, getLookupOptions } from "@/lib/api";
+import { getParts, createMovement, createPart, updatePart, deletePart, deletePartForce, getLookupOptions } from "@/lib/api";
 import { Palette, Search, Filter, TrendingDown, CheckCircle2, ScanBarcode, ArrowDownToLine, ArrowUpFromLine, Minus, Plus, X, AlertCircle, PackagePlus, Pencil, Trash2, Droplets } from "lucide-react";
 import { Pagination } from "@/components/Pagination";
 import BarcodeModal from "@/components/BarcodeModal";
@@ -17,8 +17,7 @@ const TYPE_COLORS: Record<string, { bg: string; text: string }> = {
 };
 
 export default function PaintsPage() {
-    const [allCategories, setAllCategories] = useState<any[]>([]);
-    const [paintCatId, setPaintCatId] = useState<string>("");
+
     const [parts, setParts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
@@ -69,20 +68,7 @@ export default function PaintsPage() {
     const [scannerMode, setScannerMode] = useState(false);
 
     useEffect(() => {
-        getCategories()
-            .then(async (c) => {
-                setAllCategories(c);
-                let root = c.find((cat: any) => cat.name === "สีพ่นรถยนต์" && !cat.parentId);
-                if (!root) {
-                    // Auto-create paint category if missing
-                    try {
-                        root = await createCategory({ name: "สีพ่นรถยนต์" });
-                    } catch { }
-                }
-                if (root) setPaintCatId(root.id);
-            })
-            .catch(console.error)
-            .finally(() => setLoading(false));
+        setLoading(false);
     }, []);
 
     useEffect(() => {
@@ -91,9 +77,8 @@ export default function PaintsPage() {
     }, [search]);
 
     const fetchParts = async () => {
-        if (!paintCatId) return;
         try {
-            const params: Record<string, string> = { page: String(page), pageSize: "20", categoryId: paintCatId };
+            const params: Record<string, string> = { page: String(page), pageSize: "20", type: "PAINT" };
             if (debouncedSearch) params.search = debouncedSearch;
             if (lowStockOnly) params.lowStock = "true";
             const result = await getParts(params);
@@ -102,7 +87,7 @@ export default function PaintsPage() {
         } catch (err) { console.error(err); }
     };
 
-    useEffect(() => { if (paintCatId) fetchParts(); }, [paintCatId, page, debouncedSearch, lowStockOnly]);
+    useEffect(() => { fetchParts(); }, [page, debouncedSearch, lowStockOnly]);
 
     const handleFilterChange = (setter: (v: any) => void, value: any) => { setPage(1); setter(value); };
 
@@ -339,7 +324,7 @@ export default function PaintsPage() {
                         </div>
                         <div className="flex gap-3 mt-6 pt-4" style={{ borderTop: "1px solid var(--t-border-subtle)" }}>
                             <button onClick={() => setShowCreate(false)} className="flex-1 rounded-lg py-2.5 text-sm font-medium cursor-pointer" style={{ background: "var(--t-input-bg)", color: "var(--t-text-secondary)", border: "1px solid var(--t-input-border)" }}>ยกเลิก</button>
-                            <button onClick={async () => { if (!createForm.code || !createForm.name) { setCreateError("กรุณากรอกรหัสและชื่อสี"); return; } setCreateSaving(true); setCreateError(""); try { await createPart({ ...createForm, quantity: Number(createForm.quantity), minStock: Number(createForm.minStock), categoryId: paintCatId }); setShowCreate(false); fetchParts(); } catch (err: any) { setCreateError(err.message || "เกิดข้อผิดพลาด"); } finally { setCreateSaving(false); } }} disabled={createSaving} className="flex-1 text-white font-semibold rounded-lg py-2.5 text-sm cursor-pointer disabled:opacity-50" style={{ background: "#8B5CF6" }}>{createSaving ? "กำลังบันทึก..." : "เพิ่มสี"}</button>
+                            <button onClick={async () => { if (!createForm.code || !createForm.name) { setCreateError("กรุณากรอกรหัสและชื่อสี"); return; } setCreateSaving(true); setCreateError(""); try { await createPart({ ...createForm, quantity: Number(createForm.quantity), minStock: Number(createForm.minStock), type: "PAINT" }); setShowCreate(false); fetchParts(); } catch (err: any) { setCreateError(err.message || "เกิดข้อผิดพลาด"); } finally { setCreateSaving(false); } }} disabled={createSaving} className="flex-1 text-white font-semibold rounded-lg py-2.5 text-sm cursor-pointer disabled:opacity-50" style={{ background: "#8B5CF6" }}>{createSaving ? "กำลังบันทึก..." : "เพิ่มสี"}</button>
                         </div>
                     </div>
                 </div>
