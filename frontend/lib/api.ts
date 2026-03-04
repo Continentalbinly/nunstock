@@ -26,7 +26,11 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
         ...options,
     });
     const data = await res.json();
-    if (!data.success) throw new Error(data.error || "เกิดข้อผิดพลาด");
+    if (!data.success) {
+        const err = data.error;
+        const msg = typeof err === "string" ? err : (err?.message || JSON.stringify(err) || "เกิดข้อผิดพลาด");
+        throw new Error(msg);
+    }
     return data.data;
 }
 
@@ -37,7 +41,11 @@ async function apiFetchPaginated<T>(path: string, options?: RequestInit): Promis
         ...options,
     });
     const data = await res.json();
-    if (!data.success) throw new Error(data.error || "เกิดข้อผิดพลาด");
+    if (!data.success) {
+        const err = data.error;
+        const msg = typeof err === "string" ? err : (err?.message || JSON.stringify(err) || "เกิดข้อผิดพลาด");
+        throw new Error(msg);
+    }
     return { data: data.data, pagination: data.pagination };
 }
 
