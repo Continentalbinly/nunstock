@@ -5,6 +5,7 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
+import { compress } from "hono/compress";
 
 // โหลด .env ด้วย fs — ทำงานได้ทุกวิธี (PM2, tsx, node)
 (function loadEnv() {
@@ -56,6 +57,12 @@ const corsOrigins = process.env.CORS_ORIGINS
 const app = new Hono();
 
 // Middleware
+app.use("*", compress());
+app.use("*", async (c, next) => {
+    const start = Date.now();
+    await next();
+    c.header("X-Response-Time", `${Date.now() - start}ms`);
+});
 app.use("*", logger());
 app.use(
     "*",

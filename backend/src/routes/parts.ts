@@ -44,7 +44,7 @@ partsRouter.get("/", async (c) => {
         const [parts, total] = await Promise.all([
             prisma.part.findMany({
                 where,
-                include: { category: { include: { parent: { include: { parent: true } } } } },
+                include: { category: { select: { id: true, name: true, parentId: true } } },
                 orderBy: { createdAt: "desc" },
                 skip: pag.skip,
                 take: pag.take,
