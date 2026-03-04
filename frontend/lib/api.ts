@@ -172,19 +172,5 @@ export const updateCarType = (id: string, data: { label?: string; brands?: strin
 export const deleteCarType = (id: string) =>
     apiFetch<any>(`/api/car-types/${id}`, { method: "DELETE" });
 
-// ─── Paint Brands & Colors ─────────
-export const getPaintBrands = () => apiFetch<any[]>("/api/paint/brands");
-export const createPaintBrand = (data: { name: string; order?: number }) =>
-    apiFetch<any>("/api/paint/brands", { method: "POST", body: JSON.stringify(data) });
-export const updatePaintBrand = (id: string, data: { name?: string; order?: number }) =>
-    apiFetch<any>(`/api/paint/brands/${id}`, { method: "PUT", body: JSON.stringify(data) });
-export const deletePaintBrand = (id: string) =>
-    apiFetch<any>(`/api/paint/brands/${id}`, { method: "DELETE" });
-export const getPaintColors = (brandId: string, type?: string) =>
-    apiFetch<any[]>(`/api/paint/brands/${brandId}/colors${type && type !== "ทั้งหมด" ? `?type=${encodeURIComponent(type)}` : ""}`);
-export const createPaintColor = (brandId: string, data: { code: string; name: string; type?: string; quantity?: number; unit?: string }) =>
-    apiFetch<any>(`/api/paint/brands/${brandId}/colors`, { method: "POST", body: JSON.stringify(data) });
-export const updatePaintColor = (id: string, data: { code?: string; name?: string; type?: string; quantity?: number; unit?: string }) =>
-    apiFetch<any>(`/api/paint/colors/${id}`, { method: "PUT", body: JSON.stringify(data) });
-export const deletePaintColor = (id: string) =>
-    apiFetch<any>(`/api/paint/colors/${id}`, { method: "DELETE" });
+
+

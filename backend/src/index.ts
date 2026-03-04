@@ -39,7 +39,7 @@ import { shopStockRouter } from "./routes/shop-stock.js";
 import { jobsRouter } from "./routes/jobs.js";
 import { notificationsRouter } from "./routes/notifications.js";
 import { carTypesRouter } from "./routes/carTypes.js";
-import { paintColorsRouter } from "./routes/paintColors.js";
+
 import lookupOptionsRouter from "./routes/lookup-options.js";
 
 
@@ -89,7 +89,7 @@ app.route("/api/shop-stock", shopStockRouter);
 app.route("/api/jobs", jobsRouter);
 app.route("/api/notifications", notificationsRouter);
 app.route("/api/car-types", carTypesRouter);
-app.route("/api/paint", paintColorsRouter);
+
 app.route("/api/lookup-options", lookupOptionsRouter);
 // LINE Webhook — ต้องอยู่นอก /api เพราะ LINE ไม่ส่ง auth cookie
 app.route("/webhook", webhookRouter);

@@ -161,6 +161,7 @@ jobs:
               npx prisma migrate resolve --applied "20260304050000_lookup_options"
               npx prisma migrate resolve --applied "20260304054000_split_unit_groups"
               npx prisma migrate resolve --applied "20260304064000_cleanup_spec_options"
+              npx prisma migrate resolve --applied "20260304080000_drop_paint_colors"
             else
               echo ">>> Migration history found, skipping baseline"
             fi

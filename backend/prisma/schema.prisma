@@ -299,27 +299,6 @@ model LineRegistration {
   @@map("line_registrations")
 }
 
-model PaintBrand {
-  id     String       @id @default(cuid())
-  name   String       @unique
-  order  Int          @default(0)
-  colors PaintColor[]
-
-  @@map("paint_brands")
-}
-
-model PaintColor {
-  id       String     @id @default(cuid())
-  brandId  String
-  code     String
-  name     String
-  type     String     @default("แม่สี")
-  quantity Int        @default(0)
-  unit     String     @default("กระป๋อง")
-  brand    PaintBrand @relation(fields: [brandId], references: [id], onDelete: Cascade)
-
-  @@map("paint_colors")
-}
 
 model CarType {
   id     String   @id @default(cuid())
