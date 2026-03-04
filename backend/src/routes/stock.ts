@@ -69,8 +69,8 @@ stockRouter.get("/summary", async (c) => {
                 orderBy: { _sum: { quantity: "desc" } },
                 take: 5,
             }),
-            // Paint colors count (uses PaintColor model)
-            prisma.paintColor.count(),
+            // Paint/regular parts count (not CONSUMABLE or INSURANCE)
+            prisma.part.count({ where: { NOT: { type: { in: ["CONSUMABLE", "INSURANCE"] } } } }),
             // Consumable parts count (by type enum)
             prisma.part.count({ where: { type: "CONSUMABLE" } }),
             // Shop stock total quantity
