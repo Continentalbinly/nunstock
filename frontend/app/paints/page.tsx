@@ -6,7 +6,7 @@ import { Palette, Search, Filter, TrendingDown, CheckCircle2, ScanBarcode, Arrow
 import { Pagination } from "@/components/Pagination";
 import BarcodeModal from "@/components/BarcodeModal";
 import PaintWithdrawModal from "@/components/PaintWithdrawModal";
-import { useAuth } from "@/components/AuthContext";
+import { useAuthStore } from "@/lib/stores/auth-store";
 
 
 const PAINT_TYPES = ["ทั้งหมด", "แม่สี", "สีรองพื้น", "สีผสม", "สั่งร้านนอก"];
@@ -19,7 +19,7 @@ const TYPE_COLORS: Record<string, { bg: string; text: string }> = {
 };
 
 export default function PaintsPage() {
-    const { isAdmin } = useAuth();
+    const { isAdmin } = useAuthStore();
     const [parts, setParts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");

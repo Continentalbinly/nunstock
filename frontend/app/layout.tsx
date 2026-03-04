@@ -1,14 +1,12 @@
 import type { Metadata, Viewport } from "next";
 import { Noto_Sans_Thai } from "next/font/google";
 import "./globals.css";
-import { Sidebar } from "@/components/Sidebar";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { Toaster } from "@/components/ui/sonner";
 import { PWARegister } from "@/components/PWARegister";
 import { GlobalBarcodeScanner } from "@/components/GlobalBarcodeScanner";
 import { CartProvider } from "@/components/CartContext";
-import { AuthProvider } from "@/components/AuthContext";
-import { headers } from "next/headers";
+import { ClientLayout } from "@/components/ClientLayout";
 
 const notoSansThai = Noto_Sans_Thai({
   subsets: ["thai"],
@@ -39,11 +37,7 @@ export const viewport: Viewport = {
   userScalable: false,
 };
 
-export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const headersList = await headers();
-  const pathname = headersList.get("x-pathname") || "";
-  const isLoginPage = pathname.startsWith("/login");
-
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="th" suppressHydrationWarning>
       <head>
@@ -61,17 +55,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       </head>
       <body className={`${notoSansThai.variable} font-sans antialiased`}>
         <ThemeProvider>
-          <AuthProvider>
-            <CartProvider>
-              {!isLoginPage && <Sidebar />}
-              <main className={isLoginPage ? "" : "main-content"}>
-                {children}
-              </main>
-              <Toaster richColors position="top-right" />
-              <PWARegister />
-              <GlobalBarcodeScanner />
-            </CartProvider>
-          </AuthProvider>
+          <CartProvider>
+            <ClientLayout>{children}</ClientLayout>
+            <Toaster richColors position="top-right" />
+            <PWARegister />
+            <GlobalBarcodeScanner />
+          </CartProvider>
         </ThemeProvider>
       </body>
     </html>

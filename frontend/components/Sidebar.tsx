@@ -1,46 +1,15 @@
 "use client";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useTheme } from "@/components/ThemeProvider";
-import { useAuth } from "@/components/AuthContext";
-import {
-    LayoutDashboard,
-    Car,
-    ShieldCheck,
-    Wrench as WrenchIcon,
-    Bell,
-    LogOut,
-    Sun,
-    Moon,
-    Printer,
-    MessageSquare,
-    BarChart3,
-    Warehouse,
-    Palette,
-    Users,
-} from "lucide-react";
+import { useAuthStore } from "@/lib/stores/auth-store";
+import { getNavigationForRole, type NavItem } from "@/lib/config/navigation";
+import { Wrench as WrenchIcon, LogOut, Sun, Moon, type LucideIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
 
-const navItems = [
-    { href: "/", icon: LayoutDashboard, label: "แดชบอร์ด", adminOnly: false },
-    { href: "/jobs", icon: WrenchIcon, label: "งานซ่อม", adminOnly: true },
-];
+// ─── NavLink ────────────────────────────────────────────
 
-const stockItems = [
-    { href: "/paints", icon: Palette, label: "คลังสี", adminOnly: false },
-    { href: "/shop-stock", icon: Warehouse, label: "สต็อกอู่", adminOnly: true },
-    { href: "/insurance", icon: ShieldCheck, label: "อะไหล่ประกัน", adminOnly: true },
-    { href: "/consumables", icon: WrenchIcon, label: "วัสดุสิ้นเปลือง", adminOnly: false },
-];
-
-const managementItems = [
-    { href: "/reports", icon: BarChart3, label: "สรุปรายงาน", adminOnly: true },
-    { href: "/settings/users", icon: Users, label: "จัดการผู้ใช้", adminOnly: true },
-    { href: "/line", icon: MessageSquare, label: "LINE Operations", adminOnly: true },
-    { href: "/notifications", icon: Bell, label: "แจ้งเตือน", adminOnly: true },
-    { href: "/printer-settings", icon: Printer, label: "เครื่องปริ้น", adminOnly: true },
-];
-
-function NavLink({ href, icon: Icon, label, pathname }: { href: string; icon: any; label: string; pathname: string }) {
+function NavLink({ href, icon: Icon, label, pathname }: { href: string; icon: LucideIcon; label: string; pathname: string }) {
     const active = pathname === href || (href !== "/" && pathname.startsWith(href + "/"));
     return (
         <Link
@@ -59,18 +28,22 @@ function NavLink({ href, icon: Icon, label, pathname }: { href: string; icon: an
     );
 }
 
+// ─── Sidebar ────────────────────────────────────────────
+
 export function Sidebar() {
     const pathname = usePathname();
     const router = useRouter();
     const { theme, toggleTheme } = useTheme();
-    const { user, isAdmin, loading, logout } = useAuth();
+    const { user, isAdmin, logout } = useAuthStore();
     const isDark = theme === "dark";
 
-    const handleLogout = () => logout();
+    // Get filtered navigation based on current user role
+    const navigation = getNavigationForRole(user?.role);
 
-    // While loading, show all items (optimistic) to avoid flash
-    const filterItems = (items: typeof navItems) =>
-        items.filter(item => !item.adminOnly || isAdmin || loading);
+    const handleLogout = async () => {
+        await logout();
+        router.push("/login");
+    };
 
     return (
         <aside className="sidebar">
@@ -81,41 +54,27 @@ export function Sidebar() {
                 </div>
                 <div>
                     <h1 style={{ color: "var(--t-text)" }} className="font-bold text-base leading-tight tracking-tight">นันการช่าง</h1>
-                    <p style={{ color: "var(--t-text-muted)" }} className="text-[11px]">
+                    <p style={{ color: "var(--t-text-muted)" }} className="text-[11px]" suppressHydrationWarning>
                         {user ? `${user.name} • ${user.role === "ADMIN" ? "ผู้ดูแล" : "ช่าง"}` : "ร้านซ่อมรถยนต์"}
                     </p>
                 </div>
             </div>
 
-            {/* Nav */}
+            {/* Nav — rendered from config */}
             <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-                {/* Dashboard */}
-                <p className="px-3 text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: "var(--t-text-dim)" }}>
-                    เมนูหลัก
-                </p>
-                {filterItems(navItems).map((item) => (
-                    <NavLink key={item.href} {...item} pathname={pathname} />
-                ))}
-
-                {/* คลังอะไหล่ */}
-                <p className="px-3 text-[10px] font-semibold uppercase tracking-widest mb-2 mt-5" style={{ color: "var(--t-text-dim)" }}>
-                    คลังอะไหล่
-                </p>
-                {filterItems(stockItems).map((item) => (
-                    <NavLink key={item.href} {...item} pathname={pathname} />
-                ))}
-
-                {/* จัดการ (admin only — show while loading for optimistic render) */}
-                {(isAdmin || loading) && (
-                    <>
-                        <p className="px-3 text-[10px] font-semibold uppercase tracking-widest mb-2 mt-5" style={{ color: "var(--t-text-dim)" }}>
-                            จัดการ
+                {navigation.map((group, gi) => (
+                    <div key={group.title}>
+                        <p
+                            className={`px-3 text-[10px] font-semibold uppercase tracking-widest mb-2 ${gi > 0 ? "mt-5" : ""}`}
+                            style={{ color: "var(--t-text-dim)" }}
+                        >
+                            {group.title}
                         </p>
-                        {managementItems.map((item) => (
+                        {group.items.map((item) => (
                             <NavLink key={item.href} {...item} pathname={pathname} />
                         ))}
-                    </>
-                )}
+                    </div>
+                ))}
             </nav>
 
             {/* Footer */}

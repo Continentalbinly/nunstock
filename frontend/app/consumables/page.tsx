@@ -8,11 +8,11 @@ import { useCart } from "@/components/CartContext";
 import BarcodeModal from "@/components/BarcodeModal";
 import ConsumableWithdrawModal from "@/components/ConsumableWithdrawModal";
 import { Barcode } from "lucide-react";
-import { useAuth } from "@/components/AuthContext";
+import { useAuthStore } from "@/lib/stores/auth-store";
 
 export default function ConsumablesPage() {
     const { addToCart } = useCart();
-    const { isAdmin } = useAuth();
+    const { isAdmin } = useAuthStore();
     const [parts, setParts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");

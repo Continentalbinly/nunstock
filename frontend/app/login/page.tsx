@@ -2,14 +2,14 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "@/components/ThemeProvider";
-import { useAuth } from "@/components/AuthContext";
+import { useAuthStore } from "@/lib/stores/auth-store";
 import { Wrench, Eye, EyeOff, LogIn, Sun, Moon, Download } from "lucide-react";
 import { isElectron } from "@/lib/electron";
 
 export default function LoginPage() {
     const router = useRouter();
     const { theme, toggleTheme } = useTheme();
-    const { login: authLogin } = useAuth();
+    const { login: authLogin } = useAuthStore();
     const isDark = theme === "dark";
     const [form, setForm] = useState({ username: "", password: "" });
     const [showPassword, setShowPassword] = useState(false);
@@ -48,8 +48,9 @@ export default function LoginPage() {
             });
             const data = await res.json();
             if (!data.success) throw new Error(data.error);
-            // Update AuthProvider state directly → user/isAdmin available immediately
+            // Update global auth state — Sidebar and all consumers re-render instantly
             authLogin(data.data);
+            // Soft navigation — preserves React tree so Context state propagates
             router.push("/");
         } catch (err: any) {
             setError(err.message || "เข้าสู่ระบบไม่สำเร็จ");
