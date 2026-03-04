@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
     getJob, updateJobStatus, addJobPart, removeJobPart, updateJobPartStatus, cancelJob,
-    getParts, getShopStock, getCategories, addRepairStep, removeRepairStep, advanceRepairStep,
+    getParts, getShopStock, addRepairStep, removeRepairStep, advanceRepairStep,
     reorderRepairSteps, getRepairStepTemplates,
 } from "@/lib/api";
 import {
@@ -102,13 +102,8 @@ export default function JobDetailPage() {
     const loadConsumables = async () => {
         setLoadingCons(true);
         try {
-            const cats: any = await getCategories();
-            const catList = Array.isArray(cats) ? cats : (cats.data || []);
-            const consCat = catList.find((c: any) => c.name === "อุปกรณ์สิ้นเปลือง" && !c.parentId);
-            if (consCat) {
-                const r = await getParts({ categoryId: consCat.id, pageSize: "100" });
-                setConsumables(r.data || []);
-            }
+            const r = await getParts({ type: "CONSUMABLE", pageSize: "100" });
+            setConsumables(r.data || []);
         } catch { setConsumables([]); }
         finally { setLoadingCons(false); }
     };

@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import { X, Search, CheckCircle2, Minus, Plus, Wrench, Briefcase, User, Package } from "lucide-react";
-import { getParts, getCategories, addJobPart } from "@/lib/api";
+import { getParts, addJobPart } from "@/lib/api";
 import { toast } from "sonner";
 
 interface Props {
@@ -63,13 +63,8 @@ export default function ConsumableWithdrawModal({ open, jobId, jobLabel, preSele
     const loadConsumables = async () => {
         setLoadingCons(true);
         try {
-            const cats: any = await getCategories();
-            const catList = Array.isArray(cats) ? cats : (cats.data || []);
-            const consCat = catList.find((c: any) => c.name === "อุปกรณ์สิ้นเปลือง" && !c.parentId);
-            if (consCat) {
-                const r = await getParts({ categoryId: consCat.id, pageSize: "100" });
-                setConsumables(r.data || []);
-            }
+            const r = await getParts({ type: "CONSUMABLE", pageSize: "100" });
+            setConsumables(r.data || []);
         } catch { setConsumables([]); }
         finally { setLoadingCons(false); }
     };
