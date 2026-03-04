@@ -8,9 +8,11 @@ import { useCart } from "@/components/CartContext";
 import BarcodeModal from "@/components/BarcodeModal";
 import ConsumableWithdrawModal from "@/components/ConsumableWithdrawModal";
 import { Barcode } from "lucide-react";
+import { useAuth } from "@/components/AuthContext";
 
 export default function ConsumablesPage() {
     const { addToCart } = useCart();
+    const { isAdmin } = useAuth();
     const [parts, setParts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
@@ -59,12 +61,10 @@ export default function ConsumablesPage() {
     const [unitOptions, setUnitOptions] = useState<string[]>([]);
 
     useEffect(() => {
-        getLookupOptions("SPEC").then(r => setSpecOptions(r.map((o: any) => o.value))).catch(() => { });
-        getLookupOptions("UNIT_CONSUMABLE").then(r => setUnitOptions(r.map((o: any) => o.value))).catch(() => { });
-    }, []);
-
-    useEffect(() => {
-        setLoading(false);
+        Promise.all([
+            getLookupOptions("SPEC").then(r => setSpecOptions(r.map((o: any) => o.value))).catch(() => { }),
+            getLookupOptions("UNIT_CONSUMABLE").then(r => setUnitOptions(r.map((o: any) => o.value))).catch(() => { }),
+        ]).finally(() => setLoading(false));
     }, []);
 
     // Debounce search — gives barcode scanner time to finish
@@ -143,7 +143,7 @@ export default function ConsumablesPage() {
                     <h1 className="text-xl font-bold" style={{ color: "var(--t-text)" }}>วัสดุสิ้นเปลือง</h1>
                     <p className="mt-1 text-sm" style={{ color: "var(--t-text-muted)" }}>จัดการน้ำมัน, เทป, กระดาษทราย, กาว และอื่นๆ</p>
                 </div>
-                <button onClick={() => { const nextCode = `CON-${String(pagination.total + 1).padStart(3, '0')}`; setCreateForm({ code: nextCode, name: "", description: "", brand: "", specification: "", unit: "ชิ้น", quantity: 0, minStock: 5 }); setCreateError(""); setCustomSpec(false); setShowCreate(true); }} className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-white font-semibold rounded-lg px-4 py-2 text-sm transition-colors cursor-pointer"><Plus className="w-4 h-4" /> สร้างวัสดุใหม่</button>
+                {isAdmin && <button onClick={() => { const nextCode = `CON-${String(pagination.total + 1).padStart(3, '0')}`; setCreateForm({ code: nextCode, name: "", description: "", brand: "", specification: "", unit: "ชิ้น", quantity: 0, minStock: 5 }); setCreateError(""); setCustomSpec(false); setShowCreate(true); }} className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-white font-semibold rounded-lg px-4 py-2 text-sm transition-colors cursor-pointer"><Plus className="w-4 h-4" /> สร้างวัสดุใหม่</button>}
             </div>
 
             {/* Search & filters */}
@@ -200,18 +200,18 @@ export default function ConsumablesPage() {
 
                                     {/* Right: action buttons */}
                                     <div className="flex items-center gap-1.5 shrink-0">
-                                        <button onClick={(e) => { e.stopPropagation(); openModal(p, "IN"); }} className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer text-emerald-600 hover:text-white hover:bg-emerald-500" style={{ background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.2)" }} onMouseEnter={(e) => { e.currentTarget.style.background = "#22C55E"; e.currentTarget.style.borderColor = "#22C55E"; }} onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(34,197,94,0.1)"; e.currentTarget.style.borderColor = "rgba(34,197,94,0.2)"; e.currentTarget.style.color = "rgb(22,163,74)"; }}>
+                                        {isAdmin && <button onClick={(e) => { e.stopPropagation(); openModal(p, "IN"); }} className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer text-emerald-600 hover:text-white hover:bg-emerald-500" style={{ background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.2)" }} onMouseEnter={(e) => { e.currentTarget.style.background = "#22C55E"; e.currentTarget.style.borderColor = "#22C55E"; }} onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(34,197,94,0.1)"; e.currentTarget.style.borderColor = "rgba(34,197,94,0.2)"; e.currentTarget.style.color = "rgb(22,163,74)"; }}>
                                             <ArrowDownToLine className="w-3.5 h-3.5" /> เพิ่ม
-                                        </button>
+                                        </button>}
                                         <button onClick={(e) => { e.stopPropagation(); setWithdrawPart(p); }} disabled={p.quantity === 0} className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer text-orange-600 hover:text-white hover:bg-orange-500 disabled:opacity-30 disabled:cursor-not-allowed" style={{ background: "rgba(249,115,22,0.1)", border: "1px solid rgba(249,115,22,0.2)" }} onMouseEnter={(e) => { if (p.quantity > 0) { e.currentTarget.style.background = "#F97316"; e.currentTarget.style.borderColor = "#F97316"; } }} onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(249,115,22,0.1)"; e.currentTarget.style.borderColor = "rgba(249,115,22,0.2)"; e.currentTarget.style.color = "rgb(234,88,12)"; }}>
                                             <ArrowUpFromLine className="w-3.5 h-3.5" /> เบิก
                                         </button>
-                                        <button onClick={(e) => { e.stopPropagation(); setEditingPart(p); setEditPartForm({ code: p.code, name: p.name, description: p.description || "", brand: p.brand || "", specification: p.specification || "", unit: p.unit, minStock: p.minStock }); setEditPartError(""); setCustomEditSpec(!!(p.specification && !specOptions.includes(p.specification))); }} className="p-2 rounded-lg cursor-pointer" style={{ background: "rgba(249,115,22,0.1)", color: "#F97316" }} title="แก้ไข">
+                                        {isAdmin && <button onClick={(e) => { e.stopPropagation(); setEditingPart(p); setEditPartForm({ code: p.code, name: p.name, description: p.description || "", brand: p.brand || "", specification: p.specification || "", unit: p.unit, minStock: p.minStock }); setEditPartError(""); setCustomEditSpec(!!(p.specification && !specOptions.includes(p.specification))); }} className="p-2 rounded-lg cursor-pointer" style={{ background: "rgba(249,115,22,0.1)", color: "#F97316" }} title="แก้ไข">
                                             <Pencil className="w-3.5 h-3.5" />
-                                        </button>
-                                        <button onClick={(e) => { e.stopPropagation(); setDeletePartMsg(""); setDeletePartCanForce(false); setConfirmDeletePart(p); }} className="p-2 rounded-lg cursor-pointer" style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }} title="ลบ">
+                                        </button>}
+                                        {isAdmin && <button onClick={(e) => { e.stopPropagation(); setDeletePartMsg(""); setDeletePartCanForce(false); setConfirmDeletePart(p); }} className="p-2 rounded-lg cursor-pointer" style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }} title="ลบ">
                                             <Trash2 className="w-3.5 h-3.5" />
-                                        </button>
+                                        </button>}
                                     </div>
                                 </div>
                             </div>

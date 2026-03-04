@@ -6,7 +6,51 @@ on:
       - main
 
 jobs:
+  # ── Job 1: CI — Test & Build (runs on GitHub runner) ──
+  ci:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # ── Backend ──
+      - name: Backend — Install dependencies
+        working-directory: ./backend
+        run: npm install
+
+      - name: Backend — Generate Prisma Client
+        working-directory: ./backend
+        run: npx prisma generate
+
+      - name: Backend — Type Check
+        working-directory: ./backend
+        run: npm run type-check
+
+      - name: Backend — Run Tests
+        working-directory: ./backend
+        run: npm test
+
+      # ── Frontend ──
+      - name: Frontend — Install dependencies
+        working-directory: ./frontend
+        run: npm install
+
+      - name: Frontend — Build
+        working-directory: ./frontend
+        run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:1100
+          NEXT_PUBLIC_APP_VERSION: ci-check
+
+  # ── Job 2: Deploy (only if CI passes) ──
   deploy:
+    needs: ci
     runs-on: ubuntu-latest
 
     steps:

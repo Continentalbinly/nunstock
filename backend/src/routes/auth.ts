@@ -86,3 +86,75 @@ export function requireRole(...roles: string[]) {
         await next();
     };
 }
+
+// ─── User Management (admin only) ─────────
+
+// GET /api/auth/users - list all users
+authRouter.get("/users", requireAuth(), requireRole("ADMIN"), async (c) => {
+    const users = await prisma.user.findMany({
+        select: { id: true, username: true, name: true, role: true, createdAt: true },
+        orderBy: { createdAt: "asc" },
+    });
+    return c.json({ success: true, data: users });
+});
+
+// POST /api/auth/users - create new user
+authRouter.post("/users", requireAuth(), requireRole("ADMIN"), async (c) => {
+    try {
+        const { username, password, name, role } = await c.req.json();
+        if (!username || !password || !name) {
+            return c.json({ success: false, error: "กรุณากรอกข้อมูลให้ครบ" }, 400);
+        }
+        const existing = await prisma.user.findUnique({ where: { username } });
+        if (existing) {
+            return c.json({ success: false, error: "ชื่อผู้ใช้นี้มีอยู่แล้ว" }, 400);
+        }
+        const user = await prisma.user.create({
+            data: {
+                username,
+                password: await bcrypt.hash(password, 12),
+                name,
+                role: role === "TECH" ? "TECH" : "ADMIN",
+            },
+            select: { id: true, username: true, name: true, role: true, createdAt: true },
+        });
+        return c.json({ success: true, data: user }, 201);
+    } catch {
+        return c.json({ success: false, error: "ไม่สามารถสร้างผู้ใช้ได้" }, 500);
+    }
+});
+
+// PATCH /api/auth/users/:id - update user
+authRouter.patch("/users/:id", requireAuth(), requireRole("ADMIN"), async (c) => {
+    try {
+        const { id } = c.req.param();
+        const body = await c.req.json();
+        const data: any = {};
+        if (body.name) data.name = body.name;
+        if (body.role && ["ADMIN", "TECH"].includes(body.role)) data.role = body.role;
+        if (body.password) data.password = await bcrypt.hash(body.password, 12);
+        const user = await prisma.user.update({
+            where: { id },
+            data,
+            select: { id: true, username: true, name: true, role: true, createdAt: true },
+        });
+        return c.json({ success: true, data: user });
+    } catch {
+        return c.json({ success: false, error: "ไม่สามารถแก้ไขผู้ใช้ได้" }, 500);
+    }
+});
+
+// DELETE /api/auth/users/:id - delete user
+authRouter.delete("/users/:id", requireAuth(), requireRole("ADMIN"), async (c) => {
+    try {
+        const { id } = c.req.param();
+        const me = (c as any).get("user");
+        if (me.id === id) {
+            return c.json({ success: false, error: "ไม่สามารถลบตัวเองได้" }, 400);
+        }
+        await prisma.user.delete({ where: { id } });
+        return c.json({ success: true, message: "ลบผู้ใช้แล้ว" });
+    } catch {
+        return c.json({ success: false, error: "ไม่สามารถลบผู้ใช้ได้" }, 500);
+    }
+});

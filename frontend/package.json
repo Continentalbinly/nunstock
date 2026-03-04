@@ -6,6 +6,7 @@
     "dev": "next dev -p 9090",
     "build": "next build",
     "start": "next start",
+    "type-check": "tsc --noEmit",
     "lint": "eslint"
   },
   "dependencies": {

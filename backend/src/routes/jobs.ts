@@ -4,6 +4,7 @@ import { sendLinePush } from "../lib/line.js";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import { parsePagination, paginatedJson } from "../lib/pagination.js";
+import { requireAuth, requireRole } from "./auth.js";
 
 export const jobsRouter = new Hono();
 
@@ -222,8 +223,8 @@ jobsRouter.get("/:id", async (c) => {
     }
 });
 
-// POST /api/jobs
-jobsRouter.post("/", zValidator("json", createSchema), async (c) => {
+// POST /api/jobs (admin only)
+jobsRouter.post("/", requireAuth(), requireRole("ADMIN"), zValidator("json", createSchema), async (c) => {
     try {
         const body = c.req.valid("json");
 
@@ -249,8 +250,8 @@ jobsRouter.post("/", zValidator("json", createSchema), async (c) => {
     }
 });
 
-// PATCH /api/jobs/:id
-jobsRouter.patch("/:id", zValidator("json", updateSchema), async (c) => {
+// PATCH /api/jobs/:id (admin only)
+jobsRouter.patch("/:id", requireAuth(), requireRole("ADMIN"), zValidator("json", updateSchema), async (c) => {
     try {
         const { id } = c.req.param();
         const body = c.req.valid("json");
@@ -269,7 +270,7 @@ jobsRouter.patch("/:id", zValidator("json", updateSchema), async (c) => {
 });
 
 // PATCH /api/jobs/:id/status — เปลี่ยนสถานะ (auto timestamps + auto log)
-jobsRouter.patch("/:id/status", zValidator("json", statusSchema), async (c) => {
+jobsRouter.patch("/:id/status", requireAuth(), requireRole("ADMIN"), zValidator("json", statusSchema), async (c) => {
     try {
         const { id } = c.req.param();
         const { status } = c.req.valid("json");
@@ -583,7 +584,7 @@ jobsRouter.patch("/:id/parts/:partId/status", async (c) => {
 });
 
 // PATCH /api/jobs/:id/cancel — ยกเลิก Job (เก็บเหตุผล + โอนอะไหล่ไปสต็อกร้าน)
-jobsRouter.patch("/:id/cancel", async (c) => {
+jobsRouter.patch("/:id/cancel", requireAuth(), requireRole("ADMIN"), async (c) => {
     try {
         const { id } = c.req.param();
         const { reason } = await c.req.json();

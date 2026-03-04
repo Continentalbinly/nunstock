@@ -172,5 +172,12 @@ export const updateCarType = (id: string, data: { label?: string; brands?: strin
 export const deleteCarType = (id: string) =>
     apiFetch<any>(`/api/car-types/${id}`, { method: "DELETE" });
 
-
+// ─── User Management ─────────
+export const getUsers = () => apiFetch<any[]>("/api/auth/users");
+export const createUser = (data: { username: string; password: string; name: string; role: string }) =>
+    apiFetch<any>("/api/auth/users", { method: "POST", body: JSON.stringify(data) });
+export const updateUser = (id: string, data: { name?: string; role?: string; password?: string }) =>
+    apiFetch<any>(`/api/auth/users/${id}`, { method: "PATCH", body: JSON.stringify(data) });
+export const deleteUser = (id: string) =>
+    apiFetch<any>(`/api/auth/users/${id}`, { method: "DELETE" });
 

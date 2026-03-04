@@ -58,6 +58,8 @@ model Part {
   category    PartCategory?   @relation(fields: [categoryId], references: [id])
   movements   StockMovement[]
 
+  @@index([type])
+  @@index([categoryId])
   @@map("parts")
 }
 
@@ -75,17 +77,24 @@ model StockMovement {
   part      Part         @relation(fields: [partId], references: [id])
   user      User         @relation(fields: [userId], references: [id])
 
+  @@index([type, createdAt])
+  @@index([partId])
   @@map("stock_movements")
 }
 
 
+
+enum UserRole {
+  ADMIN
+  TECH
+}
 
 model User {
   id        String          @id @default(cuid())
   username  String          @unique
   password  String
   name      String
-  role      String          @default("admin")
+  role      UserRole        @default(ADMIN)
   createdAt DateTime        @default(now())
   movements StockMovement[]
   audits    AuditLog[]
@@ -225,6 +234,8 @@ model Job {
   statusLogs    JobStatusLog[]
   jobNotes      JobNote[]
 
+  @@index([type, status])
+  @@index([createdAt])
   @@map("jobs")
 }
 
@@ -283,6 +294,8 @@ model JobPart {
 
   job         Job           @relation(fields: [jobId], references: [id])
 
+  @@index([source])
+  @@index([addedAt])
   @@map("job_parts")
 }
 
@@ -334,6 +347,7 @@ model JobStatusLog {
   changedAt  DateTime @default(now())
   notes      String?
 
+  @@index([toStatus, changedAt])
   @@map("job_status_logs")
 }
 

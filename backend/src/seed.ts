@@ -12,7 +12,7 @@ async function seed() {
                 username: "admin",
                 password: await bcrypt.hash("admin1234", 12),
                 name: "ผู้ดูแลระบบ",
-                role: "admin",
+                role: "ADMIN",
             },
         });
         console.log("[OK] Created admin user (username: admin, password: admin1234)");

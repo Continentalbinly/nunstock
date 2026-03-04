@@ -3,6 +3,7 @@ import { prisma } from "../lib/prisma.js";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import { parsePagination, paginatedJson } from "../lib/pagination.js";
+import { requireAuth, requireRole } from "./auth.js";
 
 export const partsRouter = new Hono();
 
@@ -96,8 +97,8 @@ const partUpdateSchema = z.object({
     categoryId: z.string().min(1).optional(),
 });
 
-// POST /api/parts - เพิ่มอะไหล่ใหม่
-partsRouter.post("/", zValidator("json", partSchema), async (c) => {
+// POST /api/parts - เพิ่มอะไหล่ใหม่ (admin only)
+partsRouter.post("/", requireAuth(), requireRole("ADMIN"), zValidator("json", partSchema), async (c) => {
     try {
         const body = c.req.valid("json");
         const part = await prisma.part.create({
@@ -114,7 +115,7 @@ partsRouter.post("/", zValidator("json", partSchema), async (c) => {
 });
 
 // PATCH /api/parts/:id - แก้ไขข้อมูลอะไหล่
-partsRouter.patch("/:id", zValidator("json", partUpdateSchema), async (c) => {
+partsRouter.patch("/:id", requireAuth(), requireRole("ADMIN"), zValidator("json", partUpdateSchema), async (c) => {
     try {
         const { id } = c.req.param();
         const body = c.req.valid("json");
@@ -137,7 +138,7 @@ partsRouter.patch("/:id", zValidator("json", partUpdateSchema), async (c) => {
 });
 
 // DELETE /api/parts/:id - ลบอะไหล่
-partsRouter.delete("/:id", async (c) => {
+partsRouter.delete("/:id", requireAuth(), requireRole("ADMIN"), async (c) => {
     try {
         const { id } = c.req.param();
 
@@ -167,7 +168,7 @@ partsRouter.delete("/:id", async (c) => {
 });
 
 // DELETE /api/parts/:id/force - ลบอะไหล่พร้อมประวัติทั้งหมด (force)
-partsRouter.delete("/:id/force", async (c) => {
+partsRouter.delete("/:id/force", requireAuth(), requireRole("ADMIN"), async (c) => {
     try {
         const { id } = c.req.param();
         const existing = await prisma.part.findUnique({ where: { id } });

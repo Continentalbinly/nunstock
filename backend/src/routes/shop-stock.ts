@@ -3,6 +3,7 @@ import { prisma } from "../lib/prisma.js";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import { parsePagination, paginatedJson } from "../lib/pagination.js";
+import { requireAuth, requireRole } from "./auth.js";
 
 export const shopStockRouter = new Hono();
 
@@ -115,7 +116,7 @@ shopStockRouter.get("/", async (c) => {
 });
 
 // POST /api/shop-stock — เพิ่มอะไหล่เข้าสต็อก (manual)
-shopStockRouter.post("/", zValidator("json", createSchema), async (c) => {
+shopStockRouter.post("/", requireAuth(), requireRole("ADMIN"), zValidator("json", createSchema), async (c) => {
     try {
         const body = c.req.valid("json");
         const item = await prisma.shopStock.create({
@@ -129,7 +130,7 @@ shopStockRouter.post("/", zValidator("json", createSchema), async (c) => {
 });
 
 // PATCH /api/shop-stock/:id — แก้ไขข้อมูล
-shopStockRouter.patch("/:id", zValidator("json", updateSchema), async (c) => {
+shopStockRouter.patch("/:id", requireAuth(), requireRole("ADMIN"), zValidator("json", updateSchema), async (c) => {
     try {
         const { id } = c.req.param();
         const body = c.req.valid("json");
@@ -198,7 +199,7 @@ shopStockRouter.post("/:id/use", zValidator("json", useSchema), async (c) => {
 });
 
 // DELETE /api/shop-stock/:id — ลบรายการ
-shopStockRouter.delete("/:id", async (c) => {
+shopStockRouter.delete("/:id", requireAuth(), requireRole("ADMIN"), async (c) => {
     try {
         const { id } = c.req.param();
 

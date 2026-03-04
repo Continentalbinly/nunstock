@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { prisma } from "../lib/prisma.js";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
-import { requireAuth } from "./auth.js";
+import { requireAuth, requireRole } from "./auth.js";
 import { parsePagination, paginatedJson } from "../lib/pagination.js";
 
 export const movementsRouter = new Hono();
@@ -52,6 +52,13 @@ movementsRouter.post("/", requireAuth(), zValidator("json", movementSchema), asy
     try {
         const body = c.req.valid("json");
         const user = (c as any).get("user");
+
+        // IN (add stock) = admin only
+        if (body.type === "IN") {
+            if (!user || user.role !== "ADMIN") {
+                return c.json({ success: false, error: "เฉพาะผู้ดูแลเท่านั้นที่สามารถเพิ่มสต็อกได้" }, 403);
+            }
+        }
         const part = await prisma.part.findUnique({ where: { id: body.partId } });
 
         if (!part) {
@@ -112,7 +119,7 @@ const batchSchema = z.object({
     reason: z.string().optional(),
 });
 
-movementsRouter.post("/batch", requireAuth(), zValidator("json", batchSchema), async (c) => {
+movementsRouter.post("/batch", requireAuth(), requireRole("ADMIN"), zValidator("json", batchSchema), async (c) => {
     try {
         const { type, items, reason: globalReason } = c.req.valid("json");
         const user = (c as any).get("user");

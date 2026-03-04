@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { prisma } from "../lib/prisma.js";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
+import { requireAuth, requireRole } from "./auth.js";
 
 export const categoriesRouter = new Hono();
 
@@ -27,7 +28,7 @@ const categorySchema = z.object({
     parentId: z.string().optional().nullable(),
 });
 
-categoriesRouter.post("/", zValidator("json", categorySchema), async (c) => {
+categoriesRouter.post("/", requireAuth(), requireRole("ADMIN"), zValidator("json", categorySchema), async (c) => {
     try {
         const body = c.req.valid("json");
         const category = await prisma.partCategory.create({ data: body });
@@ -61,7 +62,7 @@ categoriesRouter.put("/:id", zValidator("json", updateCategorySchema), async (c)
     }
 });
 
-categoriesRouter.delete("/:id", async (c) => {
+categoriesRouter.delete("/:id", requireAuth(), requireRole("ADMIN"), async (c) => {
     try {
         const id = c.req.param("id");
         // Recursively collect all descendant category IDs

@@ -7,6 +7,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { PWARegister } from "@/components/PWARegister";
 import { GlobalBarcodeScanner } from "@/components/GlobalBarcodeScanner";
 import { CartProvider } from "@/components/CartContext";
+import { AuthProvider } from "@/components/AuthContext";
 import { headers } from "next/headers";
 
 const notoSansThai = Noto_Sans_Thai({
@@ -60,15 +61,17 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       </head>
       <body className={`${notoSansThai.variable} font-sans antialiased`}>
         <ThemeProvider>
-          <CartProvider>
-            {!isLoginPage && <Sidebar />}
-            <main className={isLoginPage ? "" : "main-content"}>
-              {children}
-            </main>
-            <Toaster richColors position="top-right" />
-            <PWARegister />
-            <GlobalBarcodeScanner />
-          </CartProvider>
+          <AuthProvider>
+            <CartProvider>
+              {!isLoginPage && <Sidebar />}
+              <main className={isLoginPage ? "" : "main-content"}>
+                {children}
+              </main>
+              <Toaster richColors position="top-right" />
+              <PWARegister />
+              <GlobalBarcodeScanner />
+            </CartProvider>
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

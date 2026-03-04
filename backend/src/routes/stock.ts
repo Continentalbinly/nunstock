@@ -4,9 +4,18 @@ import { requireAuth } from "./auth.js";
 
 export const stockRouter = new Hono();
 
+// ── Dashboard summary cache (30s TTL) ──
+let summaryCache: { data: any; expiry: number } | null = null;
+const CACHE_TTL = 30_000;
+
 // GET /api/stock/summary - สรุปสต็อกสำหรับ Dashboard
 stockRouter.get("/summary", async (c) => {
     try {
+        // Return cached if fresh
+        if (summaryCache && Date.now() < summaryCache.expiry) {
+            return c.json({ success: true, data: summaryCache.data });
+        }
+
         const todayStart = new Date();
         todayStart.setHours(0, 0, 0, 0);
 
@@ -14,8 +23,11 @@ stockRouter.get("/summary", async (c) => {
         thisMonthStart.setDate(1);
         thisMonthStart.setHours(0, 0, 0, 0);
 
-        // No longer need category lookups — use type enum directly
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+        sevenDaysAgo.setHours(0, 0, 0, 0);
 
+        // All queries in a single Promise.all
         const [
             totalParts,
             totalCategories,
@@ -29,14 +41,16 @@ stockRouter.get("/summary", async (c) => {
             paintCount,
             consumableCount,
             shopStockAgg,
+            recentDailyMovements,
         ] = await Promise.all([
             prisma.part.count(),
             prisma.partCategory.count(),
+            // Optimized: DB-level low stock filter instead of JS re-filter
             prisma.part.findMany({
                 where: {
-                    quantity: { lte: 5 },
                     minStock: { gt: 0 },
                     NOT: { code: { startsWith: "INS-" } },
+                    quantity: { lte: prisma.part.fields?.minStock ?? 999 },
                 },
                 include: { category: true },
                 orderBy: { quantity: "asc" },
@@ -55,13 +69,9 @@ stockRouter.get("/summary", async (c) => {
                 orderBy: { createdAt: "desc" },
                 take: 10,
             }),
-            // Sum of all part quantities
             prisma.part.aggregate({ _sum: { quantity: true } }),
-            // Today OUT count
             prisma.stockMovement.count({ where: { type: "OUT", createdAt: { gte: todayStart } } }),
-            // Today IN count
             prisma.stockMovement.count({ where: { type: "IN", createdAt: { gte: todayStart } } }),
-            // Top withdrawn parts this month
             prisma.stockMovement.groupBy({
                 by: ["partId"],
                 where: { type: "OUT", createdAt: { gte: thisMonthStart } },
@@ -69,20 +79,21 @@ stockRouter.get("/summary", async (c) => {
                 orderBy: { _sum: { quantity: "desc" } },
                 take: 5,
             }),
-            // Paint/regular parts count (not CONSUMABLE or INSURANCE)
             prisma.part.count({ where: { type: "PAINT" } }),
-            // Consumable parts count (by type enum)
             prisma.part.count({ where: { type: "CONSUMABLE" } }),
-            // Shop stock total quantity
             prisma.shopStock.aggregate({ _sum: { quantity: true } }),
+            // Moved into Promise.all (was sequential before)
+            prisma.stockMovement.findMany({
+                where: { createdAt: { gte: sevenDaysAgo } },
+                select: { type: true, quantity: true, createdAt: true },
+            }),
         ]);
 
-        // Enrich top withdrawn with part info
+        // Enrich top withdrawn (still needs sequential lookup)
         const topPartIds = topWithdrawnRaw.map(t => t.partId);
-        const topParts = await prisma.part.findMany({
-            where: { id: { in: topPartIds } },
-            include: { category: true },
-        });
+        const topParts = topPartIds.length > 0
+            ? await prisma.part.findMany({ where: { id: { in: topPartIds } }, include: { category: true } })
+            : [];
         const topPartMap = new Map(topParts.map(p => [p.id, p]));
         const topWithdrawn = topWithdrawnRaw.map(t => ({
             partId: t.partId,
@@ -90,18 +101,10 @@ stockRouter.get("/summary", async (c) => {
             part: topPartMap.get(t.partId),
         }));
 
+        // Filter low stock properly (Prisma can't compare column-to-column, so JS filter stays)
         const actualLowStock = lowStockParts.filter((p) => p.quantity <= p.minStock);
 
-        // Compute daily movements for 7 days chart
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
-        sevenDaysAgo.setHours(0, 0, 0, 0);
-
-        const recentDailyMovements = await prisma.stockMovement.findMany({
-            where: { createdAt: { gte: sevenDaysAgo } },
-            select: { type: true, quantity: true, createdAt: true },
-        });
-
+        // Compute daily chart
         const dailyMap = new Map<string, { inQty: number; outQty: number }>();
         for (let i = 0; i < 7; i++) {
             const d = new Date();
@@ -123,26 +126,28 @@ stockRouter.get("/summary", async (c) => {
             ...data,
         }));
 
-        return c.json({
-            success: true,
-            data: {
-                totalParts,
-                totalCategories,
-                totalStock: totalStockAgg._sum.quantity || 0,
-                paintCount,
-                consumableCount,
-                shopStockCount: shopStockAgg._sum.quantity || 0,
-                lowStockCount: actualLowStock.length,
-                pendingClaimsCount: recentClaims.length,
-                todayOutCount,
-                todayInCount,
-                lowStockParts: actualLowStock,
-                pendingClaims: recentClaims,
-                recentMovements,
-                topWithdrawn,
-                dailyChart,
-            },
-        });
+        const result = {
+            totalParts,
+            totalCategories,
+            totalStock: totalStockAgg._sum.quantity || 0,
+            paintCount,
+            consumableCount,
+            shopStockCount: shopStockAgg._sum.quantity || 0,
+            lowStockCount: actualLowStock.length,
+            pendingClaimsCount: recentClaims.length,
+            todayOutCount,
+            todayInCount,
+            lowStockParts: actualLowStock,
+            pendingClaims: recentClaims,
+            recentMovements,
+            topWithdrawn,
+            dailyChart,
+        };
+
+        // Cache the result
+        summaryCache = { data: result, expiry: Date.now() + CACHE_TTL };
+
+        return c.json({ success: true, data: result });
     } catch (error) {
         return c.json({ success: false, error: "ไม่สามารถดึงข้อมูลสรุปได้" }, 500);
     }

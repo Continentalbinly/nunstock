@@ -7,6 +7,8 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node --env-file=.env dist/index.js",
+    "test": "vitest run",
+    "type-check": "tsc --noEmit",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
     "db:migrate:dev": "prisma migrate dev",
@@ -30,6 +32,7 @@
     "@types/node": "^22.13.5",
     "prisma": "^6.4.1",
     "tsx": "^4.19.3",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "vitest": "^4.0.18"
   }
 }
