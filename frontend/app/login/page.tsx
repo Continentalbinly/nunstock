@@ -46,6 +46,8 @@ export default function LoginPage() {
             });
             const data = await res.json();
             if (!data.success) throw new Error(data.error);
+            // Cache user data immediately → AuthProvider picks it up instantly on next page
+            try { sessionStorage.setItem("nunstock_user", JSON.stringify(data.data)); } catch { }
             router.push("/");
             router.refresh();
         } catch (err: any) {

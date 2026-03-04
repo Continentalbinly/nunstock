@@ -63,10 +63,12 @@ export function Sidebar() {
     const pathname = usePathname();
     const router = useRouter();
     const { theme, toggleTheme } = useTheme();
-    const { user, isAdmin } = useAuth();
+    const { user, isAdmin, loading } = useAuth();
     const isDark = theme === "dark";
 
     const handleLogout = async () => {
+        // Clear sessionStorage cache on logout
+        try { sessionStorage.removeItem("nunstock_user"); } catch { }
         await fetch("/api/auth/logout", {
             method: "POST",
             credentials: "include",
@@ -75,8 +77,9 @@ export function Sidebar() {
         router.refresh();
     };
 
+    // While loading, show all items (optimistic) to avoid flash
     const filterItems = (items: typeof navItems) =>
-        items.filter(item => !item.adminOnly || isAdmin);
+        items.filter(item => !item.adminOnly || isAdmin || loading);
 
     return (
         <aside className="sidebar">
@@ -111,8 +114,8 @@ export function Sidebar() {
                     <NavLink key={item.href} {...item} pathname={pathname} />
                 ))}
 
-                {/* จัดการ (admin only) */}
-                {isAdmin && (
+                {/* จัดการ (admin only — show while loading for optimistic render) */}
+                {(isAdmin || loading) && (
                     <>
                         <p className="px-3 text-[10px] font-semibold uppercase tracking-widest mb-2 mt-5" style={{ color: "var(--t-text-dim)" }}>
                             จัดการ
