@@ -29,7 +29,7 @@ import { logger } from "hono/logger";
 
 import { partsRouter } from "./routes/parts.js";
 import { categoriesRouter } from "./routes/categories.js";
-import { claimsRouter } from "./routes/claims.js";
+
 import { stockRouter } from "./routes/stock.js";
 import { authRouter } from "./routes/auth.js";
 import { movementsRouter } from "./routes/movements.js";
@@ -80,7 +80,7 @@ app.get("/", (c) => {
 app.route("/api/auth", authRouter);
 app.route("/api/parts", partsRouter);
 app.route("/api/categories", categoriesRouter);
-app.route("/api/claims", claimsRouter);
+
 app.route("/api/stock", stockRouter);
 app.route("/api/movements", movementsRouter);
 app.route("/api/line", lineRouter);

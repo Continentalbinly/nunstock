@@ -37,26 +37,13 @@ model Part {
   categoryId  String
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
-  claimItems  ClaimItem[]
+
   category    PartCategory    @relation(fields: [categoryId], references: [id])
   movements   StockMovement[]
-  withdrawals Withdrawal[]
 
   @@map("parts")
 }
 
-model Withdrawal {
-  id        String   @id @default(cuid())
-  partId    String
-  quantity  Int
-  reason    String?
-  jobNo     String?
-  techName  String?
-  createdAt DateTime @default(now())
-  part      Part     @relation(fields: [partId], references: [id])
-
-  @@map("withdrawals")
-}
 
 model StockMovement {
   id        String       @id @default(cuid())
@@ -74,43 +61,7 @@ model StockMovement {
   @@map("stock_movements")
 }
 
-model InsuranceClaim {
-  id            String      @id @default(cuid())
-  claimNo       String      @unique
-  customerName  String
-  customerPhone String
-  carBrand      String
-  carModel      String
-  plateNo       String
-  insuranceComp String
-  jobNo         String?
-  notes         String?
-  status        ClaimStatus @default(PENDING)
-  arrivedAt     DateTime?
-  notifiedAt    DateTime?
-  notifyChannel String?
-  lineUserId    String?     // LINE User ID ของลูกค้า (จาก webhook)
-  lineLinkedAt  DateTime?   // เวลาที่ลูกค้าลิงก์ LINE
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-  items         ClaimItem[]
-  jobs          Job[]
 
-  @@map("insurance_claims")
-}
-
-
-model ClaimItem {
-  id       String         @id @default(cuid())
-  claimId  String
-  partId   String?
-  partName String
-  quantity Int
-  claim    InsuranceClaim @relation(fields: [claimId], references: [id], onDelete: Cascade)
-  part     Part?          @relation(fields: [partId], references: [id])
-
-  @@map("claim_items")
-}
 
 model User {
   id        String          @id @default(cuid())
@@ -130,13 +81,7 @@ enum MovementType {
   OUT
 }
 
-enum ClaimStatus {
-  PENDING
-  ORDERED
-  ARRIVED
-  NOTIFIED
-  COMPLETED
-}
+
 
 enum ShopStockSource {
   EXCESS_ORDER
@@ -159,11 +104,11 @@ enum JobType {
 
 enum JobStatus {
   WAITING_PARTS
-  NOTIFY_CUSTOMER
   RECEIVED
   IN_PROGRESS
   COMPLETED
   DELIVERED
+  CLOSED
   CANCELLED
 }
 
@@ -242,7 +187,7 @@ model Job {
   carModel      String
   plateNo       String
   notes         String?
-  claimId       String?
+
   claimNo       String?
   insuranceComp String?
   receivedAt    DateTime        @default(now())
@@ -251,13 +196,19 @@ model Job {
   deliveredAt   DateTime?
   cancelReason  String?
   cancelledAt   DateTime?
+  claimCalledAt DateTime?
+  closedAt      DateTime?
+  lineUserId    String?
+  lineLinkedAt  DateTime?
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
 
-  claim         InsuranceClaim? @relation(fields: [claimId], references: [id])
+
   parts         JobPart[]
   repairSteps   JobRepairStep[]
   notifications Notification[]
+  statusLogs    JobStatusLog[]
+  jobNotes      JobNote[]
 
   @@map("jobs")
 }
@@ -327,7 +278,7 @@ model LineRegistration {
   plateNo         String
   normalizedPlate String
   matched         Boolean  @default(false)
-  matchedClaimId  String?
+
   createdAt       DateTime @default(now())
 
   @@unique([lineUserId, normalizedPlate])
@@ -377,4 +328,28 @@ model AuditLog {
   createdAt DateTime @default(now())
 
   @@map("audit_logs")
+}
+
+model JobStatusLog {
+  id         String   @id @default(cuid())
+  jobId      String
+  job        Job      @relation(fields: [jobId], references: [id])
+  fromStatus String
+  toStatus   String
+  changedBy  String?
+  changedAt  DateTime @default(now())
+  notes      String?
+
+  @@map("job_status_logs")
+}
+
+model JobNote {
+  id        String   @id @default(cuid())
+  jobId     String
+  job       Job      @relation(fields: [jobId], references: [id])
+  note      String
+  createdBy String?
+  createdAt DateTime @default(now())
+
+  @@map("job_notes")
 }

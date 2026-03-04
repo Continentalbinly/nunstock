@@ -5,7 +5,7 @@ import { requireAuth } from "./auth.js";
 export const lineRouter = new Hono();
 
 
-// GET /api/line/status — ภาพรวม LINE OA
+// GET /api/line/status — ภาพรวม LINE OA (Job-based)
 lineRouter.get("/status", requireAuth(), async (c) => {
     try {
         // อ่าน env ทุก request เพื่อไม่ติดปัญหา module-level cache
@@ -28,63 +28,41 @@ lineRouter.get("/status", requireAuth(), async (c) => {
             } catch { }
         }
 
+        // Stats จาก Jobs
+        const activeStatuses = ["WAITING_PARTS", "RECEIVED", "IN_PROGRESS", "COMPLETED"] as any;
+        const [totalJobs, activeJobs, linkedJobs, activeLinked] = await Promise.all([
+            prisma.job.count(),
+            prisma.job.count({ where: { status: { in: activeStatuses } } }),
+            prisma.job.count({ where: { lineUserId: { not: null } } }),
+            prisma.job.count({
+                where: { status: { in: activeStatuses }, lineUserId: { not: null } },
+            }),
+        ]);
 
-        // Stats จาก DB — lineUserId อาจยังไม่มี (migration ยังไม่รัน)
-        let totalClaims = 0, linkedClaims = 0, activeClaims = 0, activeLinked = 0;
-        let recentLinked: any[] = [];
-        let unlinked: any[] = [];
+        // Jobs ที่ลิงก์ LINE แล้ว (ล่าสุด)
+        const recentLinked = await prisma.job.findMany({
+            where: { lineUserId: { not: null } },
+            orderBy: { lineLinkedAt: "desc" },
+            take: 10,
+            select: {
+                id: true, jobNo: true, customerName: true,
+                plateNo: true, carBrand: true, carModel: true,
+                status: true, lineUserId: true, lineLinkedAt: true,
+                insuranceComp: true,
+            },
+        });
 
-        try {
-            [totalClaims, activeClaims] = await Promise.all([
-                prisma.insuranceClaim.count(),
-                prisma.insuranceClaim.count({ where: { status: { not: "COMPLETED" } } }),
-            ]);
-        } catch { }
-
-        // queries ที่ต้องใช้ lineUserId (อาจ fail ถ้ายังไม่ migrate)
-        try {
-            [linkedClaims, activeLinked] = await Promise.all([
-                prisma.insuranceClaim.count({ where: { lineUserId: { not: null } } as any }),
-                prisma.insuranceClaim.count({
-                    where: { status: { not: "COMPLETED" }, lineUserId: { not: null } } as any,
-                }),
-            ]);
-
-            recentLinked = await prisma.insuranceClaim.findMany({
-                where: { lineUserId: { not: null } } as any,
-                orderBy: { lineLinkedAt: "desc" } as any,
-                take: 10,
-                select: {
-                    id: true, claimNo: true, customerName: true,
-                    plateNo: true, carBrand: true, carModel: true,
-                    status: true, lineUserId: true, lineLinkedAt: true,
-                } as any,
-            });
-
-            unlinked = await prisma.insuranceClaim.findMany({
-                where: { status: { not: "COMPLETED" }, lineUserId: null } as any,
-                orderBy: { createdAt: "desc" },
-                take: 10,
-                select: {
-                    id: true, claimNo: true, customerName: true,
-                    plateNo: true, carBrand: true, carModel: true, status: true,
-                },
-            });
-        } catch {
-            // lineUserId column ยังไม่มี — ใช้ active claims เป็น unlinked แทน
-            try {
-                unlinked = await prisma.insuranceClaim.findMany({
-                    where: { status: { not: "COMPLETED" } },
-                    orderBy: { createdAt: "desc" },
-                    take: 10,
-                    select: {
-                        id: true, claimNo: true, customerName: true,
-                        plateNo: true, carBrand: true, carModel: true, status: true,
-                    },
-                });
-            } catch { }
-        }
-
+        // Active Jobs ที่ยังไม่ลิงก์ LINE
+        const unlinked = await prisma.job.findMany({
+            where: { status: { in: activeStatuses }, lineUserId: null },
+            orderBy: { createdAt: "desc" },
+            take: 10,
+            select: {
+                id: true, jobNo: true, customerName: true,
+                plateNo: true, carBrand: true, carModel: true,
+                status: true, insuranceComp: true,
+            },
+        });
 
         return c.json({
             success: true,
@@ -97,11 +75,11 @@ lineRouter.get("/status", requireAuth(), async (c) => {
                     webhookUrl: "https://api.nunmechanic.com/webhook/line",
                 },
                 stats: {
-                    totalClaims,
-                    linkedClaims,
-                    activeClaims,
+                    totalClaims: totalJobs,
+                    linkedClaims: linkedJobs,
+                    activeClaims: activeJobs,
                     activeLinked,
-                    linkRate: activeClaims > 0 ? Math.round((activeLinked / activeClaims) * 100) : 0,
+                    linkRate: activeJobs > 0 ? Math.round((activeLinked / activeJobs) * 100) : 0,
                 },
                 recentLinked,
                 unlinked,

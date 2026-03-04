@@ -17,7 +17,7 @@ const createSchema = z.object({
     carModel: z.string().min(1, "กรุณาระบุรุ่นรถ"),
     plateNo: z.string().min(1, "กรุณาระบุทะเบียน"),
     notes: z.string().optional(),
-    claimId: z.string().optional(),
+
     claimNo: z.string().optional(),
     insuranceComp: z.string().optional(),
 });
@@ -29,13 +29,13 @@ const updateSchema = z.object({
     carModel: z.string().min(1).optional(),
     plateNo: z.string().min(1).optional(),
     notes: z.string().optional().nullable(),
-    claimId: z.string().optional().nullable(),
+
     claimNo: z.string().optional().nullable(),
     insuranceComp: z.string().optional().nullable(),
 });
 
 const statusSchema = z.object({
-    status: z.enum(["RECEIVED", "WAITING_PARTS", "IN_PROGRESS", "COMPLETED", "DELIVERED"]),
+    status: z.enum(["RECEIVED", "WAITING_PARTS", "IN_PROGRESS", "COMPLETED", "DELIVERED", "CLOSED"]),
 });
 
 const addPartSchema = z.object({
@@ -76,13 +76,7 @@ jobsRouter.get("/suggestions", async (c) => {
             rows.forEach((r: any) => r[field] && allValues.push(r[field]));
         }
 
-        // InsuranceClaims — customerName, customerPhone, carBrand, carModel, plateNo, insuranceComp
-        if (["customerName", "customerPhone", "carBrand", "carModel", "plateNo", "insuranceComp"].includes(field)) {
-            const rows = await prisma.insuranceClaim.findMany({
-                where: { [field]: contains }, select: { [field]: true }, distinct: [field as any], take: 10, orderBy: { createdAt: "desc" },
-            });
-            rows.forEach((r: any) => r[field] && allValues.push(r[field]));
-        }
+
 
         // ShopStock — carBrand, carModel
         if (["carBrand", "carModel"].includes(field)) {
@@ -164,7 +158,6 @@ jobsRouter.get("/", async (c) => {
             prisma.job.findMany({
                 where,
                 include: {
-                    claim: { select: { claimNo: true, insuranceComp: true } },
                     _count: { select: { parts: true } },
                 },
                 orderBy: { createdAt: "desc" },
@@ -218,7 +211,6 @@ jobsRouter.get("/:id", async (c) => {
         const job = await prisma.job.findUnique({
             where: { id },
             include: {
-                claim: { select: { claimNo: true, insuranceComp: true, status: true, items: true } },
                 parts: { orderBy: { addedAt: "desc" } },
                 repairSteps: { orderBy: { order: "asc" } },
             },
@@ -238,32 +230,14 @@ jobsRouter.post("/", zValidator("json", createSchema), async (c) => {
         // Auto-generate job number if "AUTO"
         const jobNo = body.jobNo === "AUTO" ? await generateJobNo() : body.jobNo;
 
-        // Auto-import claim items if insurance job with claimId
-        let autoImportParts: any[] = [];
-        if (body.type === "INSURANCE" && body.claimId) {
-            const claim = await prisma.insuranceClaim.findUnique({
-                where: { id: body.claimId },
-                include: { items: true },
-            });
-            if (claim?.items) {
-                autoImportParts = claim.items.map((item) => ({
-                    source: "INSURANCE_PART" as const,
-                    sourceId: item.partId || undefined,
-                    partName: item.partName,
-                    quantity: item.quantity,
-                    status: "ORDERED" as const,
-                }));
-            }
-        }
+
 
         const job = await prisma.job.create({
             data: {
                 ...body, jobNo,
-                claimId: body.claimId || undefined,
-                parts: autoImportParts.length > 0 ? { create: autoImportParts } : undefined,
+
             },
             include: {
-                claim: { select: { claimNo: true, insuranceComp: true } },
                 parts: true,
                 _count: { select: { parts: true } },
             },
@@ -286,7 +260,7 @@ jobsRouter.patch("/:id", zValidator("json", updateSchema), async (c) => {
         const job = await prisma.job.update({
             where: { id },
             data: body,
-            include: { claim: { select: { claimNo: true, insuranceComp: true } } },
+            include: {},
         });
         return c.json({ success: true, data: job });
     } catch (error) {
@@ -294,7 +268,7 @@ jobsRouter.patch("/:id", zValidator("json", updateSchema), async (c) => {
     }
 });
 
-// PATCH /api/jobs/:id/status — เปลี่ยนสถานะ (auto timestamps)
+// PATCH /api/jobs/:id/status — เปลี่ยนสถานะ (auto timestamps + auto log)
 jobsRouter.patch("/:id/status", zValidator("json", statusSchema), async (c) => {
     try {
         const { id } = c.req.param();
@@ -307,15 +281,72 @@ jobsRouter.patch("/:id/status", zValidator("json", statusSchema), async (c) => {
         if (status === "IN_PROGRESS" && !existing.startedAt) { updateData.startedAt = now; }
         if (status === "COMPLETED" && !existing.completedAt) { updateData.completedAt = now; }
         if (status === "DELIVERED" && !existing.deliveredAt) updateData.deliveredAt = now;
+        if (status === "CLOSED" && !existing.closedAt) updateData.closedAt = now;
 
-        const job = await prisma.job.update({
-            where: { id },
-            data: updateData,
-            include: { claim: { select: { claimNo: true, insuranceComp: true } }, _count: { select: { parts: true } } },
-        });
+        const [job] = await prisma.$transaction([
+            prisma.job.update({
+                where: { id },
+                data: updateData,
+                include: { _count: { select: { parts: true } } },
+            }),
+            prisma.jobStatusLog.create({
+                data: {
+                    jobId: id,
+                    fromStatus: existing.status,
+                    toStatus: status,
+                    changedAt: now,
+                },
+            }),
+        ]);
         return c.json({ success: true, data: job });
     } catch (error) {
         return c.json({ success: false, error: "ไม่สามารถเปลี่ยนสถานะได้" }, 500);
+    }
+});
+
+// POST /api/jobs/:id/notes — เพิ่มหมายเหตุ
+jobsRouter.post("/:id/notes", async (c) => {
+    try {
+        const { id } = c.req.param();
+        const { note } = await c.req.json();
+        if (!note || typeof note !== "string" || !note.trim()) return c.json({ success: false, error: "กรุณากรอกหมายเหตุ" }, 400);
+        const job = await prisma.job.findUnique({ where: { id } });
+        if (!job) return c.json({ success: false, error: "ไม่พบ Job" }, 404);
+        const created = await prisma.jobNote.create({ data: { jobId: id, note: note.trim() } });
+        return c.json({ success: true, data: created });
+    } catch (error) {
+        return c.json({ success: false, error: "ไม่สามารถเพิ่มหมายเหตุได้" }, 500);
+    }
+});
+
+// GET /api/jobs/:id/notes — ดูหมายเหตุทั้งหมด
+jobsRouter.get("/:id/notes", async (c) => {
+    try {
+        const { id } = c.req.param();
+        const notes = await prisma.jobNote.findMany({ where: { jobId: id }, orderBy: { createdAt: "desc" } });
+        return c.json({ success: true, data: notes });
+    } catch (error) {
+        return c.json({ success: false, error: "ไม่สามารถดึงหมายเหตุได้" }, 500);
+    }
+});
+
+// POST /api/jobs/:id/claim-call — บันทึกว่าแจ้งเคลมแล้ว
+jobsRouter.post("/:id/claim-call", async (c) => {
+    try {
+        const { id } = c.req.param();
+        const job = await prisma.job.findUnique({ where: { id } });
+        if (!job) return c.json({ success: false, error: "ไม่พบ Job" }, 404);
+        if (job.type !== "INSURANCE") return c.json({ success: false, error: "Job นี้ไม่ใช่งานประกัน" }, 400);
+        const now = new Date();
+        const [updated] = await prisma.$transaction([
+            prisma.job.update({ where: { id }, data: { claimCalledAt: now } }),
+            prisma.jobStatusLog.create({
+                data: { jobId: id, fromStatus: job.status, toStatus: job.status, changedAt: now, notes: "แจ้งเคลม" },
+            }),
+        ]);
+        return c.json({ success: true, data: updated });
+    } catch (error) {
+        return c.json({ success: false, error: "ไม่สามารถบันทึกได้" }, 500);
     }
 });
 
@@ -491,7 +522,6 @@ jobsRouter.patch("/:id/parts/:partId/status", async (c) => {
                 where: { id },
                 include: {
                     parts: true,
-                    claim: { select: { lineUserId: true, claimNo: true, insuranceComp: true } },
                 },
             });
             if (job && job.status === "WAITING_PARTS") {
@@ -511,7 +541,7 @@ jobsRouter.patch("/:id/parts/:partId/status", async (c) => {
                         `กรุณานำรถเข้ามาที่อู่เพื่อเริ่มซ่อมครับ 🙏`,
                     ].filter(Boolean).join("\n");
 
-                    const lineUserId = job.claim?.lineUserId;
+                    const lineUserId = job.lineUserId;
                     let notifStatus = "SENT";
                     let notifError: string | undefined;
 

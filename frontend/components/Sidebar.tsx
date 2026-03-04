@@ -31,7 +31,7 @@ const stockItems = [
 ];
 
 const managementItems = [
-    { href: "/reports", icon: BarChart3, label: "รายงานสต็อก" },
+    { href: "/reports", icon: BarChart3, label: "สรุปรายงาน" },
     { href: "/line", icon: MessageSquare, label: "LINE Operations" },
     { href: "/notifications", icon: Bell, label: "แจ้งเตือน" },
     { href: "/printer-settings", icon: Printer, label: "เครื่องปริ้น" },

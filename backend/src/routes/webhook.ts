@@ -35,67 +35,22 @@ async function sendLineReply(replyToken: string, text: string): Promise<void> {
     }).catch(() => { });
 }
 
-
-
 /** Normalize ทะเบียน: ลบ space, dash, ทำ uppercase */
 function normalizePlate(text: string): string {
     return text.replace(/[\s\-\.]/g, "").toUpperCase();
 }
 
-/** สร้างข้อความ LINE สำหรับแต่ละ status */
-export function buildStatusMessage(
-    status: string,
-    claim: { claimNo: string; customerName: string; carBrand: string; carModel: string; plateNo: string; items: { partName: string; quantity: number }[] }
-): string | null {
-    const plate = claim.plateNo;
-    const car = `${claim.carBrand} ${claim.carModel}`;
-    const claimNo = claim.claimNo;
 
-    switch (status) {
-        case "ARRIVED": {
-            const itemsText = claim.items.map((i) => `• ${i.partName} x${i.quantity}`).join("\n");
-            return [
-                `🎉 อะไหล่มาถึงแล้ว! — นันการช่าง`,
-                ``,
-                `เรียนคุณ ${claim.customerName}`,
-                `อะไหล่ของคุณมาถึงแล้วครับ/ค่ะ`,
-                ``,
-                `📋 เลขเคลม: ${claimNo}`,
-                `🚗 รถ: ${car} (${plate})`,
-                `📦 อะไหล่:`,
-                itemsText,
-                ``,
-                `กรุณาติดต่อร้านเพื่อนัดรับรถ 📞`,
-            ].join("\n");
-        }
-
-        case "COMPLETED":
-            return [
-                `✅ งานซ่อมเสร็จสิ้น — นันการช่าง`,
-                ``,
-                `เรียนคุณ ${claim.customerName}`,
-                `งานซ่อมรถของคุณเสร็จสมบูรณ์แล้วครับ/ค่ะ`,
-                ``,
-                `📋 เลขเคลม: ${claimNo}`,
-                `🚗 รถ: ${car} (${plate})`,
-                ``,
-                `ขอบคุณที่ใช้บริการ นันการช่าง 🙏`,
-            ].join("\n");
-
-        default:
-            return null;
-    }
-}
 
 /**
- * ตรวจสอบว่ามี LineRegistration ที่ตรงกับเคลมนี้ไหม
- * ถ้ามี → ผูก lineUserId เข้ากับ claim + push confirmation
+ * ตรวจสอบว่ามี LineRegistration ที่ตรงกับ Job นี้ไหม
+ * ถ้ามี → ผูก lineUserId เข้ากับ Job + push confirmation
  */
-export async function checkAndLinkPendingRegistration(claim: {
-    id: string; claimNo: string; customerName: string; carBrand: string; carModel: string; plateNo: string;
-    items: { partName: string; quantity: number }[];
+export async function checkAndLinkPendingRegistration(job: {
+    id: string; jobNo: string; customerName: string; carBrand: string; carModel: string; plateNo: string;
+    insuranceComp?: string | null;
 }) {
-    const normalized = normalizePlate(claim.plateNo);
+    const normalized = normalizePlate(job.plateNo);
 
     // หา registration ที่ยังไม่ matched โดยเทียบจาก normalizedPlate
     const pending = await prisma.lineRegistration.findFirst({
@@ -108,46 +63,48 @@ export async function checkAndLinkPendingRegistration(claim: {
 
     if (!pending) return;
 
-    // ผูก registration กับ claim
+    // ผูก registration กับ Job
     await prisma.$transaction([
         prisma.lineRegistration.update({
             where: { id: pending.id },
-            data: { matched: true, matchedClaimId: claim.id },
+            data: { matched: true },
         }),
-        prisma.insuranceClaim.update({
-            where: { id: claim.id },
+        prisma.job.update({
+            where: { id: job.id },
             data: { lineUserId: pending.lineUserId, lineLinkedAt: new Date() },
         }),
     ]);
 
-    // Push confirmation ไปหาลูกค้า
     const statusTh: Record<string, string> = {
-        PENDING: "รอดำเนินการ 🕐",
-        ORDERED: "สั่งอะไหล่แล้ว 📦",
-        ARRIVED: "อะไหล่มาถึง 🎉",
-        NOTIFIED: "แจ้งลูกค้าแล้ว ✅",
+        WAITING_PARTS: "รออะไหล่ ⏳",
+        RECEIVED: "รับรถแล้ว 🚗",
+        IN_PROGRESS: "กำลังซ่อม 🔧",
+        COMPLETED: "ซ่อมเสร็จ ✅",
+        DELIVERED: "ส่งมอบแล้ว 🚚",
     };
 
+    // Push confirmation ไปหาลูกค้า
     const msg = [
-        `✅ พบเคลมตรงกับข้อมูลของคุณ!`,
+        `✅ พบงานซ่อมตรงกับข้อมูลของคุณ!`,
         ``,
-        `📋 เลขเคลม: ${claim.claimNo}`,
-        `🚗 รถ: ${claim.carBrand} ${claim.carModel} (${claim.plateNo})`,
-        `สถานะ: ${statusTh["PENDING"] || "รอดำเนินการ"}`,
+        `📋 Job: ${job.jobNo}`,
+        `🚗 รถ: ${job.carBrand} ${job.carModel} (${job.plateNo})`,
+        job.insuranceComp ? `🏢 ประกัน: ${job.insuranceComp}` : null,
+        `สถานะ: ${statusTh["WAITING_PARTS"]}`,
         ``,
         `เราจะแจ้งเตือนคุณผ่าน LINE เมื่อมีการอัพเดตสถานะ 🙏`,
-    ].join("\n");
+    ].filter(Boolean).join("\n");
 
     await sendLinePush(pending.lineUserId, msg).catch(e =>
         console.error("[LINE Auto Link Push] Error:", e?.message)
     );
 
-    console.log(`[Auto Link] Linked registration ${pending.id} to claim ${claim.claimNo}`);
+    console.log(`[Auto Link] Linked registration ${pending.id} to job ${job.jobNo}`);
 }
 
 
 // POST /webhook/line — รับ event จาก LINE Platform
-// Format: "ชื่อ / ทะเบียน" เช่น "สมชาย / กข1234"
+// Format: "ชื่อ / ทะเบียน" หรือ "ชื่อ / ทะเบียน / บ.ประกัน"
 webhookRouter.post("/line", async (c) => {
     try {
         const rawBody = await c.req.text();
@@ -176,17 +133,16 @@ webhookRouter.post("/line", async (c) => {
 
             if (!lineUserId) continue;
 
-            // ── "สถานะ" keyword → show job + per-part status ──
+            // ── "สถานะ" keyword → show job status ──
             if (rawText === "สถานะ" || rawText.toLowerCase() === "status") {
-                // Find jobs linked to this LINE user (via claim.lineUserId)
+                // ค้นหา Jobs ที่ผูกกับ lineUserId นี้โดยตรง
                 const jobs = await prisma.job.findMany({
                     where: {
-                        status: { not: "DELIVERED" },
-                        claim: { lineUserId },
+                        lineUserId,
+                        status: { notIn: ["DELIVERED", "CANCELLED"] },
                     },
                     include: {
                         parts: { orderBy: { addedAt: "asc" } },
-                        claim: { select: { claimNo: true, insuranceComp: true } },
                         repairSteps: { orderBy: { order: "asc" } },
                     },
                     orderBy: { createdAt: "desc" },
@@ -194,24 +150,7 @@ webhookRouter.post("/line", async (c) => {
                 });
 
                 if (jobs.length === 0) {
-                    // Fallback: check claims directly
-                    const claim = await prisma.insuranceClaim.findFirst({
-                        where: { lineUserId, status: { not: "COMPLETED" } },
-                        include: { items: true },
-                        orderBy: { createdAt: "desc" },
-                    });
-                    if (claim) {
-                        const statusTh: Record<string, string> = { PENDING: "รอดำเนินการ 🕐", ORDERED: "สั่งอะไหล่แล้ว 📦", ARRIVED: "อะไหล่มาถึง 🎉", NOTIFIED: "แจ้งลูกค้าแล้ว ✅" };
-                        await sendLineReply(replyToken, [
-                            `📋 สถานะเคลม: ${claim.claimNo}`,
-                            `🚗 ${claim.carBrand} ${claim.carModel} (${claim.plateNo})`,
-                            `สถานะ: ${statusTh[claim.status] || claim.status}`,
-                            ``, `📦 อะไหล่:`,
-                            ...claim.items.map(i => `• ${i.partName} x${i.quantity}`),
-                        ].join("\n"));
-                    } else {
-                        await sendLineReply(replyToken, `❌ ไม่พบงานซ่อมที่ผูกกับ LINE ของคุณ\n\nกรุณาลงทะเบียนด้วย:\nชื่อ / ทะเบียนรถ\n\nตัวอย่าง: สมชาย / กข1234`);
-                    }
+                    await sendLineReply(replyToken, `❌ ไม่พบงานซ่อมที่ผูกกับ LINE ของคุณ\n\nกรุณาลงทะเบียนด้วย:\nชื่อ / ทะเบียนรถ / บ.ประกัน\n\nตัวอย่าง: สมชาย / กข1234 / วิริยะ\nหรือ: สมชาย / กข1234`);
                     continue;
                 }
 
@@ -228,7 +167,7 @@ webhookRouter.post("/line", async (c) => {
                     };
                     const arrived = job.parts.filter(p => p.status === "ARRIVED" || p.status === "INSTALLED").length;
                     const total = job.parts.length;
-                    const insuranceInfo = job.claim?.insuranceComp ? `\n🏢 ประกัน: ${job.claim.insuranceComp}` : "";
+                    const insuranceInfo = job.insuranceComp ? `\n🏢 ประกัน: ${job.insuranceComp}` : "";
 
                     // Per-step repair detail
                     const repairLines: string[] = [];
@@ -240,7 +179,7 @@ webhookRouter.post("/line", async (c) => {
                     }
 
                     messages.push([
-                        `📋 ${job.jobNo}${job.claim ? ` (เคลม: ${job.claim.claimNo})` : ""}`,
+                        `📋 ${job.jobNo}${job.claimNo ? ` (เคลม: ${job.claimNo})` : ""}`,
                         `🚗 ${job.carBrand} ${job.carModel} (${job.plateNo})`,
                         `สถานะ: ${statusTh[job.status] || job.status}${insuranceInfo}`,
                         ...repairLines,
@@ -257,94 +196,140 @@ webhookRouter.post("/line", async (c) => {
                 continue;
             }
 
-            // Parse format: "ชื่อ / ทะเบียน" หรือ "ชื่อ/ทะเบียน"
+            // ── Rich Menu Keywords ──
+
+            // "นัดหมาย" → นัดหมายเข้าซ่อม
+            const appointmentKeywords = ["นัดหมาย", "นัดซ่อม", "จองคิว", "นัดหมายเข้าซ่อม", "booking"];
+            if (appointmentKeywords.some(k => rawText.toLowerCase() === k.toLowerCase())) {
+                await sendLineReply(replyToken, [
+                    `📅 นัดหมายเข้าซ่อม — นันการช่าง`,
+                    ``,
+                    `กรุณาแจ้งข้อมูลดังนี้:`,
+                    `1️⃣ ชื่อ-นามสกุล`,
+                    `2️⃣ เบอร์โทรติดต่อ`,
+                    `3️⃣ ยี่ห้อ/รุ่นรถ + ทะเบียน`,
+                    `4️⃣ อาการ/ปัญหาเบื้องต้น`,
+                    `5️⃣ วัน-เวลาที่สะดวก`,
+                    ``,
+                    `📞 หรือโทรนัดหมายโดยตรง:`,
+                    `โทร: 099-XXX-XXXX`,
+                    `🕒 เวลาทำการ: จ-ส 08:00-17:00`,
+                ].join("\n"));
+                continue;
+            }
+
+            // "เคลม" / "claim" → ขั้นตอนเคลมรถ
+            const claimKeywords = ["เคลม", "claim", "แจ้งเคลม", "ติดต่อเคลม", "ติดต่อเคลมรถ"];
+            if (claimKeywords.some(k => rawText.toLowerCase() === k.toLowerCase())) {
+                await sendLineReply(replyToken, [
+                    `🚗 ขั้นตอนแจ้งเคลมรถ`,
+                    ``,
+                    `1️⃣ แจ้งอุบัติเหตุกับบริษัทประกันของท่าน`,
+                    `2️⃣ นำรถเข้ามาที่ร้าน นันการช่าง`,
+                    `3️⃣ ทางร้านจะตรวจสอบและประเมินความเสียหาย`,
+                    `4️⃣ ประสานงานกับบริษัทประกัน`,
+                    `5️⃣ ดำเนินการซ่อมและแจ้งสถานะให้ทราบ`,
+                    ``,
+                    `📞 สอบถามเพิ่มเติม:`,
+                    `โทร: 099-XXX-XXXX`,
+                    ``,
+                    `📝 ลงทะเบียนติดตามงานซ่อม:`,
+                    `พิมพ์ ชื่อ / ทะเบียนรถ`,
+                    `ตัวอย่าง: สมชาย / กข1234`,
+                ].join("\n"));
+                continue;
+            }
+
+            // "ประกัน" / "insurance" → ปรึกษาประกันภัย
+            const insuranceKeywords = ["ประกัน", "insurance", "ปรึกษาประกัน", "ปรึกษาประกันภัย"];
+            if (insuranceKeywords.some(k => rawText.toLowerCase() === k.toLowerCase())) {
+                await sendLineReply(replyToken, [
+                    `🛡️ ปรึกษาเรื่องประกันภัยรถยนต์`,
+                    ``,
+                    `ทางร้าน นันการช่าง รับงานประกันทุกบริษัท:`,
+                    `✅ วิริยะประกันภัย`,
+                    `✅ กรุงเทพประกันภัย`,
+                    `✅ เมืองไทยประกันภัย`,
+                    `✅ ประกันภัยไทยวิวัฒน์`,
+                    `✅ และอื่นๆ อีกมากมาย`,
+                    ``,
+                    `📞 ต้องการปรึกษาโดยตรง:`,
+                    `โทร: 099-XXX-XXXX`,
+                    ``,
+                    `💬 หรือพิมพ์ข้อความสอบถามได้เลยครับ`,
+                ].join("\n"));
+                continue;
+            }
+
+            // "สอบถาม" / "ติดต่อ" → ข้อมูลติดต่อ
+            const contactKeywords = ["สอบถาม", "ติดต่อ", "สอบถามเพิ่มเติม", "contact", "ข้อมูล"];
+            if (contactKeywords.some(k => rawText.toLowerCase() === k.toLowerCase())) {
+                await sendLineReply(replyToken, [
+                    `📍 นันการช่าง — ข้อมูลติดต่อ`,
+                    ``,
+                    `📞 โทร: 099-XXX-XXXX`,
+                    `🕒 เวลาทำการ: จ-ส 08:00-17:00`,
+                    `📍 ที่อยู่: [ที่อยู่ร้าน]`,
+                    ``,
+                    `💡 คำสั่งที่ใช้ได้:`,
+                    `• "นัดหมาย" → นัดหมายเข้าซ่อม`,
+                    `• "เคลม" → ขั้นตอนแจ้งเคลม`,
+                    `• "ประกัน" → ปรึกษาประกันภัย`,
+                    `• "สถานะ" → ดูสถานะงานซ่อม`,
+                    ``,
+                    `📝 ลงทะเบียนติดตามงาน:`,
+                    `พิมพ์ ชื่อ / ทะเบียนรถ / บ.ประกัน`,
+                    `ตัวอย่าง: สมชาย / กข1234 / วิริยะ`,
+                ].join("\n"));
+                continue;
+            }
+
+            // ── Parse format: "ชื่อ / ทะเบียน" หรือ "ชื่อ / ทะเบียน / บ.ประกัน" ──
             const parts = rawText.split(/[\/]/);
             if (parts.length < 2) {
-                // Fallback: ลองใช้ rawText เป็นทะเบียนเลย (เหมือนระบบเดิม)
-                const normalized = normalizePlate(rawText);
+                // ลองใช้ rawText เป็นทะเบียน เฉพาะเมื่อดูเหมือนทะเบียนรถ (สั้น + มีตัวอักษร/ตัวเลข)
+                const looksLikePlate = rawText.length >= 2 && rawText.length <= 10 && /[ก-ฮa-zA-Z0-9]/.test(rawText);
+                if (looksLikePlate) {
+                    const normalized = normalizePlate(rawText);
+                    const activeJob = await findJobByPlate(normalized);
 
-                const activeClaim = (await prisma.insuranceClaim.findMany({
-                    where: { status: { not: "COMPLETED" } },
-                    include: { items: true },
-                    orderBy: { createdAt: "desc" },
-                })).find(c => normalizePlate(c.plateNo) === normalized);
-
-                if (activeClaim) {
-                    // เจอเคลมจากทะเบียน → ผูก lineUserId + ตอบสถานะ
-                    const isNewLink = (activeClaim as any).lineUserId !== lineUserId;
-                    await prisma.insuranceClaim.update({
-                        where: { id: activeClaim.id },
-                        data: { lineUserId, lineLinkedAt: isNewLink ? new Date() : undefined } as any,
-                    });
-
-                    const statusTh: Record<string, string> = { PENDING: "รอดำเนินการ 🕐", ORDERED: "สั่งอะไหล่แล้ว 📦", ARRIVED: "อะไหล่มาถึง 🎉", NOTIFIED: "แจ้งลูกค้าแล้ว ✅" };
-                    await sendLineReply(replyToken, [
-                        isNewLink ? `✅ ลงทะเบียนสำเร็จ!` : `📋 สถานะล่าสุด`,
-                        ``, `รถทะเบียน ${activeClaim.plateNo} (${activeClaim.carBrand} ${activeClaim.carModel})`,
-                        `สถานะ: ${statusTh[activeClaim.status] || activeClaim.status}`,
-                        ``, `เราจะแจ้งเตือนคุณผ่าน LINE เมื่อมีการอัพเดตสถานะ 🙏`,
-                    ].join("\n"));
-                } else {
-                    // ไม่เจอ → บอก format ที่ถูกต้อง
-                    await sendLineReply(replyToken,
-                        `📝 กรุณาส่งข้อมูลในรูปแบบ:\nชื่อ / ทะเบียนรถ\n\nตัวอย่าง: สมชาย / กข1234\n\nหรือพิมพ์เลขทะเบียนรถอย่างเดียวก็ได้ครับ`
-                    );
+                    if (activeJob) {
+                        await linkLineToJob(activeJob, lineUserId);
+                        await sendLineReply(replyToken, buildJobLinkedReply(activeJob, true));
+                    }
+                    // ไม่เจอ job → เงียบ (ไม่ตอบ) เพื่อไม่ให้ชนกับ auto-reply ของ LINE OA
                 }
+                // ข้อความทั่วไปที่ไม่ใช่ keyword → ไม่ตอบ (ปล่อยให้ LINE OA auto-reply/แชทจัดการ)
                 continue;
             }
 
             const customerName = parts[0].trim();
-            const plateRaw = parts.slice(1).join("/").trim();
+            const plateRaw = parts[1].trim();
+            const insuranceComp = parts[2]?.trim() || undefined;
             const normalizedPlate = normalizePlate(plateRaw);
 
             if (!customerName || !normalizedPlate) {
-                await sendLineReply(replyToken, `❌ กรุณาระบุทั้งชื่อและทะเบียนรถ\n\nตัวอย่าง: สมชาย / กข1234`);
+                await sendLineReply(replyToken, `❌ กรุณาระบุทั้งชื่อและทะเบียนรถ\n\nตัวอย่าง: สมชาย / กข1234\nหรือ: สมชาย / กข1234 / วิริยะ`);
                 continue;
             }
 
-            // ค้นหาเคลมที่ตรงกับ ชื่อ + ทะเบียน
-            const activeClaims = await prisma.insuranceClaim.findMany({
-                where: { status: { not: "COMPLETED" } },
-                include: { items: true },
-                orderBy: { createdAt: "desc" },
-            });
+            // ค้นหา Job ที่ทะเบียนตรง
+            const matchedJob = await findJobByPlate(normalizedPlate);
 
-            const matched = activeClaims.find(
-                (c) => normalizePlate(c.plateNo) === normalizedPlate
-            );
-
-            if (matched) {
-                // ✅ เจอเคลม → ผูก lineUserId
-                const isNewLink = (matched as any).lineUserId !== lineUserId;
-                await prisma.insuranceClaim.update({
-                    where: { id: matched.id },
-                    data: { lineUserId, lineLinkedAt: isNewLink ? new Date() : undefined } as any,
-                });
+            if (matchedJob) {
+                // ✅ เจอ Job → ผูก lineUserId
+                await linkLineToJob(matchedJob, lineUserId);
 
                 // Mark registration as matched if exists
                 await prisma.lineRegistration.updateMany({
                     where: { lineUserId, normalizedPlate, matched: false },
-                    data: { matched: true, matchedClaimId: matched.id },
+                    data: { matched: true },
                 });
 
-                const statusTh: Record<string, string> = {
-                    PENDING: "รอดำเนินการ 🕐", ORDERED: "สั่งอะไหล่แล้ว 📦",
-                    ARRIVED: "อะไหล่มาถึง 🎉", NOTIFIED: "แจ้งลูกค้าแล้ว ✅",
-                };
-
-                await sendLineReply(replyToken, [
-                    `✅ ลงทะเบียนสำเร็จ!`,
-                    ``,
-                    `คุณ ${matched.customerName}`,
-                    `รถทะเบียน ${matched.plateNo} (${matched.carBrand} ${matched.carModel})`,
-                    `สถานะปัจจุบัน: ${statusTh[matched.status] || matched.status}`,
-                    ``,
-                    `เราจะแจ้งเตือนคุณผ่าน LINE เมื่อมีการอัพเดตสถานะ 🙏`,
-                ].join("\n"));
-
-                console.log(`[LINE Webhook] Linked userId=${lineUserId} to claim ${matched.claimNo}`);
+                await sendLineReply(replyToken, buildJobLinkedReply(matchedJob, true));
+                console.log(`[LINE Webhook] Linked userId=${lineUserId} to job ${matchedJob.jobNo}`);
             } else {
-                // ❌ ไม่เจอเคลม → เก็บเป็น pending registration
+                // ❌ ไม่เจอ Job → เก็บเป็น pending registration
                 await prisma.lineRegistration.upsert({
                     where: {
                         lineUserId_normalizedPlate: { lineUserId, normalizedPlate },
@@ -366,10 +351,11 @@ webhookRouter.post("/line", async (c) => {
                     ``,
                     `คุณ ${customerName}`,
                     `ทะเบียน ${plateRaw}`,
+                    insuranceComp ? `ประกัน ${insuranceComp}` : null,
                     ``,
-                    `ยังไม่พบเคลมในระบบตอนนี้ แต่เราได้บันทึกข้อมูลไว้แล้ว`,
-                    `เมื่อทางร้านสร้างเคลมที่ตรงกัน ระบบจะแจ้งเตือนคุณอัตโนมัติ 🙏`,
-                ].join("\n"));
+                    `ยังไม่พบงานซ่อมในระบบตอนนี้ แต่เราได้บันทึกข้อมูลไว้แล้ว`,
+                    `เมื่อทางร้านสร้างงานซ่อมที่ตรงกัน ระบบจะแจ้งเตือนคุณอัตโนมัติ 🙏`,
+                ].filter(Boolean).join("\n"));
 
                 console.log(`[LINE Webhook] Stored pending registration for ${customerName} (${plateRaw})`);
             }
@@ -382,5 +368,50 @@ webhookRouter.post("/line", async (c) => {
     }
 });
 
-// Export helpers สำหรับใช้ใน claims.ts
+// ── Helper Functions ──
+
+/** ค้นหา Job ที่ active โดย plateNo (normalized) */
+async function findJobByPlate(normalizedPlate: string) {
+    const activeJobs = await prisma.job.findMany({
+        where: { status: { notIn: ["DELIVERED", "CANCELLED"] } },
+        include: { parts: true },
+        orderBy: { createdAt: "desc" },
+    });
+    return activeJobs.find(j => normalizePlate(j.plateNo) === normalizedPlate) || null;
+}
+
+/** ผูก lineUserId เข้ากับ Job */
+async function linkLineToJob(job: any, lineUserId: string) {
+    const isNewLink = job.lineUserId !== lineUserId;
+    if (isNewLink) {
+        await prisma.job.update({
+            where: { id: job.id },
+            data: { lineUserId, lineLinkedAt: new Date() },
+        });
+    }
+}
+
+/** สร้างข้อความตอบกลับหลังลิงก์ Job สำเร็จ */
+function buildJobLinkedReply(job: any, isNewLink: boolean): string {
+    const statusTh: Record<string, string> = {
+        WAITING_PARTS: "รออะไหล่ ⏳",
+        RECEIVED: "รับรถแล้ว 🚗",
+        IN_PROGRESS: "กำลังซ่อม 🔧",
+        COMPLETED: "ซ่อมเสร็จ ✅",
+        DELIVERED: "ส่งมอบแล้ว 🚚",
+    };
+
+    return [
+        isNewLink ? `✅ ลงทะเบียนสำเร็จ!` : `📋 สถานะล่าสุด`,
+        ``,
+        `📋 Job: ${job.jobNo}`,
+        `🚗 ${job.carBrand} ${job.carModel} (${job.plateNo})`,
+        job.insuranceComp ? `🏢 ประกัน: ${job.insuranceComp}` : null,
+        `สถานะ: ${statusTh[job.status] || job.status}`,
+        ``,
+        `เราจะแจ้งเตือนคุณผ่าน LINE เมื่อมีการอัพเดตสถานะ 🙏`,
+    ].filter(Boolean).join("\n");
+}
+
+// Export helpers
 export { sendLinePush };

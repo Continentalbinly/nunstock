@@ -5,8 +5,8 @@ import { CheckCircle2, XCircle, AlertCircle, MessageSquare, RefreshCw, Send, Cop
 
 const API_BASE = "";
 
-const statusLabel: Record<string, string> = { PENDING: "รอดำเนินการ", ORDERED: "สั่งแล้ว", ARRIVED: "มาถึง", NOTIFIED: "แจ้งแล้ว", COMPLETED: "เสร็จสิ้น" };
-const statusBadge: Record<string, string> = { PENDING: "bg-amber-500/15 text-amber-500", ORDERED: "bg-orange-500/15 text-orange-500", ARRIVED: "bg-emerald-500/15 text-emerald-500", NOTIFIED: "bg-purple-500/15 text-purple-500", COMPLETED: "bg-emerald-500/10 text-emerald-500" };
+const statusLabel: Record<string, string> = { WAITING_PARTS: "รออะไหล่", RECEIVED: "รับรถแล้ว", IN_PROGRESS: "กำลังซ่อม", COMPLETED: "ซ่อมเสร็จ", DELIVERED: "ส่งมอบแล้ว", CANCELLED: "ยกเลิก" };
+const statusBadge: Record<string, string> = { WAITING_PARTS: "bg-amber-500/15 text-amber-500", RECEIVED: "bg-blue-500/15 text-blue-500", IN_PROGRESS: "bg-orange-500/15 text-orange-500", COMPLETED: "bg-emerald-500/15 text-emerald-500", DELIVERED: "bg-emerald-500/10 text-emerald-500", CANCELLED: "bg-red-500/15 text-red-500" };
 
 export default function LineOperationsPage() {
     const [data, setData] = useState<any>(null);
@@ -126,9 +126,9 @@ export default function LineOperationsPage() {
             {/* ── Stats ── */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                 {[
-                    { label: "เคลมทั้งหมด", value: stats?.totalClaims ?? 0, icon: Users, color: "#F97316" },
+                    { label: "งานทั้งหมด", value: stats?.totalClaims ?? 0, icon: Users, color: "#F97316" },
                     { label: "ลิงก์ LINE แล้ว", value: stats?.linkedClaims ?? 0, icon: Link2, color: "#00B370" },
-                    { label: "เคลมเปิดอยู่", value: stats?.activeClaims ?? 0, icon: AlertCircle, color: "#F59E0B" },
+                    { label: "งานเปิดอยู่", value: stats?.activeClaims ?? 0, icon: AlertCircle, color: "#F59E0B" },
                     { label: "อัตราลิงก์ (active)", value: `${stats?.linkRate ?? 0}%`, icon: CheckCircle2, color: "#A855F7" },
                 ].map((s) => (
                     <div key={s.label} className="rounded-xl p-4" style={{ background: "var(--t-card)", border: "1px solid var(--t-border-subtle)", borderTop: `2px solid ${s.color}` }}>
@@ -150,14 +150,14 @@ export default function LineOperationsPage() {
                         <span className="text-xs px-1.5 py-0.5 rounded-md ml-auto" style={{ background: "rgba(0,179,112,0.1)", color: "#00B370" }}>{data?.recentLinked?.length ?? 0}</span>
                     </h2>
                     {!data?.recentLinked?.length ? (
-                        <p className="text-sm text-center py-8" style={{ color: "var(--t-text-muted)" }}>ยังไม่มีลูกค้าลิงก์ LINE</p>
+                        <p className="text-sm text-center py-8" style={{ color: "var(--t-text-muted)" }}>{(stats?.totalClaims ?? 0) > 0 ? "ยังไม่มีลูกค้าลิงก์ LINE" : "ยังไม่มีข้อมูลงาน"}</p>
                     ) : (
                         <div className="space-y-2">
                             {data.recentLinked.map((c: any) => (
                                 <div key={c.id} className="flex items-center justify-between py-2 px-2 rounded-lg" style={{ borderBottom: "1px solid var(--t-border-subtle)" }}>
                                     <div className="min-w-0">
                                         <p className="text-sm font-medium truncate" style={{ color: "var(--t-text)" }}>{c.customerName}</p>
-                                        <p className="text-xs" style={{ color: "var(--t-text-muted)" }}>{c.plateNo} • {c.carBrand} {c.carModel}</p>
+                                        <p className="text-xs" style={{ color: "var(--t-text-muted)" }}>{c.jobNo} • {c.plateNo} • {c.carBrand} {c.carModel}{c.insuranceComp ? ` • ${c.insuranceComp}` : ""}</p>
                                     </div>
                                     <div className="flex items-center gap-2 shrink-0 ml-2">
                                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusBadge[c.status]}`}>{statusLabel[c.status]}</span>
@@ -179,14 +179,14 @@ export default function LineOperationsPage() {
                         <span className="text-xs px-1.5 py-0.5 rounded-md ml-auto" style={{ background: "rgba(245,158,11,0.1)", color: "#F59E0B" }}>{data?.unlinked?.length ?? 0}</span>
                     </h2>
                     {!data?.unlinked?.length ? (
-                        <p className="text-sm text-center py-8" style={{ color: "var(--t-text-muted)" }}>ลูกค้าทุกคนลิงก์ LINE แล้ว 🎉</p>
+                        <p className="text-sm text-center py-8" style={{ color: "var(--t-text-muted)" }}>{(stats?.totalClaims ?? 0) > 0 ? "ลูกค้าทุกคนลิงก์ LINE แล้ว 🎉" : "ไม่มีลูกค้ารอลิงก์"}</p>
                     ) : (
                         <div className="space-y-2">
                             {data.unlinked.map((c: any) => (
                                 <div key={c.id} className="flex items-center justify-between py-2 px-2 rounded-lg" style={{ borderBottom: "1px solid var(--t-border-subtle)" }}>
                                     <div className="min-w-0">
                                         <p className="text-sm font-medium truncate" style={{ color: "var(--t-text)" }}>{c.customerName}</p>
-                                        <p className="text-xs" style={{ color: "var(--t-text-muted)" }}>{c.plateNo} • {c.carBrand} {c.carModel}</p>
+                                        <p className="text-xs" style={{ color: "var(--t-text-muted)" }}>{c.jobNo} • {c.plateNo} • {c.carBrand} {c.carModel}{c.insuranceComp ? ` • ${c.insuranceComp}` : ""}</p>
                                     </div>
                                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ml-2 ${statusBadge[c.status]}`}>{statusLabel[c.status]}</span>
                                 </div>

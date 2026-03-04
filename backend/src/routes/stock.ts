@@ -14,6 +14,10 @@ stockRouter.get("/summary", async (c) => {
         thisMonthStart.setDate(1);
         thisMonthStart.setHours(0, 0, 0, 0);
 
+        // Find paint & consumable category IDs
+        const paintCat = await prisma.partCategory.findFirst({ where: { name: "สีพ่นรถยนต์", parentId: null } });
+        const consumableCat = await prisma.partCategory.findFirst({ where: { name: "วัสดุสิ้นเปลือง", parentId: null } });
+
         const [
             totalParts,
             totalCategories,
@@ -24,6 +28,9 @@ stockRouter.get("/summary", async (c) => {
             todayOutCount,
             todayInCount,
             topWithdrawnRaw,
+            paintCount,
+            consumableCount,
+            shopStockAgg,
         ] = await Promise.all([
             prisma.part.count(),
             prisma.partCategory.count(),
@@ -37,9 +44,8 @@ stockRouter.get("/summary", async (c) => {
                 orderBy: { quantity: "asc" },
                 take: 10,
             }),
-            prisma.insuranceClaim.findMany({
-                where: { status: { in: ["PENDING", "ORDERED", "ARRIVED"] } },
-                include: { items: true },
+            prisma.job.findMany({
+                where: { type: "INSURANCE", status: { in: ["WAITING_PARTS", "RECEIVED", "IN_PROGRESS"] } },
                 orderBy: { createdAt: "desc" },
                 take: 5,
             }),
@@ -65,6 +71,12 @@ stockRouter.get("/summary", async (c) => {
                 orderBy: { _sum: { quantity: "desc" } },
                 take: 5,
             }),
+            // Paint parts count (in สีพ่นรถยนต์ category)
+            paintCat ? prisma.part.count({ where: { categoryId: paintCat.id } }) : Promise.resolve(0),
+            // Consumable parts count (in วัสดุสิ้นเปลือง category)
+            consumableCat ? prisma.part.count({ where: { categoryId: consumableCat.id } }) : Promise.resolve(0),
+            // Shop stock total quantity
+            prisma.shopStock.aggregate({ _sum: { quantity: true } }),
         ]);
 
         // Enrich top withdrawn with part info
@@ -119,6 +131,9 @@ stockRouter.get("/summary", async (c) => {
                 totalParts,
                 totalCategories,
                 totalStock: totalStockAgg._sum.quantity || 0,
+                paintCount,
+                consumableCount,
+                shopStockCount: shopStockAgg._sum.quantity || 0,
                 lowStockCount: actualLowStock.length,
                 pendingClaimsCount: recentClaims.length,
                 todayOutCount,
@@ -213,6 +228,238 @@ stockRouter.get("/jobs-report", async (c) => {
         });
     } catch (error) {
         return c.json({ success: false, error: "ไม่สามารถดึงรายงาน Jobs ได้" }, 500);
+    }
+});
+
+// GET /api/stock/daily-summary — สรุปรายวัน (รถจอด, รถออก, โทรแจ้งเคลม, ปิดงาน, หมายเหตุ)
+stockRouter.get("/daily-summary", async (c) => {
+    try {
+        const { date } = c.req.query();
+        // Parse date as local time (avoid UTC shift from new Date("YYYY-MM-DD"))
+        let dayStart: Date, dayEnd: Date;
+        if (date) {
+            const [y, m, d] = date.split("-").map(Number);
+            dayStart = new Date(y, m - 1, d, 0, 0, 0, 0);
+            dayEnd = new Date(y, m - 1, d, 23, 59, 59, 999);
+        } else {
+            const now = new Date();
+            dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+            dayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+        }
+
+        // 1. รถจอด (รับรถ) = status changed TO "RECEIVED" today
+        const receivedLogs = await prisma.jobStatusLog.findMany({
+            where: { toStatus: "RECEIVED", changedAt: { gte: dayStart, lte: dayEnd } },
+            include: { job: { select: { id: true, jobNo: true, carBrand: true, carModel: true, plateNo: true, customerName: true, insuranceComp: true, type: true } } },
+            orderBy: { changedAt: "asc" },
+        });
+
+        // 2. รถออก (ส่งมอบ) = status changed TO "DELIVERED" today
+        const deliveredLogs = await prisma.jobStatusLog.findMany({
+            where: { toStatus: "DELIVERED", changedAt: { gte: dayStart, lte: dayEnd } },
+            include: { job: { select: { id: true, jobNo: true, carBrand: true, carModel: true, plateNo: true, customerName: true, insuranceComp: true, type: true } } },
+            orderBy: { changedAt: "asc" },
+        });
+
+        // 3. รถแจ้งเคลม = logs with notes "แจ้งเคลม" today
+        const claimCallLogs = await prisma.jobStatusLog.findMany({
+            where: { notes: "แจ้งเคลม", changedAt: { gte: dayStart, lte: dayEnd } },
+            include: { job: { select: { id: true, jobNo: true, carBrand: true, carModel: true, plateNo: true, customerName: true, insuranceComp: true, type: true } } },
+            orderBy: { changedAt: "asc" },
+        });
+
+        // 4. ปิดงาน = status changed TO "CLOSED" today
+        const closedLogs = await prisma.jobStatusLog.findMany({
+            where: { toStatus: "CLOSED", changedAt: { gte: dayStart, lte: dayEnd } },
+            include: { job: { select: { id: true, jobNo: true, carBrand: true, carModel: true, plateNo: true, customerName: true, insuranceComp: true, type: true } } },
+            orderBy: { changedAt: "asc" },
+        });
+
+        // 5. หมายเหตุ = JobNote created today
+        const dailyNotes = await prisma.jobNote.findMany({
+            where: { createdAt: { gte: dayStart, lte: dayEnd } },
+            include: { job: { select: { id: true, jobNo: true, carBrand: true, carModel: true, plateNo: true, customerName: true } } },
+            orderBy: { createdAt: "asc" },
+        });
+
+        const mapLog = (l: any) => ({
+            jobId: l.job.id, jobNo: l.job.jobNo, carBrand: l.job.carBrand, carModel: l.job.carModel,
+            plateNo: l.job.plateNo, customerName: l.job.customerName,
+            insuranceComp: l.job.type === "CASH" ? "หน้าร้าน" : (l.job.insuranceComp || "ไม่ระบุ"),
+            time: l.changedAt,
+        });
+
+        return c.json({
+            success: true,
+            data: {
+                date: date || `${dayStart.getFullYear()}-${String(dayStart.getMonth() + 1).padStart(2, '0')}-${String(dayStart.getDate()).padStart(2, '0')}`,
+                received: receivedLogs.map(mapLog),
+                delivered: deliveredLogs.map(mapLog),
+                claimCalled: claimCallLogs.map(mapLog),
+                closed: closedLogs.map(mapLog),
+                notes: dailyNotes.map((n: any) => ({
+                    jobId: n.job.id, jobNo: n.job.jobNo, carBrand: n.job.carBrand, carModel: n.job.carModel,
+                    plateNo: n.job.plateNo, customerName: n.job.customerName, note: n.note, time: n.createdAt,
+                })),
+            },
+        });
+    } catch (error) {
+        console.error("Daily summary error:", error);
+        return c.json({ success: false, error: "ไม่สามารถดึงสรุปรายวันได้" }, 500);
+    }
+});
+
+// GET /api/stock/weekly-summary — สรุปรายสัปดาห์ (ตาราง 7 วัน แยกตามบริษัทประกัน)
+stockRouter.get("/weekly-summary", async (c) => {
+    try {
+        const { date } = c.req.query();
+        // Find Monday of the week containing the given date
+        const target = date ? new Date(date + "T00:00:00") : new Date();
+        const day = target.getDay(); // 0=Sun, 1=Mon, ...
+        const monday = new Date(target);
+        monday.setDate(target.getDate() - ((day === 0 ? 7 : day) - 1));
+        monday.setHours(0, 0, 0, 0);
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+        sunday.setHours(23, 59, 59, 999);
+
+        // Fetch all RECEIVED and DELIVERED logs for the whole week
+        const [receivedLogs, deliveredLogs] = await Promise.all([
+            prisma.jobStatusLog.findMany({
+                where: { toStatus: "RECEIVED", changedAt: { gte: monday, lte: sunday } },
+                include: { job: { select: { type: true, insuranceComp: true } } },
+                orderBy: { changedAt: "asc" },
+            }),
+            prisma.jobStatusLog.findMany({
+                where: { toStatus: "DELIVERED", changedAt: { gte: monday, lte: sunday } },
+                include: { job: { select: { type: true, insuranceComp: true } } },
+                orderBy: { changedAt: "asc" },
+            }),
+        ]);
+
+        const getCompany = (log: any) => log.job.type === "CASH" ? "หน้าร้าน" : (log.job.insuranceComp || "ไม่ระบุ");
+        const companiesSet = new Set<string>();
+
+        // Build daily breakdown
+        const days = [];
+        for (let i = 0; i < 7; i++) {
+            const d = new Date(monday);
+            d.setDate(monday.getDate() + i);
+            const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+            const dayEnd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+
+            const dayReceived = receivedLogs.filter(l => l.changedAt >= dayStart && l.changedAt <= dayEnd);
+            const dayDelivered = deliveredLogs.filter(l => l.changedAt >= dayStart && l.changedAt <= dayEnd);
+
+            const recByCompany: Record<string, number> = {};
+            dayReceived.forEach(l => { const co = getCompany(l); recByCompany[co] = (recByCompany[co] || 0) + 1; companiesSet.add(co); });
+
+            const delByCompany: Record<string, number> = {};
+            dayDelivered.forEach(l => { const co = getCompany(l); delByCompany[co] = (delByCompany[co] || 0) + 1; companiesSet.add(co); });
+
+            days.push({
+                date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`,
+                dayName: d.toLocaleDateString("th-TH", { weekday: "short" }),
+                received: { total: dayReceived.length, byCompany: recByCompany },
+                delivered: { total: dayDelivered.length, byCompany: delByCompany },
+            });
+        }
+
+        // Totals
+        const totalRecByCompany: Record<string, number> = {};
+        const totalDelByCompany: Record<string, number> = {};
+        receivedLogs.forEach(l => { const co = getCompany(l); totalRecByCompany[co] = (totalRecByCompany[co] || 0) + 1; });
+        deliveredLogs.forEach(l => { const co = getCompany(l); totalDelByCompany[co] = (totalDelByCompany[co] || 0) + 1; });
+
+        return c.json({
+            success: true,
+            data: {
+                weekStart: `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`,
+                weekEnd: `${sunday.getFullYear()}-${String(sunday.getMonth() + 1).padStart(2, '0')}-${String(sunday.getDate()).padStart(2, '0')}`,
+                days,
+                totals: {
+                    received: { total: receivedLogs.length, byCompany: totalRecByCompany },
+                    delivered: { total: deliveredLogs.length, byCompany: totalDelByCompany },
+                },
+                companies: Array.from(companiesSet).sort(),
+            },
+        });
+    } catch (error) {
+        console.error("Weekly summary error:", error);
+        return c.json({ success: false, error: "ไม่สามารถดึงสรุปรายสัปดาห์ได้" }, 500);
+    }
+});
+
+// GET /api/stock/monthly-summary — สรุปรายเดือน (รถเข้า/รถออก/มาก่อน แยกตามบริษัท)
+stockRouter.get("/monthly-summary", async (c) => {
+    try {
+        const { month } = c.req.query(); // YYYY-MM
+        let monthStart: Date, monthEnd: Date;
+        if (month) {
+            const [y, m] = month.split("-").map(Number);
+            monthStart = new Date(y, m - 1, 1, 0, 0, 0, 0);
+            monthEnd = new Date(y, m, 0, 23, 59, 59, 999); // last day of month
+        } else {
+            const now = new Date();
+            monthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+            monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+        }
+
+        const getCompany = (job: any) => job.type === "CASH" ? "หน้าร้าน" : (job.insuranceComp || "ไม่ระบุ");
+
+        // 1. รถเข้าซ่อม = RECEIVED this month
+        const receivedLogs = await prisma.jobStatusLog.findMany({
+            where: { toStatus: "RECEIVED", changedAt: { gte: monthStart, lte: monthEnd } },
+            include: { job: { select: { type: true, insuranceComp: true } } },
+        });
+
+        // 2. รถออก = DELIVERED this month
+        const deliveredLogs = await prisma.jobStatusLog.findMany({
+            where: { toStatus: "DELIVERED", changedAt: { gte: monthStart, lte: monthEnd } },
+            include: { job: { select: { type: true, insuranceComp: true } } },
+        });
+
+        // 3. รถมาเคลม = logs with notes "แจ้งเคลม" this month
+        const claimCalledLogs = await prisma.jobStatusLog.findMany({
+            where: { notes: "แจ้งเคลม", changedAt: { gte: monthStart, lte: monthEnd } },
+            include: { job: { select: { type: true, insuranceComp: true } } },
+        });
+
+        const groupByCompany = (items: any[], fromJob = false) => {
+            const byCompany: Record<string, number> = {};
+            const companiesLocal = new Set<string>();
+            items.forEach(item => {
+                const job = fromJob ? item : item.job;
+                const co = getCompany(job);
+                byCompany[co] = (byCompany[co] || 0) + 1;
+                companiesLocal.add(co);
+            });
+            return { total: items.length, byCompany, companies: companiesLocal };
+        };
+
+        const recGroup = groupByCompany(receivedLogs);
+        const delGroup = groupByCompany(deliveredLogs);
+        const claimGroup = groupByCompany(claimCalledLogs);
+
+        const allCompanies = new Set<string>();
+        [recGroup, delGroup, claimGroup].forEach(g => g.companies.forEach(co => allCompanies.add(co)));
+
+        const monthLabel = monthStart.toLocaleDateString("th-TH", { month: "long", year: "numeric" });
+
+        return c.json({
+            success: true,
+            data: {
+                month: month || `${monthStart.getFullYear()}-${String(monthStart.getMonth() + 1).padStart(2, '0')}`,
+                monthLabel,
+                received: { total: recGroup.total, byCompany: recGroup.byCompany },
+                delivered: { total: delGroup.total, byCompany: delGroup.byCompany },
+                claimCalled: { total: claimGroup.total, byCompany: claimGroup.byCompany },
+                companies: Array.from(allCompanies).sort(),
+            },
+        });
+    } catch (error) {
+        console.error("Monthly summary error:", error);
+        return c.json({ success: false, error: "ไม่สามารถดึงสรุปรายเดือนได้" }, 500);
     }
 });
 

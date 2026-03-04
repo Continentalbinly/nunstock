@@ -9,8 +9,8 @@ import {
 } from "@/lib/api";
 import {
     ArrowLeft, Plus, X, Trash2, Package, Car, Clock, PlayCircle, PackageCheck, Truck,
-    ShieldCheck, Banknote, ArrowRight, Search, Wrench, ClipboardList, Bell, Ban,
-    CheckCircle2, Minus, User, Hammer, Paintbrush, Settings, Sparkles,
+    ShieldCheck, Banknote, ArrowRight, Search, Wrench, ClipboardList, Bell, Ban, Lock,
+    CheckCircle2, Minus, User, Hammer, Paintbrush, Settings, Sparkles, Phone, StickyNote,
     ChevronUp, ChevronDown, PackageOpen, Palette,
 } from "lucide-react";
 import { Pagination } from "@/components/Pagination";
@@ -23,7 +23,8 @@ const STATUS_CONFIG: Record<string, { label: string; icon: any; color: string; b
     RECEIVED: { label: "รับรถ", icon: Car, color: "#F97316", bg: "rgba(249,115,22,0.12)" },
     IN_PROGRESS: { label: "กำลังซ่อม", icon: PlayCircle, color: "#F97316", bg: "rgba(249,115,22,0.12)" },
     COMPLETED: { label: "ซ่อมเสร็จ", icon: PackageCheck, color: "#22C55E", bg: "rgba(34,197,94,0.12)" },
-    DELIVERED: { label: "ส่งมอบ", icon: Truck, color: "#6B7280", bg: "rgba(107,114,128,0.12)" },
+    DELIVERED: { label: "ส่งมอบ", icon: Truck, color: "#3B82F6", bg: "rgba(59,130,246,0.12)" },
+    CLOSED: { label: "ปิดงาน", icon: Lock, color: "#6B7280", bg: "rgba(107,114,128,0.12)" },
     CANCELLED: { label: "ยกเลิก", icon: Ban, color: "#EF4444", bg: "rgba(239,68,68,0.12)" },
 };
 const TYPE_CONFIG: Record<string, { label: string; icon: any; color: string }> = {
@@ -36,7 +37,7 @@ const PART_STATUS: Record<string, { label: string; color: string; Icon: any }> =
     WITHDRAWN: { label: "เบิกแล้ว", color: "#A855F7", Icon: PackageOpen },
     INSTALLED: { label: "ติดตั้ง", color: "#F97316", Icon: Wrench },
 };
-const NEXT_STATUS: Record<string, string> = { WAITING_PARTS: "RECEIVED", RECEIVED: "IN_PROGRESS", IN_PROGRESS: "COMPLETED", COMPLETED: "DELIVERED" };
+const NEXT_STATUS: Record<string, string> = { WAITING_PARTS: "RECEIVED", RECEIVED: "IN_PROGRESS", IN_PROGRESS: "COMPLETED", COMPLETED: "DELIVERED", DELIVERED: "CLOSED" };
 const NEXT_PART_STATUS: Record<string, string> = { ORDERED: "ARRIVED", ARRIVED: "WITHDRAWN", WITHDRAWN: "INSTALLED" };
 const SOURCE_LABELS: Record<string, string> = { SHOP_PART: "หน้าร้าน", INSURANCE_PART: "ประกัน", SHOP_STOCK: "สต็อกอู่", CONSUMABLE: "วัสดุสิ้นเปลือง", PAINT: "สี", EXTERNAL: "สั่งใหม่" };
 const ICON_MAP: Record<string, any> = { Hammer, Paintbrush, Settings, Sparkles, Wrench, ClipboardList, Package };
@@ -77,6 +78,12 @@ export default function JobDetailPage() {
 
     // Barcode print
     const [barcodePart, setBarcodePart] = useState<any>(null);
+
+    // Notes modal
+    const [showNoteModal, setShowNoteModal] = useState(false);
+    const [noteText, setNoteText] = useState("");
+    const [noteSaving, setNoteSaving] = useState(false);
+    const [jobNotes, setJobNotes] = useState<any[]>([]);
 
     // Consumables withdrawal
     const [showConsumables, setShowConsumables] = useState(false);
@@ -165,6 +172,29 @@ export default function JobDetailPage() {
         });
     };
 
+    const handleClaimCall = async () => {
+        try {
+            await fetch(`/api/jobs/${id}/claim-call`, { method: "POST", credentials: "include" });
+            toast.success("บันทึกแจ้งเคลมแล้ว");
+            fetchJob();
+        } catch (err: any) { toast.error(err.message || "ไม่สามารถบันทึกได้"); }
+    };
+
+    const handleAddNote = async () => {
+        if (!noteText.trim()) return;
+        setNoteSaving(true);
+        try {
+            await fetch(`/api/jobs/${id}/notes`, { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ note: noteText.trim() }) });
+            toast.success("เพิ่มหมายเหตุเรียบร้อย");
+            setNoteText(""); setShowNoteModal(false);
+            // Refresh notes
+            const res = await fetch(`/api/jobs/${id}/notes`, { credentials: "include" });
+            const json = await res.json();
+            if (json.success) setJobNotes(json.data);
+        } catch (err: any) { toast.error(err.message || "ไม่สามารถเพิ่มได้"); }
+        finally { setNoteSaving(false); }
+    };
+
     const handlePartStatusChange = async (partId: string, nextStatus: string, partName?: string) => {
         const confirmMessages: Record<string, { title: string; message: string }> = {
             ARRIVED: { title: "ยืนยันอะไหล่มาถึง?", message: `"${partName || 'อะไหล่'}" มาถึงร้านแล้ว\nระบบจะสร้างบาร์โค้ดและเปิดหน้าปริ้นให้อัตโนมัติ` },
@@ -245,7 +275,7 @@ export default function JobDetailPage() {
         finally { setPartSaving(false); }
     };
 
-    const isLocked = job?.status === "COMPLETED" || job?.status === "DELIVERED" || job?.status === "CANCELLED";
+    const isLocked = job?.status === "COMPLETED" || job?.status === "DELIVERED" || job?.status === "CLOSED" || job?.status === "CANCELLED";
 
     const handleRemovePart = (partId: string, partName: string) => {
         setConfirmAction({
@@ -318,13 +348,28 @@ export default function JobDetailPage() {
                                 </div>
                             </div>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                             {NEXT_STATUS[job.status] && (
                                 <button onClick={() => handleStatusChange(NEXT_STATUS[job.status])}
                                     className="flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-bold cursor-pointer text-white transition-all" style={{ background: "#F97316" }}>
                                     <ArrowRight className="w-4 h-4" /> {STATUS_CONFIG[NEXT_STATUS[job.status]]?.label}
                                 </button>
                             )}
+                            {job.type === "INSURANCE" && !job.claimCalledAt && job.status !== "CANCELLED" && job.status !== "CLOSED" && (
+                                <button onClick={handleClaimCall}
+                                    className="flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-bold cursor-pointer transition-all" style={{ background: "rgba(59,130,246,0.1)", color: "#3B82F6", border: "1px solid rgba(59,130,246,0.2)" }}>
+                                    <Phone className="w-3.5 h-3.5" /> แจ้งเคลม
+                                </button>
+                            )}
+                            {job.type === "INSURANCE" && job.claimCalledAt && (
+                                <span className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-full font-medium" style={{ background: "rgba(34,197,94,0.1)", color: "#22C55E" }}>
+                                    <CheckCircle2 className="w-3 h-3" /> แจ้งเคลมแล้ว
+                                </span>
+                            )}
+                            <button onClick={async () => { setShowNoteModal(true); try { const res = await fetch(`/api/jobs/${id}/notes`, { credentials: "include" }); const json = await res.json(); if (json.success) setJobNotes(json.data); } catch { } }}
+                                className="flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium cursor-pointer transition-all" style={{ background: "rgba(249,115,22,0.08)", color: "#F97316", border: "1px solid rgba(249,115,22,0.15)" }}>
+                                <StickyNote className="w-3.5 h-3.5" /> หมายเหตุ
+                            </button>
                             {!isLocked && job.status !== "CANCELLED" && (
                                 <button onClick={() => setShowCancel(true)} className="text-xs font-medium px-3 py-2 rounded-lg cursor-pointer" style={{ color: "#ef4444" }}>ยกเลิก</button>
                             )}
@@ -675,7 +720,7 @@ export default function JobDetailPage() {
                                         <div className="grid grid-cols-2 gap-3">
                                             <div className="rounded-lg p-3" style={{ background: "rgba(99,102,241,0.06)", border: "1px solid rgba(99,102,241,0.15)" }}>
                                                 <p className="text-[10px] font-medium mb-0.5" style={{ color: "var(--t-text-dim)" }}>บริษัทประกัน</p>
-                                                <p className="text-xs font-bold" style={{ color: "#6366F1" }}>{job.insuranceComp || job.claim?.insuranceComp || "-"}</p>
+                                                <p className="text-xs font-bold" style={{ color: "#6366F1" }}>{job.insuranceComp || "-"}</p>
                                             </div>
                                             <div className="rounded-lg p-3" style={{ background: "rgba(249,115,22,0.06)", border: "1px solid rgba(249,115,22,0.15)" }}>
                                                 <p className="text-[10px] font-medium mb-0.5" style={{ color: "var(--t-text-dim)" }}>รถ</p>
@@ -955,6 +1000,45 @@ export default function JobDetailPage() {
                 onClose={() => setShowPaints(false)}
                 onSuccess={fetchJob}
             />
+            {/* ──── Notes Modal ──── */}
+            {showNoteModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => setShowNoteModal(false)}>
+                    <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)" }} />
+                    <div className="relative w-full max-w-md mx-4 rounded-2xl overflow-hidden" style={{ background: "var(--t-modal-bg)", border: "1px solid var(--t-modal-border)" }} onClick={e => e.stopPropagation()}>
+                        <div className="p-5 text-center" style={{ background: "linear-gradient(135deg, #F97316, #EA580C)" }}>
+                            <div className="w-12 h-12 rounded-xl mx-auto mb-2 flex items-center justify-center" style={{ background: "rgba(255,255,255,0.2)" }}>
+                                <StickyNote className="w-6 h-6 text-white" />
+                            </div>
+                            <h3 className="text-lg font-bold text-white">หมายเหตุ</h3>
+                            <p className="text-sm text-white/70 mt-1">{job?.jobNo} — {job?.customerName}</p>
+                        </div>
+                        <div className="p-5 space-y-3" style={{ maxHeight: "50vh", overflowY: "auto" }}>
+                            <textarea value={noteText} onChange={e => setNoteText(e.target.value)} placeholder="เช่น ลูกค้าจะมารับรถพรุ่งนี้ 10.00 น."
+                                className="w-full rounded-xl px-4 py-3 text-sm resize-none focus:outline-none" rows={3}
+                                style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} />
+                            {jobNotes.length > 0 && (
+                                <div>
+                                    <p className="text-[11px] font-semibold mb-2" style={{ color: "var(--t-text-muted)" }}>หมายเหตุก่อนหน้า</p>
+                                    {jobNotes.map((n: any) => (
+                                        <div key={n.id} className="rounded-lg p-3 mb-2" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-border-subtle)" }}>
+                                            <p className="text-sm" style={{ color: "var(--t-text)" }}>{n.note}</p>
+                                            <p className="text-[10px] mt-1" style={{ color: "var(--t-text-dim)" }}>{new Date(n.createdAt).toLocaleString("th-TH")}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                        <div className="p-4 flex gap-2" style={{ borderTop: "1px solid var(--t-border-subtle)" }}>
+                            <button onClick={() => setShowNoteModal(false)} className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium cursor-pointer" style={{ background: "var(--t-input-bg)", color: "var(--t-text-muted)" }}>ยกเลิก</button>
+                            <button onClick={handleAddNote} disabled={!noteText.trim() || noteSaving}
+                                className="flex-1 px-4 py-2.5 rounded-xl text-sm font-bold text-white cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                                style={{ background: "linear-gradient(135deg, #F97316, #EA580C)" }}>
+                                {noteSaving ? "กำลังบันทึก..." : "บันทึก"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
             {/* ──── Barcode Print Modal ──── */}
             <BarcodeModal part={barcodePart} onClose={() => setBarcodePart(null)} />
         </div >

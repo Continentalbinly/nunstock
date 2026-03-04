@@ -14,7 +14,8 @@ const STATUS_CONFIG: Record<string, { label: string; icon: any; color: string; b
     RECEIVED: { label: "รับรถ", icon: Car, color: "#F97316", bg: "rgba(249,115,22,0.12)" },
     IN_PROGRESS: { label: "กำลังซ่อม", icon: PlayCircle, color: "#F97316", bg: "rgba(249,115,22,0.12)" },
     COMPLETED: { label: "ซ่อมเสร็จ", icon: PackageCheck, color: "#22C55E", bg: "rgba(34,197,94,0.12)" },
-    DELIVERED: { label: "ส่งมอบ", icon: Truck, color: "#6B7280", bg: "rgba(107,114,128,0.12)" },
+    DELIVERED: { label: "ส่งมอบ", icon: Truck, color: "#3B82F6", bg: "rgba(59,130,246,0.12)" },
+    CLOSED: { label: "ปิดงาน", icon: Ban, color: "#6B7280", bg: "rgba(107,114,128,0.12)" },
     CANCELLED: { label: "ยกเลิก", icon: Ban, color: "#EF4444", bg: "rgba(239,68,68,0.12)" },
 };
 const TYPE_CONFIG: Record<string, { label: string; icon: any; color: string }> = {
@@ -88,25 +89,6 @@ export default function JobsPage() {
                 </button>
             </div>
 
-            {/* Summary Cards */}
-            <div className="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
-                {summaryCards.map((s) => (
-                    <button key={s.key} onClick={() => resetPage(setFilterStatus, filterStatus === s.key ? "" : s.key)}
-                        className="rounded-xl p-3 transition-all text-left cursor-pointer"
-                        style={{ background: "var(--t-card)", borderTop: `2px solid ${s.color}`, borderLeft: filterStatus === s.key ? `2px solid ${s.color}` : "1px solid var(--t-border-subtle)", borderRight: filterStatus === s.key ? `2px solid ${s.color}` : "1px solid var(--t-border-subtle)", borderBottom: filterStatus === s.key ? `2px solid ${s.color}` : "1px solid var(--t-border-subtle)" }}>
-                        <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: s.bg }}>
-                                <s.icon className="w-4 h-4" style={{ color: s.color }} />
-                            </div>
-                            <div>
-                                <div className="text-lg font-bold" style={{ color: "var(--t-text)" }}>{summary?.byStatus?.[s.key] || 0}</div>
-                                <p className="text-[10px]" style={{ color: "var(--t-text-muted)" }}>{s.label}</p>
-                            </div>
-                        </div>
-                    </button>
-                ))}
-            </div>
-
             {/* Filter Bar */}
             <div className="rounded-xl p-4 mb-6" style={{ background: "var(--t-card)", border: "1px solid var(--t-border-subtle)" }}>
                 <div className="flex flex-wrap items-center gap-3">
@@ -178,7 +160,7 @@ export default function JobsPage() {
                                                 <span className="text-xs ml-1" style={{ color: "var(--t-text-dim)" }}>รายการ</span>
                                             </td>
                                             <td className="px-4 py-2" onClick={(e) => e.stopPropagation()}>
-                                                {job.status !== "CANCELLED" && job.status !== "DELIVERED" && (
+                                                {job.status !== "CANCELLED" && job.status !== "DELIVERED" && job.status !== "CLOSED" && (
                                                     <button onClick={() => setConfirmCancel(job)} className="text-xs font-medium px-2 py-1 rounded-lg cursor-pointer transition-colors" style={{ color: "#ef4444" }} title="ยกเลิก Job">
                                                         ยกเลิก
                                                     </button>

@@ -70,38 +70,6 @@ export const getMovements = (params?: Record<string, string>) =>
 export const createMovement = (data: any) =>
     apiFetch<any>("/api/movements", { method: "POST", body: JSON.stringify(data) });
 
-// ---- เคลมประกัน (paginated) ----
-export const getClaims = (params?: Record<string, string>) =>
-    apiFetchPaginated<any>(`/api/claims?${new URLSearchParams(params)}`);
-export const getClaimsAll = (params?: Record<string, string>) =>
-    apiFetchPaginated<any>(`/api/claims?pageSize=999&${new URLSearchParams(params)}`).then((r) => r.data);
-export const getClaim = (id: string) => apiFetch<any>(`/api/claims/${id}`);
-export const createClaim = (data: any) =>
-    apiFetch<any>("/api/claims", { method: "POST", body: JSON.stringify(data) });
-export const updateClaimStatus = (id: string, status: string) =>
-    apiFetch<any>(`/api/claims/${id}/status`, {
-        method: "PATCH",
-        body: JSON.stringify({ status }),
-    });
-export const notifyClaimCustomer = (id: string, lineUserId?: string) =>
-    fetch(`${API_BASE}/api/claims/${id}/notify`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ lineUserId }),
-    }).then((r) => r.json());
-export const deleteClaim = (id: string) =>
-    apiFetch<any>(`/api/claims/${id}`, { method: "DELETE" });
-
-// ---- ค้นหาด้วยบาร์โค้ด ----
-export const lookupPartByCode = async (code: string) => {
-    const res = await fetch(`${API_BASE}/api/parts/lookup/${encodeURIComponent(code)}`, {
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-    });
-    const data = await res.json();
-    return data; // { success, data?, error? }
-};
 
 export const createBatchMovements = (data: { items: { partId: string; quantity: number; reason?: string }[]; reason?: string }) =>
     apiFetch<any>("/api/movements/batch", { method: "POST", body: JSON.stringify(data) });
@@ -119,8 +87,7 @@ export const updateShopStock = (id: string, data: any) =>
     apiFetch<any>(`/api/shop-stock/${id}`, { method: "PATCH", body: JSON.stringify(data) });
 export const updateShopStockCondition = (id: string, condition: string) =>
     apiFetch<any>(`/api/shop-stock/${id}/condition`, { method: "PATCH", body: JSON.stringify({ condition }) });
-export const useShopStock = (id: string, data: { quantity: number; jobNo?: string; note?: string }) =>
-    apiFetch<any>(`/api/shop-stock/${id}/use`, { method: "POST", body: JSON.stringify(data) });
+
 export const deleteShopStock = (id: string) =>
     apiFetch<any>(`/api/shop-stock/${id}`, { method: "DELETE" });
 

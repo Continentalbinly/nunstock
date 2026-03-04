@@ -177,8 +177,8 @@ body {
 
 @media print {
 
-  /* Hide everything except the print container */
-  body>*:not(#barcode-print) {
+  /* Only hide other content when barcode print container exists */
+  body:has(#barcode-print) > *:not(#barcode-print) {
     display: none !important;
   }
 
@@ -211,6 +211,15 @@ body {
     width: auto !important;
     height: auto !important;
     max-height: 30mm !important;
+  }
+
+  /* General print: hide sidebar and nav */
+  .sidebar, nav, .no-print {
+    display: none !important;
+  }
+
+  .main-content {
+    margin-left: 0 !important;
   }
 }
 
