@@ -181,6 +181,7 @@ export default function NewJobPage() {
     const [showNewInsPart, setShowNewInsPart] = useState(false);
     const [newInsPartName, setNewInsPartName] = useState("");
     const [newInsPartUnit, setNewInsPartUnit] = useState("ชิ้น");
+    const [newInsPartBrand, setNewInsPartBrand] = useState("");
     const [creatingInsPart, setCreatingInsPart] = useState(false);
 
     const handleCreateInsPart = async () => {
@@ -192,6 +193,7 @@ export default function NewJobPage() {
                 code: partCode,
                 name: newInsPartName.trim(),
                 unit: newInsPartUnit || "ชิ้น",
+                brand: newInsPartBrand.trim() || undefined,
                 quantity: 0,
                 minStock: 0,
                 type: "INSURANCE",
@@ -209,6 +211,7 @@ export default function NewJobPage() {
             }
             setNewInsPartName("");
             setNewInsPartUnit("ชิ้น");
+            setNewInsPartBrand("");
             setShowNewInsPart(false);
             toast.success(`เพิ่ม "${created.name}" สำเร็จ`);
         } catch (err: any) { toast.error(err.message || "ไม่สามารถสร้างอะไหล่ได้"); }
@@ -508,12 +511,17 @@ export default function NewJobPage() {
                                 ) : (
                                     <div className="mt-3 rounded-lg p-3" style={{ background: "rgba(249,115,22,0.04)", border: "1.5px solid rgba(249,115,22,0.2)" }}>
                                         <p className="text-xs font-bold mb-2" style={{ color: "#F97316" }}>เพิ่มอะไหล่ใหม่เข้ารุ่นนี้</p>
-                                        <div className="grid grid-cols-3 gap-2 mb-2">
+                                        <div className="grid grid-cols-2 gap-2 mb-2">
                                             <div className="col-span-2">
                                                 <input value={newInsPartName} onChange={e => setNewInsPartName(e.target.value)}
                                                     onKeyDown={e => { if (e.key === "Enter") handleCreateInsPart(); }}
                                                     className="w-full rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-orange-500/30" style={inputStyle}
                                                     placeholder="ชื่ออะไหล่ (เช่น กันชนหน้า)" autoFocus />
+                                            </div>
+                                            <div>
+                                                <input value={newInsPartBrand} onChange={e => setNewInsPartBrand(e.target.value)}
+                                                    className="w-full rounded-lg px-3 py-2 text-xs focus:outline-none" style={inputStyle}
+                                                    placeholder="คุณภาพ (เช่น OEM, แท้)" />
                                             </div>
                                             <div>
                                                 <input value={newInsPartUnit} onChange={e => setNewInsPartUnit(e.target.value)}

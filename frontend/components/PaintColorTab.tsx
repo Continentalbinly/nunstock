@@ -26,6 +26,8 @@ export default function PaintColorTab() {
     const [editingColor, setEditingColor] = useState<any>(null);
     const [editColor, setEditColor] = useState({ code: "", quantity: "", unit: "กระป๋อง" });
     const [deletingColor, setDeletingColor] = useState<any>(null);
+    const [customNewUnit, setCustomNewUnit] = useState(false);
+    const [customEditUnit, setCustomEditUnit] = useState(false);
 
     const fetchBrands = async () => {
         try { const b = await getPaintBrands(); setBrands(b); } catch (e) { console.error(e); }
@@ -210,9 +212,7 @@ export default function PaintColorTab() {
                             <div className="grid grid-cols-2 gap-3">
                                 <div><label className="text-xs font-medium mb-1 block" style={{ color: "var(--t-text-muted)" }}>จำนวน</label><input type="number" value={newColor.quantity} onChange={e => setNewColor({ ...newColor, quantity: e.target.value })} className="w-full rounded-lg px-3 py-2.5 text-sm focus:outline-none" style={inputStyle} min={0} /></div>
                                 <div><label className="text-xs font-medium mb-1 block" style={{ color: "var(--t-text-muted)" }}>หน่วย</label>
-                                    <select value={newColor.unit} onChange={e => setNewColor({ ...newColor, unit: e.target.value })} className="w-full rounded-lg px-3 py-2.5 text-sm focus:outline-none cursor-pointer" style={inputStyle}>
-                                        {unitOptions.map(u => <option key={u} value={u}>{u}</option>)}
-                                    </select>
+                                    {customNewUnit ? (<div className="flex gap-1.5"><input value={newColor.unit} onChange={e => setNewColor({ ...newColor, unit: e.target.value })} className="w-full rounded-lg px-3 py-2.5 text-sm focus:outline-none" style={inputStyle} placeholder="กรอกหน่วย..." autoFocus /><button type="button" onClick={() => { setCustomNewUnit(false); setNewColor({ ...newColor, unit: "กระป๋อง" }); }} className="px-2 rounded-lg text-xs shrink-0 cursor-pointer" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-text-muted)" }}>เลือก</button></div>) : (<select value={newColor.unit} onChange={e => { if (e.target.value === "__custom__") { setCustomNewUnit(true); setNewColor({ ...newColor, unit: "" }); } else { setNewColor({ ...newColor, unit: e.target.value }); } }} className="w-full rounded-lg px-3 py-2.5 text-sm focus:outline-none cursor-pointer" style={inputStyle}>{unitOptions.map(u => <option key={u} value={u}>{u}</option>)}<option value="__custom__">+ กรอกเอง...</option></select>)}
                                 </div>
                             </div>
                         </div>
@@ -237,9 +237,7 @@ export default function PaintColorTab() {
                             <div className="grid grid-cols-2 gap-3">
                                 <div><label className="text-xs font-medium mb-1 block" style={{ color: "var(--t-text-muted)" }}>จำนวน</label><input type="number" value={editColor.quantity} onChange={e => setEditColor({ ...editColor, quantity: e.target.value })} className="w-full rounded-lg px-3 py-2.5 text-sm focus:outline-none" style={inputStyle} min={0} /></div>
                                 <div><label className="text-xs font-medium mb-1 block" style={{ color: "var(--t-text-muted)" }}>หน่วย</label>
-                                    <select value={editColor.unit} onChange={e => setEditColor({ ...editColor, unit: e.target.value })} className="w-full rounded-lg px-3 py-2.5 text-sm focus:outline-none cursor-pointer" style={inputStyle}>
-                                        {unitOptions.map(u => <option key={u} value={u}>{u}</option>)}
-                                    </select>
+                                    {customEditUnit ? (<div className="flex gap-1.5"><input value={editColor.unit} onChange={e => setEditColor({ ...editColor, unit: e.target.value })} className="w-full rounded-lg px-3 py-2.5 text-sm focus:outline-none" style={inputStyle} placeholder="กรอกหน่วย..." autoFocus /><button type="button" onClick={() => { setCustomEditUnit(false); setEditColor({ ...editColor, unit: "กระป๋อง" }); }} className="px-2 rounded-lg text-xs shrink-0 cursor-pointer" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-text-muted)" }}>เลือก</button></div>) : (<select value={editColor.unit} onChange={e => { if (e.target.value === "__custom__") { setCustomEditUnit(true); setEditColor({ ...editColor, unit: "" }); } else { setEditColor({ ...editColor, unit: e.target.value }); } }} className="w-full rounded-lg px-3 py-2.5 text-sm focus:outline-none cursor-pointer" style={inputStyle}>{unitOptions.map(u => <option key={u} value={u}>{u}</option>)}<option value="__custom__">+ กรอกเอง...</option></select>)}
                                 </div>
                             </div>
                         </div>
