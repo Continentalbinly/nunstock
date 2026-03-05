@@ -55,7 +55,7 @@ function InsurancePageInner() {
 
 
 
-    // Create modals
+    // Create modals--
     const [showAddCompany, setShowAddCompany] = useState(false);
     const [newCompanyName, setNewCompanyName] = useState("");
     const [showAddBrand, setShowAddBrand] = useState(false);
