@@ -39,7 +39,7 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div className="p-6 lg:p-8">
+    <div className="p-3 sm:p-4 lg:p-6 xl:p-8">
       <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold" style={{ color: "var(--t-text)" }}>แดชบอร์ด</h1>
@@ -55,36 +55,38 @@ export default function DashboardPage() {
       {/* Stats Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
         {stats.map((s) => (
-          <Link href={s.href} key={s.label} className="block rounded-xl p-5 transition-all cursor-pointer hover:shadow-lg" style={{ background: "var(--t-card)", border: "1px solid var(--t-border-subtle)", borderTop: `2px solid ${s.accent}` }}>
-            <div className="mb-4">
+          <Link href={s.href} key={s.label} className="flex sm:block items-center gap-3 rounded-xl p-3 sm:p-5 transition-all cursor-pointer hover:shadow-lg" style={{ background: "var(--t-card)", border: "1px solid var(--t-border-subtle)", borderTop: `2px solid ${s.accent}` }}>
+            <div className="sm:mb-4 shrink-0">
               <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: `${s.accent}20` }}>
                 <s.icon className="w-5 h-5" style={{ color: s.accent }} />
               </div>
             </div>
-            <div className="text-3xl font-bold mb-1" style={{ color: "var(--t-text)" }}>{s.value}</div>
-            <p className="text-sm" style={{ color: "var(--t-text-muted)" }}>{s.label}</p>
+            <div>
+              <div className="text-xl sm:text-3xl font-bold mb-0.5" style={{ color: "var(--t-text)", lineHeight: 1 }}>{s.value}</div>
+              <p className="text-[11px] sm:text-sm" style={{ color: "var(--t-text-muted)" }}>{s.label}</p>
+            </div>
           </Link>
         ))}
       </div>
 
       {/* Today summary mini-cards */}
       <div className="grid grid-cols-2 gap-4 mb-6">
-        <div className="rounded-xl p-4 flex items-center gap-3" style={{ background: "var(--t-card)", border: "1px solid var(--t-border-subtle)" }}>
-          <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-orange-500/15">
-            <ArrowUpFromLine className="w-5 h-5 text-orange-500" />
+        <div className="rounded-xl p-2 sm:p-4 flex items-center gap-2 sm:gap-3" style={{ background: "var(--t-card)", border: "1px solid var(--t-border-subtle)" }}>
+          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center bg-orange-500/15">
+            <ArrowUpFromLine className="w-4 h-4 sm:w-5 sm:h-5 text-orange-500" />
           </div>
           <div>
-            <p className="text-2xl font-bold" style={{ color: "var(--t-text)" }}>{summary?.todayOutCount ?? 0}</p>
-            <p className="text-xs" style={{ color: "var(--t-text-muted)" }}>เบิกออกวันนี้</p>
+            <p className="text-lg sm:text-2xl font-bold" style={{ color: "var(--t-text)" }}>{summary?.todayOutCount ?? 0}</p>
+            <p className="text-[10px] sm:text-xs" style={{ color: "var(--t-text-muted)" }}>เบิกออกวันนี้</p>
           </div>
         </div>
-        <div className="rounded-xl p-4 flex items-center gap-3" style={{ background: "var(--t-card)", border: "1px solid var(--t-border-subtle)" }}>
-          <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-emerald-500/15">
-            <ArrowDownToLine className="w-5 h-5 text-emerald-500" />
+        <div className="rounded-xl p-2 sm:p-4 flex items-center gap-2 sm:gap-3" style={{ background: "var(--t-card)", border: "1px solid var(--t-border-subtle)" }}>
+          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center bg-emerald-500/15">
+            <ArrowDownToLine className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-500" />
           </div>
           <div>
-            <p className="text-2xl font-bold" style={{ color: "var(--t-text)" }}>{summary?.todayInCount ?? 0}</p>
-            <p className="text-xs" style={{ color: "var(--t-text-muted)" }}>เพิ่มเข้าวันนี้</p>
+            <p className="text-lg sm:text-2xl font-bold" style={{ color: "var(--t-text)" }}>{summary?.todayInCount ?? 0}</p>
+            <p className="text-[10px] sm:text-xs" style={{ color: "var(--t-text-muted)" }}>เพิ่มเข้าวันนี้</p>
           </div>
         </div>
       </div>
@@ -93,8 +95,8 @@ export default function DashboardPage() {
       {summary?.dailyChart?.length > 0 && (() => {
         const maxVal = Math.max(...summary.dailyChart.map((d: any) => Math.max(d.inQty, d.outQty)), 1);
         return (
-          <div className="rounded-xl p-5 mb-6" style={{ background: "var(--t-card)", border: "1px solid var(--t-border-subtle)" }}>
-            <div className="flex items-center justify-between mb-4">
+          <div className="rounded-xl p-3 sm:p-5 mb-6" style={{ background: "var(--t-card)", border: "1px solid var(--t-border-subtle)" }}>
+            <div className="flex items-center justify-between mb-3 sm:mb-4">
               <div className="flex items-center gap-2">
                 <BarChart3 className="w-5 h-5" style={{ color: "#F97316" }} />
                 <h2 className="font-semibold" style={{ color: "var(--t-text)" }}>กิจกรรม 7 วัน</h2>

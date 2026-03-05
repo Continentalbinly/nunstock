@@ -9,6 +9,7 @@ import {
     MessageSquare,
     Bell,
     Printer,
+    Package,
     type LucideIcon,
 } from "lucide-react";
 import type { UserRole } from "@/lib/stores/auth-store";
@@ -87,4 +88,33 @@ export function getNavigationForRole(role: UserRole | undefined): NavGroup[] {
             items: group.items.filter((item) => canAccessItem(item, role)),
         }))
         .filter((group) => group.items.length > 0);
+}
+
+// ─── Mobile Bottom Nav Config ───────────────────────────
+
+export interface MobileNavItem {
+    href: string;
+    icon: LucideIcon;
+    label: string;
+}
+
+const MOBILE_NAV_ADMIN: MobileNavItem[] = [
+    { href: "/", icon: LayoutDashboard, label: "แดชบอร์ด" },
+    { href: "/jobs", icon: Wrench, label: "งานซ่อม" },
+    { href: "/paints", icon: Palette, label: "คลังสี" },
+    { href: "/reports", icon: BarChart3, label: "สรุปรายงาน" },
+];
+
+const MOBILE_NAV_TECH: MobileNavItem[] = [
+    { href: "/", icon: LayoutDashboard, label: "แดชบอร์ด" },
+    { href: "/paints", icon: Palette, label: "คลังสี" },
+    { href: "/consumables", icon: Package, label: "วัสดุสิ้นเปลือง" },
+];
+
+/** Get mobile bottom nav items for a specific role */
+export function getMobileNavForRole(role: UserRole | undefined): MobileNavItem[] {
+    if (role === "ADMIN") return MOBILE_NAV_ADMIN;
+    if (role === "TECH") return MOBILE_NAV_TECH;
+    // Fallback: show only dashboard
+    return [{ href: "/", icon: LayoutDashboard, label: "แดชบอร์ด" }];
 }

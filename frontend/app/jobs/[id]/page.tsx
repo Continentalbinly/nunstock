@@ -316,7 +316,7 @@ export default function JobDetailPage() {
     const totalParts = nonConsumableParts.length;
 
     return (
-        <div className="p-6 lg:p-8">
+        <div className="p-3 sm:p-4 lg:p-6 xl:p-8">
             {/* Header */}
             <button onClick={() => router.push("/jobs")} className="flex items-center gap-1 text-sm mb-4 cursor-pointer transition-colors" style={{ color: "var(--t-text-muted)" }}
                 onMouseEnter={e => e.currentTarget.style.color = "#F97316"} onMouseLeave={e => e.currentTarget.style.color = "var(--t-text-muted)"}>

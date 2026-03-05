@@ -94,7 +94,7 @@ export default function NotificationsPage() {
     const summaryCards = Object.entries(STATUS_CFG).map(([key, cfg]) => ({ key, ...cfg }));
 
     return (
-        <div className="p-6 lg:p-8">
+        <div className="p-3 sm:p-4 lg:p-6 xl:p-8">
             {/* Header */}
             <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
                 <div>
@@ -109,7 +109,7 @@ export default function NotificationsPage() {
             </div>
 
             {/* Summary Cards */}
-            <div className="grid grid-cols-3 gap-3 mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
                 {summaryCards.map((s) => (
                     <button key={s.key} onClick={() => resetPage(setFilterStatus, filterStatus === s.key ? "" : s.key)}
                         className="rounded-xl p-3 transition-all text-left cursor-pointer"

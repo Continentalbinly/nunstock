@@ -137,7 +137,7 @@ export default function ConsumablesPage() {
     const accentColor = isIn ? "#22C55E" : "#F97316";
 
     return (
-        <div className="p-6 lg:p-8">
+        <div className="p-3 sm:p-4 lg:p-6 xl:p-8">
             <div className="flex items-center justify-between mb-8">
                 <div>
                     <h1 className="text-xl font-bold" style={{ color: "var(--t-text)" }}>วัสดุสิ้นเปลือง</h1>
@@ -199,17 +199,17 @@ export default function ConsumablesPage() {
                                     </div>
 
                                     {/* Right: action buttons */}
-                                    <div className="flex items-center gap-1.5 shrink-0">
+                                    <div className="flex items-center gap-1.5 shrink-0 w-full sm:w-auto mt-2 sm:mt-0 pt-3 sm:pt-0 justify-end sm:border-t-0" style={{ borderTop: "1px dashed var(--t-border-subtle)" }}>
                                         {isAdmin && <button onClick={(e) => { e.stopPropagation(); openModal(p, "IN"); }} className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer text-emerald-600 hover:text-white hover:bg-emerald-500" style={{ background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.2)" }} onMouseEnter={(e) => { e.currentTarget.style.background = "#22C55E"; e.currentTarget.style.borderColor = "#22C55E"; }} onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(34,197,94,0.1)"; e.currentTarget.style.borderColor = "rgba(34,197,94,0.2)"; e.currentTarget.style.color = "rgb(22,163,74)"; }}>
-                                            <ArrowDownToLine className="w-3.5 h-3.5" /> เพิ่ม
+                                            <ArrowDownToLine className="w-3.5 h-3.5" /> <span className="hidden sm:inline">เพิ่ม</span>
                                         </button>}
                                         <button onClick={(e) => { e.stopPropagation(); setWithdrawPart(p); }} disabled={p.quantity === 0} className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer text-orange-600 hover:text-white hover:bg-orange-500 disabled:opacity-30 disabled:cursor-not-allowed" style={{ background: "rgba(249,115,22,0.1)", border: "1px solid rgba(249,115,22,0.2)" }} onMouseEnter={(e) => { if (p.quantity > 0) { e.currentTarget.style.background = "#F97316"; e.currentTarget.style.borderColor = "#F97316"; } }} onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(249,115,22,0.1)"; e.currentTarget.style.borderColor = "rgba(249,115,22,0.2)"; e.currentTarget.style.color = "rgb(234,88,12)"; }}>
-                                            <ArrowUpFromLine className="w-3.5 h-3.5" /> เบิก
+                                            <ArrowUpFromLine className="w-3.5 h-3.5" /> <span className="hidden sm:inline">เบิก</span>
                                         </button>
-                                        {isAdmin && <button onClick={(e) => { e.stopPropagation(); setEditingPart(p); setEditPartForm({ code: p.code, name: p.name, description: p.description || "", brand: p.brand || "", specification: p.specification || "", unit: p.unit, minStock: p.minStock }); setEditPartError(""); setCustomEditSpec(!!(p.specification && !specOptions.includes(p.specification))); }} className="p-2 rounded-lg cursor-pointer" style={{ background: "rgba(249,115,22,0.1)", color: "#F97316" }} title="แก้ไข">
+                                        {isAdmin && <button onClick={(e) => { e.stopPropagation(); setEditingPart(p); setEditPartForm({ code: p.code, name: p.name, description: p.description || "", brand: p.brand || "", specification: p.specification || "", unit: p.unit, minStock: p.minStock }); setEditPartError(""); setCustomEditSpec(!!(p.specification && !specOptions.includes(p.specification))); }} className="p-2 rounded-lg cursor-pointer flex-1 sm:flex-none flex items-center justify-center" style={{ background: "rgba(249,115,22,0.1)", color: "#F97316" }} title="แก้ไข">
                                             <Pencil className="w-3.5 h-3.5" />
                                         </button>}
-                                        {isAdmin && <button onClick={(e) => { e.stopPropagation(); setDeletePartMsg(""); setDeletePartCanForce(false); setConfirmDeletePart(p); }} className="p-2 rounded-lg cursor-pointer" style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }} title="ลบ">
+                                        {isAdmin && <button onClick={(e) => { e.stopPropagation(); setDeletePartMsg(""); setDeletePartCanForce(false); setConfirmDeletePart(p); }} className="p-2 rounded-lg cursor-pointer flex-1 sm:flex-none flex items-center justify-center" style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }} title="ลบ">
                                             <Trash2 className="w-3.5 h-3.5" />
                                         </button>}
                                     </div>

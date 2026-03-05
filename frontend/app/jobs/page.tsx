@@ -75,7 +75,7 @@ export default function JobsPage() {
     const summaryCards = Object.entries(STATUS_CONFIG).map(([key, cfg]) => ({ key, ...cfg }));
 
     return (
-        <div className="p-6 lg:p-8">
+        <div className="p-3 sm:p-4 lg:p-6 xl:p-8">
             {/* Header */}
             <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
                 <div>
@@ -119,9 +119,12 @@ export default function JobsPage() {
                         <table className="w-full">
                             <thead>
                                 <tr style={{ borderBottom: "1px solid var(--t-border-subtle)" }}>
-                                    {["เลข Job", "ประเภท", "ลูกค้า / รถ", "สถานะ", "อะไหล่", ""].map((h) => (
-                                        <th key={h} className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-left" style={{ color: "var(--t-text-muted)" }}>{h}</th>
-                                    ))}
+                                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-left" style={{ color: "var(--t-text-muted)" }}>เลข Job</th>
+                                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-left hidden sm:table-cell" style={{ color: "var(--t-text-muted)" }}>ประเภท</th>
+                                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-left" style={{ color: "var(--t-text-muted)" }}>ลูกค้า / รถ</th>
+                                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-left" style={{ color: "var(--t-text-muted)" }}>สถานะ</th>
+                                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-left hidden sm:table-cell" style={{ color: "var(--t-text-muted)" }}>อะไหล่</th>
+                                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-left" style={{ color: "var(--t-text-muted)" }}></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -137,8 +140,11 @@ export default function JobsPage() {
                                             <td className="px-4 py-3">
                                                 <span className="font-mono text-sm font-bold" style={{ color: "#F97316" }}>{job.jobNo}</span>
                                                 {job.claimNo && <p className="text-[10px] mt-0.5" style={{ color: "var(--t-text-dim)" }}>เคลม: {job.claimNo}</p>}
+                                                <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium mt-1 sm:hidden" style={{ background: `${tp.color}15`, color: tp.color }}>
+                                                    <tp.icon className="w-3 h-3" /> {tp.label}
+                                                </span>
                                             </td>
-                                            <td className="px-4 py-3">
+                                            <td className="px-4 py-3 hidden sm:table-cell">
                                                 <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-medium" style={{ background: `${tp.color}15`, color: tp.color }}>
                                                     <tp.icon className="w-3 h-3" /> {tp.label}
                                                 </span>
@@ -155,7 +161,7 @@ export default function JobsPage() {
                                                     <StIcon className="w-3 h-3" /> {st.label}
                                                 </span>
                                             </td>
-                                            <td className="px-4 py-3">
+                                            <td className="px-4 py-3 hidden sm:table-cell">
                                                 <span className="text-sm font-medium" style={{ color: "var(--t-text)" }}>{job._count?.parts || 0}</span>
                                                 <span className="text-xs ml-1" style={{ color: "var(--t-text-dim)" }}>รายการ</span>
                                             </td>

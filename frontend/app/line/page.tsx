@@ -65,7 +65,7 @@ export default function LineOperationsPage() {
     const stats = data?.stats;
 
     return (
-        <div className="p-6 lg:p-8">
+        <div className="p-3 sm:p-4 lg:p-6 xl:p-8">
             {/* Header */}
             <div className="flex items-center justify-between mb-8">
                 <div>

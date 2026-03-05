@@ -65,7 +65,7 @@ export default function PrinterSettingsPage() {
     // Web version - show message
     if (!isElectronApp) {
         return (
-            <div className="p-6 lg:p-8">
+            <div className="p-3 sm:p-4 lg:p-6 xl:p-8">
                 <div className="mb-8">
                     <h1 className="text-xl font-bold" style={{ color: "var(--t-text)" }}>ตั้งค่าเครื่องปริ้น</h1>
                     <p className="mt-1 text-sm" style={{ color: "var(--t-text-muted)" }}>จัดการเครื่องปริ้นสำหรับพิมพ์บาร์โค้ด</p>
@@ -85,7 +85,7 @@ export default function PrinterSettingsPage() {
     }
 
     return (
-        <div className="p-6 lg:p-8">
+        <div className="p-3 sm:p-4 lg:p-6 xl:p-8">
             <div className="mb-8 flex items-center justify-between">
                 <div>
                     <h1 className="text-xl font-bold" style={{ color: "var(--t-text)" }}>ตั้งค่าเครื่องปริ้น</h1>

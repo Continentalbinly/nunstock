@@ -147,7 +147,7 @@ export default function ShopStockPage() {
     ];
 
     return (
-        <div className="p-6 lg:p-8">
+        <div className="p-3 sm:p-4 lg:p-6 xl:p-8">
             {/* Header */}
             <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
                 <div>
@@ -213,9 +213,12 @@ export default function ShopStockPage() {
                         <table className="w-full">
                             <thead>
                                 <tr style={{ borderBottom: "1px solid var(--t-border-subtle)" }}>
-                                    {["ชื่ออะไหล่", "ยี่ห้อ/รุ่นรถ", "ที่มา", "สถานะ", "จำนวน", "จัดการ"].map((h) => (
-                                        <th key={h} className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-left" style={{ color: "var(--t-text-muted)" }}>{h}</th>
-                                    ))}
+                                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-left" style={{ color: "var(--t-text-muted)" }}>ชื่ออะไหล่</th>
+                                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-left hidden sm:table-cell" style={{ color: "var(--t-text-muted)" }}>ยี่ห้อ/รุ่นรถ</th>
+                                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-left hidden sm:table-cell" style={{ color: "var(--t-text-muted)" }}>ที่มา</th>
+                                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-left" style={{ color: "var(--t-text-muted)" }}>สถานะ</th>
+                                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-left" style={{ color: "var(--t-text-muted)" }}>จำนวน</th>
+                                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-left" style={{ color: "var(--t-text-muted)" }}>จัดการ</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -231,9 +234,19 @@ export default function ShopStockPage() {
                                             <td className="px-4 py-3">
                                                 <p className="text-sm font-medium" style={{ color: "var(--t-text)" }}>{item.name}</p>
                                                 {item.description && <p className="text-xs mt-0.5" style={{ color: "var(--t-text-muted)" }}>{item.description}</p>}
-
+                                                {/* Mobile-only: show car & source inline */}
+                                                <div className="sm:hidden mt-1 flex items-center gap-2 flex-wrap">
+                                                    {(item.carBrand || item.carModel) && (
+                                                        <span className="inline-flex items-center gap-1 text-[10px]" style={{ color: "var(--t-text-muted)" }}>
+                                                            <Car className="w-2.5 h-2.5" /> {[item.carBrand, item.carModel].filter(Boolean).join(" ")}
+                                                        </span>
+                                                    )}
+                                                    <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{ background: `${SOURCE_COLORS[item.source]}15`, color: SOURCE_COLORS[item.source] }}>
+                                                        {SOURCE_LABELS[item.source]}
+                                                    </span>
+                                                </div>
                                             </td>
-                                            <td className="px-4 py-3">
+                                            <td className="px-4 py-3 hidden sm:table-cell">
                                                 {item.carBrand || item.carModel ? (
                                                     <div className="flex items-center gap-1.5">
                                                         <Car className="w-3.5 h-3.5" style={{ color: "var(--t-text-muted)" }} />
@@ -241,7 +254,7 @@ export default function ShopStockPage() {
                                                     </div>
                                                 ) : <span className="text-xs" style={{ color: "var(--t-text-dim)" }}>-</span>}
                                             </td>
-                                            <td className="px-4 py-3">
+                                            <td className="px-4 py-3 hidden sm:table-cell">
                                                 <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-medium" style={{ background: `${SOURCE_COLORS[item.source]}15`, color: SOURCE_COLORS[item.source] }}>
                                                     {SOURCE_LABELS[item.source]}
                                                 </span>

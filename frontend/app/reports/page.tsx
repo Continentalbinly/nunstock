@@ -268,7 +268,7 @@ function ReportsPageInner() {
         : lowStockParts;
 
     return (
-        <div className="p-6 lg:p-8">
+        <div className="p-3 sm:p-4 lg:p-6 xl:p-8">
             {/* Print-only styles */}
             <style>{`
                 @media print {
@@ -293,10 +293,10 @@ function ReportsPageInner() {
             </div>
 
             {/* Tabs */}
-            <div className="flex gap-1 mb-6 p-1 rounded-xl w-fit no-print" style={{ background: "var(--t-card)", border: "1px solid var(--t-border-subtle)" }}>
+            <div className="flex gap-1 mb-6 p-1 rounded-xl w-fit max-w-full overflow-x-auto no-print" style={{ background: "var(--t-card)", border: "1px solid var(--t-border-subtle)" }}>
                 {TABS.map(t => (
                     <button key={t.key} onClick={() => setTab(t.key)}
-                        className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer"
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer shrink-0 w-fit whitespace-nowrap"
                         style={{
                             background: tab === t.key ? "linear-gradient(135deg, #F97316, #EA580C)" : "transparent",
                             color: tab === t.key ? "#fff" : "var(--t-text-muted)",
@@ -324,7 +324,7 @@ function ReportsPageInner() {
                         ) : jobsData ? (
                             <div>
                                 {/* Hero Stats */}
-                                <div className="grid grid-cols-3 gap-4 mb-6">
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
                                     <div className="rounded-xl p-5 relative overflow-hidden" style={{ background: "var(--t-card)", border: "1px solid var(--t-border-subtle)" }}>
                                         <div className="absolute top-0 left-0 right-0 h-1" style={{ background: "linear-gradient(90deg, #F97316, #EA580C)" }} />
                                         <div className="flex items-center gap-3"><div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "rgba(249,115,22,0.1)" }}><Briefcase className="w-5 h-5" style={{ color: "#F97316" }} /></div><div><p className="text-[11px] font-medium" style={{ color: "var(--t-text-muted)" }}>Jobs ทั้งหมด</p><p className="text-2xl font-bold" style={{ color: "#F97316" }}>{Object.values(jobsData.statusCounts || {}).reduce((a: number, b: any) => a + (b as number), 0)}</p></div></div>
@@ -364,7 +364,7 @@ function ReportsPageInner() {
                     </div>
 
                     {/* ──── Report Type Selector (printable) ──── */}
-                    <div className="rounded-xl mb-4 p-3 flex items-center gap-2 no-print" style={{ background: "var(--t-card)", border: "1px solid var(--t-border-subtle)" }}>
+                    <div className="rounded-xl mb-4 p-3 flex flex-wrap items-center gap-2 overflow-x-auto no-print" style={{ background: "var(--t-card)", border: "1px solid var(--t-border-subtle)" }}>
                         <FileText className="w-4 h-4 shrink-0" style={{ color: "#F97316" }} />
                         <span className="text-xs font-bold mr-2" style={{ color: "var(--t-text)" }}>สรุปรายงาน</span>
                         {([["daily", "รายวัน"], ["weekly", "รายสัปดาห์"], ["monthly", "รายเดือน"]] as const).map(([key, label]) => (

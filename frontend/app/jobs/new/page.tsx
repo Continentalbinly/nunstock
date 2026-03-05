@@ -6,7 +6,7 @@ import {
     createJob, getCategories, createCategory, getShopStock, getParts, getJobSuggestions, createPart,
 } from "@/lib/api";
 import {
-    ShieldCheck, Banknote, Car, ArrowLeft, Plus, X, Search, Package, Wrench, CheckCircle2, Trash2, Minus,
+    ShieldCheck, Banknote, ArrowLeft, Plus, X, Search, Package, CheckCircle2, Minus,
 } from "lucide-react";
 
 const inputStyle: React.CSSProperties = { background: "var(--t-input-bg)", color: "var(--t-input-text)", border: "1px solid var(--t-input-border)" };
@@ -331,7 +331,7 @@ export default function NewJobPage() {
     };
 
     return (
-        <div className="p-6 lg:p-8">
+        <div className="p-3 sm:p-4 lg:p-6 xl:p-8">
             {/* Header */}
             <div className="mb-6">
                 <button onClick={() => router.push("/jobs")} className="flex items-center gap-1 text-sm mb-3 cursor-pointer transition-colors" style={{ color: "var(--t-text-muted)" }}
