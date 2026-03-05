@@ -6,7 +6,7 @@ on:
       - main
 
 jobs:
-  # ── Job 1: CI — Test & Build (runs on GitHub runner) ──
+  # Job 1: CI - Test & Build (runs on GitHub runner)
   ci:
     runs-on: ubuntu-latest
 
@@ -48,7 +48,7 @@ jobs:
           NEXT_PUBLIC_API_URL: http://localhost:1100
           NEXT_PUBLIC_APP_VERSION: ci-check
 
-  # ── Job 2: Deploy (only if CI passes) ──
+  # Job 2: Deploy (only if CI passes)
   deploy:
     needs: ci
     runs-on: ubuntu-latest
@@ -68,7 +68,7 @@ jobs:
             echo "  NunStock Auto Deploy"
             echo "======================================"
 
-            # ── 1. Node.js 22 ──────────────────────
+            # 1. Node.js 22
             export NODE_VERSION=$(node -v 2>/dev/null || echo "none")
             if [ "$NODE_VERSION" = "none" ]; then
               echo ">>> Installing Node.js 22..."
@@ -78,7 +78,7 @@ jobs:
               echo ">>> Node.js $NODE_VERSION ready"
             fi
 
-            # ── 2. PM2 ─────────────────────────────
+            # 2. PM2
             if ! command -v pm2 &>/dev/null; then
               echo ">>> Installing PM2..."
               sudo npm install -g pm2
@@ -87,7 +87,7 @@ jobs:
               echo ">>> PM2 $(pm2 -v) ready"
             fi
 
-            # ── 3. PostgreSQL ───────────────────────
+            # 3. PostgreSQL
             if ! command -v psql &>/dev/null; then
               echo ">>> Installing PostgreSQL..."
               sudo apt install -y postgresql postgresql-contrib
@@ -97,7 +97,7 @@ jobs:
               echo ">>> PostgreSQL ready"
             fi
 
-            # ── 4. Nginx ────────────────────────────
+            # 4. Nginx
             if ! command -v nginx &>/dev/null; then
               echo ">>> Installing Nginx..."
               sudo apt install -y nginx
@@ -117,7 +117,7 @@ jobs:
               sudo -u postgres psql -c "CREATE DATABASE nunstock OWNER nunstock"
             echo ">>> Database ready"
 
-            # ── 6. Clone or Pull ────────────────────
+            # 6. Clone or Pull
             if [ ! -d "/var/www/nunstock/.git" ]; then
               echo ">>> Cloning project..."
               sudo mkdir -p /var/www/nunstock
@@ -130,7 +130,7 @@ jobs:
               git reset --hard origin/main
             fi
 
-            # ── 7. Create .env files ────────────────
+            # 7. Create .env files
             echo ">>> Creating .env files..."
             cat > /var/www/nunstock/backend/.env << EOF
             DATABASE_URL=$DATABASE_URL
@@ -150,7 +150,7 @@ jobs:
             ENVEOF
             sed -i 's/^[[:space:]]*//' /var/www/nunstock/frontend/.env.local
 
-            # ── 8. SSL Certificates (Cloudflare Origin) ──
+            # 8. SSL Certificates (Cloudflare Origin)
             echo ">>> Setting up SSL certificates..."
             sudo mkdir -p /etc/ssl/nunmechanic
             echo "$CF_ORIGIN_CERT" | sudo tee /etc/ssl/nunmechanic/origin.pem > /dev/null
@@ -158,7 +158,7 @@ jobs:
             sudo chmod 600 /etc/ssl/nunmechanic/origin-key.pem
             sudo chmod 644 /etc/ssl/nunmechanic/origin.pem
 
-            # ── 9. Nginx Config ─────────────────────
+            # 9. Nginx Config
             echo ">>> Configuring Nginx..."
             sudo cp /var/www/nunstock/nginx/nunmechanic.conf /etc/nginx/sites-available/nunmechanic
             sudo cp /var/www/nunstock/nginx/api.nunmechanic.conf /etc/nginx/sites-available/api.nunmechanic
@@ -167,7 +167,7 @@ jobs:
             sudo rm -f /etc/nginx/sites-enabled/default
             sudo nginx -t && sudo systemctl reload nginx
 
-            # ── 10. Deploy Backend ───────────────────
+            # 10. Deploy Backend
             echo ">>> Deploy Backend (port 1100)..."
             cd /var/www/nunstock/backend
             npm install --prefer-offline
@@ -233,7 +233,7 @@ jobs:
                  pm2 start dist/index.js --name nunstock-backend \
                  --node-args='--env-file=/var/www/nunstock/backend/.env'
 
-            # ── 11. Deploy Frontend ──────────────────
+            # 11. Deploy Frontend
             echo ">>> Deploy Frontend (port 9090)..."
             cd /var/www/nunstock/frontend
             npm install --prefer-offline
