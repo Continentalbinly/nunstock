@@ -518,6 +518,44 @@ function InsurancePageInner() {
     }
 
     // ─── Step 4: Model Selection (after brand) ───────────────
+    // If brand has no model sub-categories, treat brand as model and show parts directly
+    const brandModels = selectedBrand ? allCategories.filter((c: any) => c.parentId === selectedBrand.id) : [];
+    const brandHasDirectParts = selectedBrand?._count?.parts > 0;
+    const skipModelStep = selectedBrand && brandModels.length === 0;
+
+    if (selectedCompany && selectedCarType && selectedBrand && !selectedModel && skipModelStep) {
+        // Auto-select brand as model to show parts directly
+        if (!selectedModel) {
+            // Use the brand itself as the "model" for parts display
+            const brandAsModel = selectedBrand;
+            return (
+                <>
+                    {sharedModals}
+                    <div className="p-3 sm:p-4 lg:p-6 xl:p-8">
+                        {/* Render exactly like Step 5 but with brand as model */}
+                        {(() => {
+                            // Trigger auto-select — set brand as model
+                            if (!selectedModel) {
+                                setTimeout(() => {
+                                    setSelectedModel(brandAsModel);
+                                    setPage(1);
+                                    setSearch("");
+                                    setLowStockOnly(false);
+                                    router.push(`/insurance?company=${selectedCompany.id}&carType=${selectedCarType}&brand=${selectedBrand.id}&model=${brandAsModel.id}`);
+                                }, 0);
+                            }
+                            return null;
+                        })()}
+                        <div className="text-center py-8">
+                            <div className="w-10 h-10 border-3 rounded-full animate-spin mx-auto mb-4" style={{ borderColor: "var(--t-border)", borderTopColor: "#F97316" }} />
+                            <p style={{ color: "var(--t-text-muted)" }} className="text-sm">กำลังโหลดอะไหล่...</p>
+                        </div>
+                    </div>
+                </>
+            );
+        }
+    }
+
     if (selectedCompany && selectedCarType && selectedBrand && !selectedModel) {
         return (
             <>{sharedModals}

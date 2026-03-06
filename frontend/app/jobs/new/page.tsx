@@ -94,23 +94,29 @@ export default function NewJobPage() {
     const [showNewModel, setShowNewModel] = useState(false);
     const [newModelName, setNewModelName] = useState("");
 
-    // Insurance cascade selects
+    // Insurance cascade selects (Company → CarType → Brand → Model)
     const insuranceRoot = categories.find(c => c.name === "รถประกัน" && !c.parentId);
     const insuranceCompanies = categories.filter(c => c.parentId === insuranceRoot?.id);
     const [selCompanyId, setSelCompanyId] = useState("");
+    const [selCarTypeId, setSelCarTypeId] = useState("");
     const [selBrandId, setSelBrandId] = useState("");
     const [selModelId, setSelModelId] = useState("");
 
     const selCompany = categories.find(c => c.id === selCompanyId);
-    const insuranceBrands = categories.filter(c => c.parentId === selCompanyId);
+    const insuranceCarTypes = categories.filter(c => c.parentId === selCompanyId);
+    const insuranceBrands = categories.filter(c => c.parentId === selCarTypeId);
     const insuranceModels = categories.filter(c => c.parentId === selBrandId);
 
     const handleSelectCompany = (id: string) => {
         if (id === "__NEW__") { setShowNewCompany(true); setNewCompanyName(""); return; }
-        setSelCompanyId(id); setSelBrandId(""); setSelModelId("");
+        setSelCompanyId(id); setSelCarTypeId(""); setSelBrandId(""); setSelModelId("");
         setShowNewCompany(false); setShowNewBrand(false); setShowNewModel(false);
         const comp = categories.find(c => c.id === id);
         if (comp) setForm(prev => ({ ...prev, insuranceComp: comp.name, carBrand: "", carModel: "" }));
+    };
+    const handleSelectCarType = (id: string) => {
+        setSelCarTypeId(id); setSelBrandId(""); setSelModelId("");
+        setShowNewBrand(false); setShowNewModel(false);
     };
     const handleCreateCompany = async () => {
         if (!newCompanyName.trim()) return;
@@ -133,9 +139,9 @@ export default function NewJobPage() {
         if (br) setForm(prev => ({ ...prev, carBrand: br.name, carModel: "" }));
     };
     const handleCreateBrand = async () => {
-        if (!newBrandName.trim() || !selCompanyId) return;
+        if (!newBrandName.trim() || !selCarTypeId) return;
         try {
-            const created = await createCategory({ name: newBrandName.trim(), parentId: selCompanyId });
+            const created = await createCategory({ name: newBrandName.trim(), parentId: selCarTypeId });
             await refreshCats();
             setSelBrandId(created.id); setSelModelId("");
             setForm(prev => ({ ...prev, carBrand: created.name, carModel: "" }));
@@ -394,41 +400,54 @@ export default function NewJobPage() {
                                 )}</div>
                         </div>
                         {selCompanyId && (
-                            <div className="grid grid-cols-2 gap-3">
-                                <div><label className="text-xs mb-1 block font-medium" style={{ color: "var(--t-text-secondary)" }}>ยี่ห้อรถ *</label>
-                                    <select value={showNewBrand ? "__NEW__" : selBrandId} onChange={e => handleSelectBrand(e.target.value)}
-                                        className="w-full rounded-lg px-3 py-2.5 text-sm cursor-pointer focus:outline-none" style={inputStyle}>
-                                        <option value="">-- เลือกยี่ห้อ --</option>
-                                        {insuranceBrands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                                        <option value="__NEW__">＋ สร้างใหม่...</option>
-                                    </select>
-                                    {showNewBrand && (
-                                        <div className="flex gap-2 mt-2">
-                                            <input value={newBrandName} onChange={e => setNewBrandName(e.target.value)}
-                                                onKeyDown={e => { if (e.key === "Enter") handleCreateBrand(); }}
-                                                className="flex-1 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-orange-500/30" style={inputStyle}
-                                                placeholder="ชื่อยี่ห้อรถ (เช่น Nissan)" autoFocus />
-                                            <button type="button" onClick={handleCreateBrand} className="px-3 py-2 rounded-lg text-xs font-bold text-white cursor-pointer" style={{ background: "#F97316" }}>สร้าง</button>
-                                        </div>
-                                    )}</div>
-                                {selBrandId && (
-                                    <div><label className="text-xs mb-1 block font-medium" style={{ color: "var(--t-text-secondary)" }}>รุ่นรถ *</label>
-                                        <select value={showNewModel ? "__NEW__" : selModelId} onChange={e => handleSelectModel(e.target.value)}
+                            <div className="grid grid-cols-1 gap-3 mt-3">
+                                <div className="grid grid-cols-3 gap-3">
+                                    <div><label className="text-xs mb-1 block font-medium" style={{ color: "var(--t-text-secondary)" }}>ประเภทรถ *</label>
+                                        <select value={selCarTypeId} onChange={e => handleSelectCarType(e.target.value)}
                                             className="w-full rounded-lg px-3 py-2.5 text-sm cursor-pointer focus:outline-none" style={inputStyle}>
-                                            <option value="">-- เลือกรุ่น --</option>
-                                            {insuranceModels.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-                                            <option value="__NEW__">＋ สร้างใหม่...</option>
+                                            <option value="">-- เลือกประเภท --</option>
+                                            {insuranceCarTypes.map(ct => <option key={ct.id} value={ct.id}>{ct.name}</option>)}
                                         </select>
-                                        {showNewModel && (
-                                            <div className="flex gap-2 mt-2">
-                                                <input value={newModelName} onChange={e => setNewModelName(e.target.value)}
-                                                    onKeyDown={e => { if (e.key === "Enter") handleCreateModel(); }}
-                                                    className="flex-1 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-orange-500/30" style={inputStyle}
-                                                    placeholder="ชื่อรุ่นรถ (เช่น Hilux Revo)" autoFocus />
-                                                <button type="button" onClick={handleCreateModel} className="px-3 py-2 rounded-lg text-xs font-bold text-white cursor-pointer" style={{ background: "#F97316" }}>สร้าง</button>
-                                            </div>
-                                        )}</div>
-                                )}
+                                    </div>
+                                    {selCarTypeId && (
+                                        <div><label className="text-xs mb-1 block font-medium" style={{ color: "var(--t-text-secondary)" }}>ยี่ห้อรถ *</label>
+                                            <select value={showNewBrand ? "__NEW__" : selBrandId} onChange={e => handleSelectBrand(e.target.value)}
+                                                className="w-full rounded-lg px-3 py-2.5 text-sm cursor-pointer focus:outline-none" style={inputStyle}>
+                                                <option value="">-- เลือกยี่ห้อ --</option>
+                                                {insuranceBrands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                                                <option value="__NEW__">＋ สร้างใหม่...</option>
+                                            </select>
+                                            {showNewBrand && (
+                                                <div className="flex gap-2 mt-2">
+                                                    <input value={newBrandName} onChange={e => setNewBrandName(e.target.value)}
+                                                        onKeyDown={e => { if (e.key === "Enter") handleCreateBrand(); }}
+                                                        className="flex-1 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-orange-500/30" style={inputStyle}
+                                                        placeholder="ชื่อยี่ห้อรถ (เช่น Nissan)" autoFocus />
+                                                    <button type="button" onClick={handleCreateBrand} className="px-3 py-2 rounded-lg text-xs font-bold text-white cursor-pointer" style={{ background: "#F97316" }}>สร้าง</button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                    {selBrandId && (
+                                        <div><label className="text-xs mb-1 block font-medium" style={{ color: "var(--t-text-secondary)" }}>รุ่นรถ *</label>
+                                            <select value={showNewModel ? "__NEW__" : selModelId} onChange={e => handleSelectModel(e.target.value)}
+                                                className="w-full rounded-lg px-3 py-2.5 text-sm cursor-pointer focus:outline-none" style={inputStyle}>
+                                                <option value="">-- เลือกรุ่น --</option>
+                                                {insuranceModels.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                                                <option value="__NEW__">＋ สร้างใหม่...</option>
+                                            </select>
+                                            {showNewModel && (
+                                                <div className="flex gap-2 mt-2">
+                                                    <input value={newModelName} onChange={e => setNewModelName(e.target.value)}
+                                                        onKeyDown={e => { if (e.key === "Enter") handleCreateModel(); }}
+                                                        className="flex-1 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-orange-500/30" style={inputStyle}
+                                                        placeholder="ชื่อรุ่นรถ (เช่น Hilux Revo)" autoFocus />
+                                                    <button type="button" onClick={handleCreateModel} className="px-3 py-2 rounded-lg text-xs font-bold text-white cursor-pointer" style={{ background: "#F97316" }}>สร้าง</button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         )}
 
