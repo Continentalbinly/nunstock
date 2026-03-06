@@ -507,9 +507,11 @@ jobsRouter.patch("/:id/parts/:partId/status", async (c) => {
         // Auto-generate barcode when ARRIVED (non-consumable only)
         let barcode = jobPart.barcode;
         if (status === "ARRIVED" && !barcode && jobPart.source !== "CONSUMABLE" && jobPart.source !== "PAINT") {
-            const job = await prisma.job.findUnique({ where: { id }, select: { jobNo: true } });
+            const job = await prisma.job.findUnique({ where: { id }, select: { jobNo: true, plateNo: true } });
             const existingCount = await prisma.jobPart.count({ where: { jobId: id, barcode: { not: null } } });
-            barcode = `JP-${job?.jobNo || id.slice(-6)}-${String(existingCount + 1).padStart(3, "0")}`;
+            const jobShort = (job?.jobNo || id.slice(-6)).replace(/^JOB-/, "");
+            const plateDigits = (job?.plateNo || "").replace(/[^0-9]/g, "") || "0000";
+            barcode = `${jobShort}-${plateDigits}-${String(existingCount + 1).padStart(2, "0")}`;
         }
 
         const updated = await prisma.jobPart.update({
