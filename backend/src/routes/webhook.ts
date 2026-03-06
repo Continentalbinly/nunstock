@@ -269,7 +269,7 @@ webhookRouter.post("/line", async (c) => {
                     insuranceComp ? `ประกัน ${insuranceComp}` : null,
                     ``,
                     `ยังไม่พบงานซ่อมในระบบตอนนี้ แต่เราได้บันทึกข้อมูลไว้แล้ว`,
-                    `เมื่อทางร้านสร้างงานซ่อมที่ตรงกัน ระบบจะแจ้งเตือนคุณอัตโนมัติ 🙏`,
+                    `เมื่ออู่สร้างงานซ่อมที่ตรงกัน ระบบจะแจ้งเตือนคุณอัตโนมัติ 🙏`,
                 ].filter(Boolean).join("\n"));
 
                 console.log(`[LINE Webhook] Stored pending registration for ${customerName} (${plateRaw})`);
