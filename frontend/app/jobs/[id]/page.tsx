@@ -62,6 +62,11 @@ export default function JobDetailPage() {
     const [insCatalogLoading, setInsCatalogLoading] = useState(false);
     const [insSearch, setInsSearch] = useState("");
     const [selectedInsParts, setSelectedInsParts] = useState<Record<string, { name: string; qty: number }>>({});
+    const [insCategoryId, setInsCategoryId] = useState<string | null>(null);
+    const [showInsCreate, setShowInsCreate] = useState(false);
+    const [insNewName, setInsNewName] = useState("");
+    const [insNewQuality, setInsNewQuality] = useState("แท้");
+    const [insCreating, setInsCreating] = useState(false);
 
     // Cancel confirm
     const [showCancel, setShowCancel] = useState(false);
@@ -263,6 +268,7 @@ export default function JobDetailPage() {
                         // Find model under brand
                         const modelCat = allCats.find((c: any) => c.parentId === brandCat.id && c.name === model);
                         const targetId = modelCat?.id || brandCat.id; // Fall back to brand if no model
+                        setInsCategoryId(targetId);
                         const r = await getParts({ categoryId: targetId, pageSize: "100" });
                         setInsCatalog(r.data || []);
                         return;
@@ -292,6 +298,34 @@ export default function JobDetailPage() {
             fetchJob();
         } catch (err: any) { toast.error(err.message || "ไม่สามารถเพิ่มได้"); }
         finally { setPartSaving(false); }
+    };
+
+    const handleCreateInsurancePart = async () => {
+        if (!insNewName.trim() || !insCategoryId) return;
+        setInsCreating(true);
+        try {
+            const { createPart } = await import("@/lib/api");
+            const created = await createPart({
+                name: insNewName.trim(),
+                type: "INSURANCE",
+                categoryId: insCategoryId,
+                brand: insNewQuality,
+                unit: "ชิ้น",
+                quantity: 0,
+                minStock: 0,
+            });
+            // Add to job
+            await addJobPart(id as string, {
+                source: "INSURANCE_PART", sourceId: created.id,
+                partName: created.name, quantity: 1, unit: "ชิ้น",
+            });
+            toast.success(`สร้าง + เพิ่ม "${created.name}" เรียบร้อย`);
+            setInsNewName(""); setShowInsCreate(false);
+            // Refresh catalog & job
+            if (job.carModel) loadInsCatalog(job.carModel);
+            fetchJob();
+        } catch (err: any) { toast.error(err.message || "ไม่สามารถสร้างได้"); }
+        finally { setInsCreating(false); }
     };
 
     const isLocked = job?.status === "COMPLETED" || job?.status === "DELIVERED" || job?.status === "CLOSED" || job?.status === "CANCELLED";
@@ -822,6 +856,42 @@ export default function JobDetailPage() {
                                                 </div>
                                             );
                                         })()}
+
+                                        {/* Create new insurance part inline */}
+                                        {insCategoryId && (
+                                            <div className="mt-3">
+                                                {!showInsCreate ? (
+                                                    <button onClick={() => setShowInsCreate(true)}
+                                                        className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs font-bold cursor-pointer transition-all"
+                                                        style={{ background: "rgba(99,102,241,0.08)", color: "#6366F1", border: "1px dashed rgba(99,102,241,0.3)" }}>
+                                                        <Plus className="w-3.5 h-3.5" /> สร้างอะไหล่ใหม่เข้า catalog
+                                                    </button>
+                                                ) : (
+                                                    <div className="rounded-lg p-3 space-y-2.5" style={{ background: "rgba(99,102,241,0.04)", border: "1px solid rgba(99,102,241,0.15)" }}>
+                                                        <p className="text-xs font-bold" style={{ color: "#6366F1" }}>สร้างอะไหล่ใหม่ → เพิ่มเข้า Job ทันที</p>
+                                                        <input value={insNewName} onChange={e => setInsNewName(e.target.value)}
+                                                            className="w-full rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20" style={inputStyle}
+                                                            placeholder="ชื่ออะไหล่ เช่น กันชนหน้า" />
+                                                        <select value={insNewQuality} onChange={e => setInsNewQuality(e.target.value)}
+                                                            className="w-full rounded-lg px-3 py-2 text-xs focus:outline-none cursor-pointer" style={inputStyle}>
+                                                            <option value="แท้">แท้</option>
+                                                            <option value="เทียบ">เทียบ</option>
+                                                            <option value="มือสอง">มือสอง</option>
+                                                        </select>
+                                                        <div className="flex gap-2">
+                                                            <button onClick={() => { setShowInsCreate(false); setInsNewName(""); }}
+                                                                className="flex-1 rounded-lg py-2 text-xs font-medium cursor-pointer"
+                                                                style={{ background: "var(--t-input-bg)", color: "var(--t-text-muted)", border: "1px solid var(--t-border-subtle)" }}>ยกเลิก</button>
+                                                            <button onClick={handleCreateInsurancePart} disabled={insCreating || !insNewName.trim()}
+                                                                className="flex-1 rounded-lg py-2 text-xs font-bold text-white cursor-pointer disabled:opacity-30"
+                                                                style={{ background: "#6366F1" }}>
+                                                                {insCreating ? "กำลังสร้าง..." : "สร้าง + เพิ่มเข้า Job"}
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
                                     </>
                                 )}
 
