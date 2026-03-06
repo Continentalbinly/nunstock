@@ -245,9 +245,33 @@ export default function JobDetailPage() {
     const loadInsCatalog = async (model: string) => {
         setInsCatalogLoading(true);
         try {
+            // Use category hierarchy: root → company → carType → brand → model
+            const { getCategories } = await import("@/lib/api");
+            const allCats = await getCategories();
+            const root = allCats.find((c: any) => c.name === "รถประกัน" && !c.parentId);
+            if (root && job.insuranceComp) {
+                const company = allCats.find((c: any) => c.parentId === root.id && c.name === job.insuranceComp);
+                if (company) {
+                    // Find brand under any car type
+                    const carTypes = allCats.filter((c: any) => c.parentId === company.id);
+                    let brandCat = null;
+                    for (const ct of carTypes) {
+                        const found = allCats.find((c: any) => c.parentId === ct.id && c.name === job.carBrand);
+                        if (found) { brandCat = found; break; }
+                    }
+                    if (brandCat) {
+                        // Find model under brand
+                        const modelCat = allCats.find((c: any) => c.parentId === brandCat.id && c.name === model);
+                        const targetId = modelCat?.id || brandCat.id; // Fall back to brand if no model
+                        const r = await getParts({ categoryId: targetId, pageSize: "100" });
+                        setInsCatalog(r.data || []);
+                        return;
+                    }
+                }
+            }
+            // Fallback: text search (legacy behavior)
             const r = await getParts({ search: model, pageSize: "100" });
-            const parts = (r.data || []).filter((p: any) => p.code?.startsWith("INS-"));
-            setInsCatalog(parts);
+            setInsCatalog((r.data || []).filter((p: any) => p.code?.startsWith("INS-")));
         } catch { setInsCatalog([]); }
         finally { setInsCatalogLoading(false); }
     };
