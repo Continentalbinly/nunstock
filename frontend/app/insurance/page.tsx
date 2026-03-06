@@ -135,9 +135,13 @@ function InsurancePageInner() {
                 setSelectedCompany(comp);
             }
             if (carTypeParam) {
-                const foundCarType = allCategories.find((c: any) => c.id === carTypeParam && c.parentId === companyParam);
-                if (foundCarType && foundCarType.id !== selectedCarType) {
-                    setSelectedCarType(foundCarType.id);
+                if (carTypeParam === 'legacy') {
+                    if (selectedCarType !== 'legacy') setSelectedCarType('legacy');
+                } else {
+                    const foundCarType = allCategories.find((c: any) => c.id === carTypeParam && c.parentId === companyParam);
+                    if (foundCarType && foundCarType.id !== selectedCarType) {
+                        setSelectedCarType(foundCarType.id);
+                    }
                 }
             } else if (selectedCarType) {
                 setSelectedCarType(null);
@@ -147,7 +151,7 @@ function InsurancePageInner() {
             }
             if (brandParam && comp) {
                 // Brand could be child of CarType (new) or Company (old)
-                const br = allCategories.find((b: any) => b.id === brandParam && (b.parentId === carTypeParam || b.parentId === comp.id));
+                const br = allCategories.find((b: any) => b.id === brandParam && (b.parentId === carTypeParam || (carTypeParam === 'legacy' && b.parentId === comp.id)));
                 if (br && br.id !== selectedBrand?.id) {
                     setSelectedBrand(br);
                 }
@@ -253,6 +257,15 @@ function InsurancePageInner() {
         </>
     );
 
+    // Helpers for identifying types vs brands
+    const isCarType = (cat: any) => {
+        const children = allCategories.filter((child: any) => child.parentId === cat.id);
+        const hasGrandchildren = children.some((child: any) => allCategories.some((gc: any) => gc.parentId === child.id));
+        if (hasGrandchildren) return true;
+        if (getCarLogoUrl(cat.name)) return false;
+        return true;
+    };
+
     // ─── Step 1: Select Insurance Company ───────────────────
     if (!selectedCompany) {
         return (
@@ -317,7 +330,9 @@ function InsurancePageInner() {
 
     // ─── Step 2: Car Type Selection (after company) ─────────────
     if (selectedCompany && !selectedCarType) {
-        const companyCarTypes = allCategories.filter(c => c.parentId === selectedCompany.id);
+        const rawChildren = allCategories.filter(c => c.parentId === selectedCompany.id);
+        const companyCarTypes = rawChildren.filter(c => isCarType(c));
+        const legacyBrands = rawChildren.filter(c => !isCarType(c));
 
         return (
             <>{sharedModals}
@@ -357,6 +372,22 @@ function InsurancePageInner() {
                                 <p className="text-xs mt-1" style={{ color: "var(--t-text-muted)" }}>{allCategories.filter(c => c.parentId === ct.id).length} ยี่ห้อ</p>
                             </div>
                         ))}
+
+                        {legacyBrands.length > 0 && (
+                            <div className="group relative rounded-2xl p-6 transition-all duration-200 text-center cursor-pointer"
+                                style={{ background: "var(--t-card)", border: "1px solid var(--t-border-subtle)" }}
+                                onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#F9731680"; e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 8px 25px rgba(249,115,22,0.12)"; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--t-border-subtle)"; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; }}
+                                onClick={() => { setSelectedCarType('legacy'); router.push(`/insurance?company=${selectedCompany.id}&carType=legacy`); }}
+                            >
+                                <div className="w-14 h-14 rounded-xl mx-auto mb-3 flex items-center justify-center" style={{ background: "rgba(249,115,22,0.1)" }}>
+                                    <Car className="w-7 h-7" style={{ color: "#F97316" }} />
+                                </div>
+                                <p className="font-bold text-base" style={{ color: "var(--t-text)" }}>ยี่ห้ออื่นๆ (ข้อมูลเดิม)</p>
+                                <p className="text-xs mt-1" style={{ color: "var(--t-text-muted)" }}>{legacyBrands.length} ยี่ห้อ</p>
+                            </div>
+                        )}
+
                         {/* Add Car Type Card */}
                         <button
                             onClick={() => { setNewCarTypeLabel(""); setShowAddCarType(true); }}
@@ -396,8 +427,10 @@ function InsurancePageInner() {
     }
 
     // ─── Step 3: Brand Selection (after car type) ─────────────
-    const currentCarType = allCategories.find(c => c.id === selectedCarType);
-    const filteredBrands = allCategories.filter(b => b.parentId === selectedCarType || (b.parentId === selectedCompany.id && !allCategories.some(ct => ct.parentId === selectedCompany.id && b.parentId === ct.id)));
+    const currentCarType = selectedCarType === 'legacy' ? { id: 'legacy', name: "ยี่ห้อรถอื่นๆ (ข้อมูลเดิม)" } : allCategories.find(c => c.id === selectedCarType);
+    const filteredBrands = selectedCarType === 'legacy'
+        ? allCategories.filter(b => b.parentId === selectedCompany.id && !isCarType(b))
+        : allCategories.filter(b => b.parentId === selectedCarType);
 
     if (selectedCompany && selectedCarType && !selectedBrand) {
         return (
@@ -467,10 +500,10 @@ function InsurancePageInner() {
                         <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "var(--t-modal-overlay)", animation: "fadeIn 150ms ease" }} onClick={() => setShowAddBrand(false)}>
                             <div className="rounded-2xl p-6 w-[90%] max-w-sm shadow-2xl" style={{ background: "var(--t-modal-bg)", border: "1px solid var(--t-modal-border)", animation: "slideUp 200ms ease" }} onClick={(e) => e.stopPropagation()}>
                                 <h3 className="font-bold mb-4" style={{ color: "var(--t-text)" }}>เพิ่มยี่ห้อรถใน {currentCarType?.name}</h3>
-                                <input value={newBrandName} onChange={(e) => setNewBrandName(e.target.value)} onKeyDown={async (e) => { if (e.key === "Enter" && newBrandName.trim()) { try { await createCategory({ name: newBrandName.trim(), parentId: selectedCarType }); setShowAddBrand(false); const c = await getCategories(); setAllCategories(c); } catch (err: any) { toast.error(err.message); } } }} placeholder="ชื่อยี่ห้อรถ (เช่น Nissan)" className="w-full rounded-lg px-3 py-2.5 text-sm mb-4 focus:outline-none focus:ring-1 focus:ring-orange-500/30" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} autoFocus />
+                                <input value={newBrandName} onChange={(e) => setNewBrandName(e.target.value)} onKeyDown={async (e) => { if (e.key === "Enter" && newBrandName.trim()) { try { await createCategory({ name: newBrandName.trim(), parentId: selectedCarType === 'legacy' ? selectedCompany.id : selectedCarType }); setShowAddBrand(false); const c = await getCategories(); setAllCategories(c); } catch (err: any) { toast.error(err.message); } } }} placeholder="ชื่อยี่ห้อรถ (เช่น Nissan)" className="w-full rounded-lg px-3 py-2.5 text-sm mb-4 focus:outline-none focus:ring-1 focus:ring-orange-500/30" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} autoFocus />
                                 <div className="flex gap-3">
                                     <button onClick={() => setShowAddBrand(false)} className="flex-1 rounded-lg py-2.5 text-sm font-medium cursor-pointer" style={{ background: "var(--t-input-bg)", color: "var(--t-text-secondary)", border: "1px solid var(--t-input-border)" }}>ยกเลิก</button>
-                                    <button onClick={async () => { if (!newBrandName.trim()) return; try { await createCategory({ name: newBrandName.trim(), parentId: selectedCarType }); setShowAddBrand(false); const c = await getCategories(); setAllCategories(c); } catch (err: any) { toast.error(err.message); } }} className="flex-1 bg-orange-500 hover:bg-orange-400 text-white font-semibold rounded-lg py-2.5 text-sm cursor-pointer">เพิ่ม</button>
+                                    <button onClick={async () => { if (!newBrandName.trim()) return; try { await createCategory({ name: newBrandName.trim(), parentId: selectedCarType === 'legacy' ? selectedCompany.id : selectedCarType }); setShowAddBrand(false); const c = await getCategories(); setAllCategories(c); } catch (err: any) { toast.error(err.message); } }} className="flex-1 bg-orange-500 hover:bg-orange-400 text-white font-semibold rounded-lg py-2.5 text-sm cursor-pointer">เพิ่ม</button>
                                 </div>
                             </div>
                         </div>
