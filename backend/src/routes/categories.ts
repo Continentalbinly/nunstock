@@ -165,6 +165,82 @@ categoriesRouter.post("/migrate-insurance", requireAuth(), requireRole("ADMIN"),
     }
 });
 
+// ─── Migration: create standard car types for all insurance companies ───
+categoriesRouter.post("/migrate-car-types", requireAuth(), requireRole("ADMIN"), async (c) => {
+    try {
+        const results: string[] = [];
+        const rootId = "cmmbitw020000krnugh7obtt4"; // รถประกัน
+        const carTypes = ["ญี่ปุ่น", "ยุโรป", "อเมริกัน"];
+
+        // Get all companies under root
+        const companies = await prisma.partCategory.findMany({ where: { parentId: rootId } });
+
+        for (const company of companies) {
+            const existing = await prisma.partCategory.findMany({ where: { parentId: company.id } });
+            const existingNames = existing.map(e => e.name);
+
+            for (const typeName of carTypes) {
+                if (!existingNames.includes(typeName)) {
+                    await prisma.partCategory.create({ data: { name: typeName, parentId: company.id } });
+                    results.push(`Created "${typeName}" under ${company.name}`);
+                } else {
+                    results.push(`"${typeName}" already exists under ${company.name} — skipped`);
+                }
+            }
+        }
+
+        // ─── Rename ชับบ์'s "รถญี่ปุ่น" → "ญี่ปุ่น" ───
+        const chubbJpn = await prisma.partCategory.findFirst({
+            where: { name: "รถญี่ปุ่น", parentId: "cmmbkibnr0004kr20wr612saq" }
+        });
+        if (chubbJpn) {
+            // Check if ญี่ปุ่น was just created — if so, delete rถญี่ปุ่น and move its children
+            const newJpn = await prisma.partCategory.findFirst({
+                where: { name: "ญี่ปุ่น", parentId: "cmmbkibnr0004kr20wr612saq" }
+            });
+            if (newJpn && newJpn.id !== chubbJpn.id) {
+                // Move children from old to new
+                const oldChildren = await prisma.partCategory.findMany({ where: { parentId: chubbJpn.id } });
+                for (const child of oldChildren) {
+                    await prisma.partCategory.update({ where: { id: child.id }, data: { parentId: newJpn.id } });
+                    results.push(`Moved ${child.name} from "รถญี่ปุ่น" → "ญี่ปุ่น" (ชับบ์)`);
+                }
+                // Move parts too
+                await prisma.part.updateMany({ where: { categoryId: chubbJpn.id }, data: { categoryId: newJpn.id } });
+                // Delete old
+                await prisma.partCategory.delete({ where: { id: chubbJpn.id } });
+                results.push(`Deleted old "รถญี่ปุ่น" (replaced by "ญี่ปุ่น")`);
+            }
+        }
+
+        // ─── Move Ford from ยุโรป → อเมริกัน (วิริยะ) ───
+        const viriyahId = "cmmbj4keh0001kr4cgo25cij1";
+        const europeId = "cmmeej9rq0004krum572dbhy3"; // ยุโรป (วิริยะ)
+        const fordId = "cmmensxz7002qkr3lxv5xh5ir"; // Ford
+
+        const americanViriyah = await prisma.partCategory.findFirst({
+            where: { name: "อเมริกัน", parentId: viriyahId }
+        });
+        if (americanViriyah) {
+            const ford = await prisma.partCategory.findUnique({ where: { id: fordId } });
+            if (ford && ford.parentId === europeId) {
+                await prisma.partCategory.update({
+                    where: { id: fordId },
+                    data: { parentId: americanViriyah.id },
+                });
+                results.push(`Moved Ford: ยุโรป → อเมริกัน (วิริยะ)`);
+            } else {
+                results.push(`Ford already moved or not found — skipped`);
+            }
+        }
+
+        return c.json({ success: true, data: { results } });
+    } catch (error: any) {
+        console.error("Migration error:", error);
+        return c.json({ success: false, error: error.message || "Migration failed" }, 500);
+    }
+});
+
 categoriesRouter.delete("/:id", requireAuth(), requireRole("ADMIN"), async (c) => {
     try {
         const id = c.req.param("id");
