@@ -770,19 +770,18 @@ export default function JobDetailPage() {
                                             const filtered = insSearch
                                                 ? insCatalog.filter(p => p.name.toLowerCase().includes(insSearch.toLowerCase()))
                                                 : insCatalog;
-                                            // Exclude already-added parts
                                             const existingNames = new Set((job.parts || []).map((p: any) => p.partName));
-                                            const available = filtered.filter(p => !existingNames.has(p.name));
-                                            return available.length === 0 ? (
+                                            return filtered.length === 0 ? (
                                                 <div className="rounded-lg py-4 text-center" style={{ background: "var(--t-badge-bg)" }}>
                                                     <p className="text-xs" style={{ color: "var(--t-text-muted)" }}>
-                                                        {insCatalog.length === 0 ? `ไม่พบอะไหล่สำหรับ ${job.carModel}` : "เพิ่มครบแล้ว หรือไม่พบที่ค้นหา"}
+                                                        {insCatalog.length === 0 ? `ไม่พบอะไหล่สำหรับ ${job.carModel}` : "ไม่พบที่ค้นหา"}
                                                     </p>
                                                 </div>
                                             ) : (
                                                 <div className="space-y-1 max-h-48 overflow-y-auto rounded-lg">
-                                                    {available.map(p => {
+                                                    {filtered.map(p => {
                                                         const sel = selectedInsParts[p.id];
+                                                        const alreadyAdded = existingNames.has(p.name);
                                                         return (
                                                             <div key={p.id}
                                                                 className="flex items-center gap-3 rounded-lg px-3 py-2.5 cursor-pointer transition-all"
@@ -799,7 +798,7 @@ export default function JobDetailPage() {
                                                                 }}>
                                                                     {sel && <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
                                                                 </div>
-                                                                <span className="text-sm flex-1" style={{ color: sel ? "#F97316" : "var(--t-text)", fontWeight: sel ? 600 : 400 }}>{p.name}</span>
+                                                                <span className="text-sm flex-1" style={{ color: sel ? "#F97316" : "var(--t-text)", fontWeight: sel ? 600 : 400 }}>{p.name}{alreadyAdded && <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{ background: "rgba(34,197,94,0.1)", color: "#22C55E" }}>เพิ่มแล้ว</span>}</span>
                                                                 {sel && (
                                                                     <div className="flex items-center gap-1.5 shrink-0" onClick={e => e.stopPropagation()}>
                                                                         <button type="button" onClick={() => setSelectedInsParts(prev => {
