@@ -182,11 +182,16 @@ function InsurancePageInner() {
         }
     }, [searchParams, allCategories]);
 
+    // Determine the active category for parts (model or brand if no models exist)
+    const brandModels = selectedBrand ? allCategories.filter((c: any) => c.parentId === selectedBrand.id) : [];
+    const skipModelStep = selectedBrand && brandModels.length === 0;
+    const activeCategoryId = selectedModel?.id || (skipModelStep ? selectedBrand?.id : null);
+
     const fetchParts = async () => {
-        if (!selectedModel) return;
+        if (!activeCategoryId) return;
         setLoading(true);
         try {
-            const params: Record<string, string> = { page: String(page), pageSize: "20", categoryId: selectedModel.id };
+            const params: Record<string, string> = { page: String(page), pageSize: "20", categoryId: activeCategoryId };
             if (search) params.search = search;
             if (lowStockOnly) params.lowStock = "true";
             const result = await getParts(params);
@@ -200,8 +205,8 @@ function InsurancePageInner() {
     };
 
     useEffect(() => {
-        if (selectedModel) fetchParts();
-    }, [selectedModel, page, search, lowStockOnly]);
+        if (activeCategoryId) fetchParts();
+    }, [activeCategoryId, page, search, lowStockOnly]);
 
     const handleFilterChange = (setter: (v: any) => void, value: any) => {
         setPage(1);
@@ -518,45 +523,7 @@ function InsurancePageInner() {
     }
 
     // ─── Step 4: Model Selection (after brand) ───────────────
-    // If brand has no model sub-categories, treat brand as model and show parts directly
-    const brandModels = selectedBrand ? allCategories.filter((c: any) => c.parentId === selectedBrand.id) : [];
-    const brandHasDirectParts = selectedBrand?._count?.parts > 0;
-    const skipModelStep = selectedBrand && brandModels.length === 0;
-
-    if (selectedCompany && selectedCarType && selectedBrand && !selectedModel && skipModelStep) {
-        // Auto-select brand as model to show parts directly
-        if (!selectedModel) {
-            // Use the brand itself as the "model" for parts display
-            const brandAsModel = selectedBrand;
-            return (
-                <>
-                    {sharedModals}
-                    <div className="p-3 sm:p-4 lg:p-6 xl:p-8">
-                        {/* Render exactly like Step 5 but with brand as model */}
-                        {(() => {
-                            // Trigger auto-select — set brand as model
-                            if (!selectedModel) {
-                                setTimeout(() => {
-                                    setSelectedModel(brandAsModel);
-                                    setPage(1);
-                                    setSearch("");
-                                    setLowStockOnly(false);
-                                    router.push(`/insurance?company=${selectedCompany.id}&carType=${selectedCarType}&brand=${selectedBrand.id}&model=${brandAsModel.id}`);
-                                }, 0);
-                            }
-                            return null;
-                        })()}
-                        <div className="text-center py-8">
-                            <div className="w-10 h-10 border-3 rounded-full animate-spin mx-auto mb-4" style={{ borderColor: "var(--t-border)", borderTopColor: "#F97316" }} />
-                            <p style={{ color: "var(--t-text-muted)" }} className="text-sm">กำลังโหลดอะไหล่...</p>
-                        </div>
-                    </div>
-                </>
-            );
-        }
-    }
-
-    if (selectedCompany && selectedCarType && selectedBrand && !selectedModel) {
+    if (selectedCompany && selectedCarType && selectedBrand && !selectedModel && !skipModelStep) {
         return (
             <>{sharedModals}
                 <div className="p-3 sm:p-4 lg:p-6 xl:p-8">
@@ -639,25 +606,33 @@ function InsurancePageInner() {
         );
     }
 
-    // ─── Step 5: Parts + Claims (after model) ─────────────────
+    // ─── Step 5: Parts + Claims (after model OR brand with no models) ─────────────────
+    const showParts = selectedModel || (selectedBrand && skipModelStep);
+    if (!showParts) return null;
+
     const inputStyle = { background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" };
     const inputCls = "w-full rounded-lg px-3 py-2 text-sm transition-colors focus:outline-none focus:ring-1 focus:ring-orange-500/30";
+    const partsBackLabel = skipModelStep ? `กลับไปเลือกยี่ห้อ` : `กลับไปเลือกรุ่น ${selectedBrand?.name}`;
+    const partsBackAction = skipModelStep
+        ? () => { setSelectedBrand(null); setParts([]); router.push(`/insurance?company=${selectedCompany?.id}&carType=${selectedCarType}`); }
+        : () => { setSelectedModel(null); setParts([]); router.push(`/insurance?company=${selectedCompany?.id}&carType=${selectedCarType}&brand=${selectedBrand?.id}`); };
+    const displayModelName = selectedModel?.name && selectedModel.id !== selectedBrand?.id ? selectedModel.name : '';
 
     return (
         <div className="p-3 sm:p-4 lg:p-6 xl:p-8">
             <div className="mb-6">
                 <button
-                    onClick={() => { setSelectedModel(null); setParts([]); router.push(`/insurance?company=${selectedCompany.id}&carType=${selectedCarType}&brand=${selectedBrand.id}`); }}
+                    onClick={partsBackAction}
                     className="inline-flex items-center gap-2 text-sm font-medium mb-4 transition-all duration-200 cursor-pointer rounded-xl px-4 py-2"
                     style={{ background: "var(--t-card)", color: "var(--t-text-secondary)", border: "1px solid var(--t-border-subtle)" }}
                     onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#F9731660"; e.currentTarget.style.color = "#F97316"; }}
                     onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--t-border-subtle)"; e.currentTarget.style.color = "var(--t-text-secondary)"; }}
                 >
-                    <ChevronLeft className="w-4 h-4" /> กลับไปเลือกรุ่น {selectedBrand.name}
+                    <ChevronLeft className="w-4 h-4" /> {partsBackLabel}
                 </button>
                 <div className="flex items-center justify-between flex-wrap gap-3">
                     <div>
-                        <h1 className="text-xl font-bold" style={{ color: "var(--t-text)" }}>{selectedCompany.name} — {selectedBrand.name} {selectedModel?.name}</h1>
+                        <h1 className="text-xl font-bold" style={{ color: "var(--t-text)" }}>{selectedCompany?.name} — {selectedBrand?.name} {displayModelName}</h1>
                         <p className="mt-1 text-sm" style={{ color: "var(--t-text-muted)" }}>รายการอะไหล่ประกัน</p>
                     </div>
                     <button onClick={() => { setCreateForm({ code: "", name: "", description: "", brand: "", unit: "ชิ้น", quantity: 0, minStock: 5 }); setCreateError(""); setShowCreate(true); }} className="flex items-center gap-2 bg-orange-500 hover:bg-orange-400 text-white font-semibold rounded-lg px-4 py-2 text-sm transition-colors cursor-pointer"><Plus className="w-4 h-4" /> สร้างอะไหล่</button>
