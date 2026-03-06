@@ -258,11 +258,15 @@ function InsurancePageInner() {
     );
 
     // Helpers for identifying types vs brands
+    // A direct child of a company is a "car type" unless it looks like a car brand
+    // (has a car logo) AND has no sub-categories of its own (meaning it's a leaf-level brand)
     const isCarType = (cat: any) => {
         const children = allCategories.filter((child: any) => child.parentId === cat.id);
-        const hasGrandchildren = children.some((child: any) => allCategories.some((gc: any) => gc.parentId === child.id));
-        if (hasGrandchildren) return true;
+        // If it has children, it's definitely a car type (it contains brands or models underneath)
+        if (children.length > 0) return true;
+        // If it's a known car brand (has a logo) and has no children, it's a legacy brand
         if (getCarLogoUrl(cat.name)) return false;
+        // Otherwise it's an empty car type group (e.g. "ญี่ปุ่น" with no brands yet)
         return true;
     };
 
