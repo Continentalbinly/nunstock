@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { X, Search, CheckCircle2, Minus, Plus, Briefcase, User, Palette } from "lucide-react";
-import { getParts, addJobPart } from "@/lib/api";
+import { getParts, addJobPart, getUsers } from "@/lib/api";
 import { toast } from "sonner";
 
 interface Props {
@@ -25,6 +25,7 @@ export default function PaintWithdrawModal({ open, jobId, jobLabel, preSelectedP
 
     const [withdrawnBy, setWithdrawnBy] = useState("");
     const [saving, setSaving] = useState(false);
+    const [techUsers, setTechUsers] = useState<any[]>([]);
 
     const hasPreSelected = !!preSelectedPart;
 
@@ -47,8 +48,16 @@ export default function PaintWithdrawModal({ open, jobId, jobLabel, preSelectedP
                 loadPaints();
             }
             if (!jobId) loadActiveJobs();
+            loadTechUsers();
         }
     }, [open, jobId, preSelectedPart]);
+
+    const loadTechUsers = async () => {
+        try {
+            const users = await getUsers();
+            setTechUsers((users || []).filter((u: any) => u.role === "TECH"));
+        } catch { setTechUsers([]); }
+    };
 
     const loadActiveJobs = async () => {
         setLoadingJobs(true);
@@ -203,14 +212,18 @@ export default function PaintWithdrawModal({ open, jobId, jobLabel, preSelectedP
                         </div>
                     )}
 
-                    {/* Mechanic name */}
+                    {/* Mechanic selector */}
                     <div>
                         <label className="text-xs font-semibold mb-1.5 flex items-center gap-1.5" style={{ color: "var(--t-text-secondary)" }}>
-                            <User className="w-3.5 h-3.5" style={{ color: accent }} /> ชื่อผู้เบิก <span style={{ color: "#EF4444" }}>*</span>
+                            <User className="w-3.5 h-3.5" style={{ color: accent }} /> ชื่อผู้เบิก (ช่าง) <span style={{ color: "#EF4444" }}>*</span>
                         </label>
-                        <input value={withdrawnBy} onChange={e => setWithdrawnBy(e.target.value)}
-                            className="w-full rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20" style={inputStyle}
-                            placeholder="ชื่อช่างผู้เบิก" />
+                        <select value={withdrawnBy} onChange={e => setWithdrawnBy(e.target.value)}
+                            className="w-full rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20 cursor-pointer" style={inputStyle}>
+                            <option value="">-- เลือกช่าง --</option>
+                            {techUsers.map(u => (
+                                <option key={u.id} value={u.name}>{u.name}</option>
+                            ))}
+                        </select>
                     </div>
 
                     {/* Paint list — only if NO preSelectedPart */}
