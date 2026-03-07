@@ -50,7 +50,7 @@ export default function ConsumableWithdrawModal({ open, jobId, jobLabel, preSele
                 loadConsumables();
             }
             if (!jobId) loadActiveJobs();
-            loadTechUsers();
+            if (user?.role === "ADMIN") loadTechUsers();
         }
     }, [open, jobId, preSelectedPart, user]);
 
@@ -128,6 +128,7 @@ export default function ConsumableWithdrawModal({ open, jobId, jobLabel, preSele
 
     const inputStyle = { background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" };
     const selectedJob = activeJobs.find(j => j.id === selectedJobId);
+    const isTechUser = user?.role === "TECH";
 
     return (
         <div className="fixed inset-0 z-9998 flex items-center justify-center"
@@ -219,13 +220,20 @@ export default function ConsumableWithdrawModal({ open, jobId, jobLabel, preSele
                         <label className="text-xs font-semibold mb-1.5 flex items-center gap-1.5" style={{ color: "var(--t-text-secondary)" }}>
                             <User className="w-3.5 h-3.5" style={{ color: "#8B5CF6" }} /> ชื่อผู้เบิก (ช่าง) <span style={{ color: "#EF4444" }}>*</span>
                         </label>
-                        <select value={withdrawnBy} onChange={e => setWithdrawnBy(e.target.value)}
-                            className="w-full rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 cursor-pointer" style={inputStyle}>
-                            <option value="">-- เลือกช่าง --</option>
-                            {techUsers.map(u => (
-                                <option key={u.id} value={u.name}>{u.name}</option>
-                            ))}
-                        </select>
+                        {isTechUser ? (
+                            <div className="w-full rounded-lg px-3 py-2.5 text-sm font-semibold"
+                                style={{ ...inputStyle, color: "#8B5CF6", background: "rgba(139,92,246,0.06)" }}>
+                                {user.name}
+                            </div>
+                        ) : (
+                            <select value={withdrawnBy} onChange={e => setWithdrawnBy(e.target.value)}
+                                className="w-full rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 cursor-pointer" style={inputStyle}>
+                                <option value="">-- เลือกช่าง --</option>
+                                {techUsers.map(u => (
+                                    <option key={u.id} value={u.name}>{u.name}</option>
+                                ))}
+                            </select>
+                        )}
                     </div>
 
                     {/* Consumable list — only if NO preSelectedPart */}
