@@ -52,7 +52,7 @@ export default function PaintWithdrawModal({ open, jobId, jobLabel, preSelectedP
             if (!jobId) loadActiveJobs();
             loadTechUsers();
         }
-    }, [open, jobId, preSelectedPart]);
+    }, [open, jobId, preSelectedPart, user]);
 
     const loadTechUsers = async () => {
         try {

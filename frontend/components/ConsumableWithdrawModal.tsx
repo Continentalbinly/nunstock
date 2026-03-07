@@ -52,7 +52,7 @@ export default function ConsumableWithdrawModal({ open, jobId, jobLabel, preSele
             if (!jobId) loadActiveJobs();
             loadTechUsers();
         }
-    }, [open, jobId, preSelectedPart]);
+    }, [open, jobId, preSelectedPart, user]);
 
     const loadTechUsers = async () => {
         try {
