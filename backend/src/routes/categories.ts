@@ -99,6 +99,16 @@ categoriesRouter.patch("/:id/move", requireAuth(), requireRole("ADMIN"), async (
     }
 });
 
+// ─── Temporary: drop unique constraint on Part.code ───
+categoriesRouter.post("/drop-code-unique", requireAuth(), requireRole("ADMIN"), async (c) => {
+    try {
+        await prisma.$executeRawUnsafe(`DROP INDEX IF EXISTS "Part_code_key"`);
+        return c.json({ success: true, message: "Dropped Part_code_key unique index" });
+    } catch (error: any) {
+        return c.json({ success: false, error: error.message }, 500);
+    }
+});
+
 categoriesRouter.delete("/:id", requireAuth(), requireRole("ADMIN"), async (c) => {
     try {
         const id = c.req.param("id");
