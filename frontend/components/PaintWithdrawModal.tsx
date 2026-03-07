@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { X, Search, CheckCircle2, Minus, Plus, Briefcase, User, Palette } from "lucide-react";
 import { getParts, addJobPart, getUsers } from "@/lib/api";
 import { toast } from "sonner";
+import { useAuthStore } from "@/lib/stores/auth-store";
 
 interface Props {
     open: boolean;
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export default function PaintWithdrawModal({ open, jobId, jobLabel, preSelectedPart, onClose, onSuccess }: Props) {
+    const { user } = useAuthStore();
     const [activeJobs, setActiveJobs] = useState<any[]>([]);
     const [selectedJobId, setSelectedJobId] = useState(jobId || "");
     const [loadingJobs, setLoadingJobs] = useState(false);
@@ -33,7 +35,7 @@ export default function PaintWithdrawModal({ open, jobId, jobLabel, preSelectedP
         if (open) {
             setSelectedJobId(jobId || "");
             setPaintSearch("");
-            setWithdrawnBy("");
+            setWithdrawnBy(user?.role === "TECH" ? user.name : "");
             if (preSelectedPart) {
                 setSelectedPaints({
                     [preSelectedPart.id]: {

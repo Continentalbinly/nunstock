@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { X, Search, CheckCircle2, Minus, Plus, Wrench, Briefcase, User, Package } from "lucide-react";
 import { getParts, addJobPart, getUsers } from "@/lib/api";
 import { toast } from "sonner";
+import { useAuthStore } from "@/lib/stores/auth-store";
 
 interface Props {
     open: boolean;
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export default function ConsumableWithdrawModal({ open, jobId, jobLabel, preSelectedPart, onClose, onSuccess }: Props) {
+    const { user } = useAuthStore();
     const [activeJobs, setActiveJobs] = useState<any[]>([]);
     const [selectedJobId, setSelectedJobId] = useState(jobId || "");
     const [loadingJobs, setLoadingJobs] = useState(false);
@@ -33,7 +35,7 @@ export default function ConsumableWithdrawModal({ open, jobId, jobLabel, preSele
         if (open) {
             setSelectedJobId(jobId || "");
             setConsSearch("");
-            setWithdrawnBy("");
+            setWithdrawnBy(user?.role === "TECH" ? user.name : "");
             if (preSelectedPart) {
                 setSelectedCons({
                     [preSelectedPart.id]: {
