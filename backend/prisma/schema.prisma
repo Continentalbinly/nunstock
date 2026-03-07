@@ -43,7 +43,7 @@ model PartCategory {
 
 model Part {
   id          String          @id @default(cuid())
-  code        String          @unique
+  code        String
   name        String
   type        PartType?
   description String?
