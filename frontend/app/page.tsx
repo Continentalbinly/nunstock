@@ -156,18 +156,18 @@ export default function DashboardPage() {
           ) : (
             <div className="space-y-1">
               {summary.topWithdrawn.map((t: any, idx: number) => (
-                <div key={t.partId} className="flex items-center justify-between py-2.5 px-2 rounded-lg transition-colors" onMouseEnter={(e) => e.currentTarget.style.background = "var(--t-hover-overlay)"} onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
+                <div key={idx} className="flex items-center justify-between py-2.5 px-2 rounded-lg transition-colors" onMouseEnter={(e) => e.currentTarget.style.background = "var(--t-hover-overlay)"} onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
                   <div className="flex items-center gap-3">
                     <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold" style={{ background: idx < 3 ? "rgba(249,115,22,0.15)" : "var(--t-hover-overlay)", color: idx < 3 ? "#F97316" : "var(--t-text-muted)" }}>
                       {idx + 1}
                     </span>
                     <div>
-                      <p className="text-sm font-medium" style={{ color: "var(--t-text)" }}>{t.part?.name}</p>
-                      <p className="text-xs" style={{ color: "var(--t-text-muted)" }}>{t.part?.code}</p>
+                      <p className="text-sm font-medium" style={{ color: "var(--t-text)" }}>{t.partName || t.part?.name}</p>
+                      <p className="text-xs" style={{ color: "var(--t-text-muted)" }}>เบิก {t.count || 1} ครั้ง</p>
                     </div>
                   </div>
                   <span className="text-xs px-2.5 py-1 rounded-full bg-orange-500/15 text-orange-500 font-medium">
-                    {t.totalQty} {t.part?.unit}
+                    {t.totalQty} ชิ้น
                   </span>
                 </div>
               ))}

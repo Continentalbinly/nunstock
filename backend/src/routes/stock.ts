@@ -31,30 +31,37 @@ stockRouter.get("/summary", async (c) => {
         const [
             totalParts,
             totalCategories,
-            lowStockParts,
+            lowStockPartsAll,
             recentClaims,
             recentMovements,
             totalStockAgg,
-            todayOutCount,
-            todayInCount,
+            // stockMovement counts for today
+            todayOutMovements,
+            todayInMovements,
+            // jobPart counts for today (consumable + paint withdrawals)
+            todayJobPartsOut,
+            // Top withdrawn from jobPart (actual withdrawals)
             topWithdrawnRaw,
             paintCount,
             consumableCount,
-            shopStockAgg,
+            shopStockCount,
+            // 7-day data from stockMovement
             recentDailyMovements,
+            // 7-day data from jobPart (withdrawals)
+            recentDailyJobParts,
+            // Today's stock IN from stockMovement
+            todayInParts,
         ] = await Promise.all([
             prisma.part.count(),
             prisma.partCategory.count(),
-            // Optimized: DB-level low stock filter instead of JS re-filter
+            // Get ALL low stock candidates (no take limit — JS filter needs full list)
             prisma.part.findMany({
                 where: {
                     minStock: { gt: 0 },
                     NOT: { code: { startsWith: "INS-" } },
-                    quantity: { lte: prisma.part.fields?.minStock ?? 999 },
                 },
                 include: { category: true },
                 orderBy: { quantity: "asc" },
-                take: 10,
             }),
             prisma.job.findMany({
                 where: { type: "INSURANCE", status: { in: ["WAITING_PARTS", "RECEIVED", "IN_PROGRESS"] } },
@@ -70,41 +77,63 @@ stockRouter.get("/summary", async (c) => {
                 take: 10,
             }),
             prisma.part.aggregate({ _sum: { quantity: true } }),
+            // stockMovement OUT today
             prisma.stockMovement.count({ where: { type: "OUT", createdAt: { gte: todayStart } } }),
+            // stockMovement IN today
             prisma.stockMovement.count({ where: { type: "IN", createdAt: { gte: todayStart } } }),
-            prisma.stockMovement.groupBy({
-                by: ["partId"],
-                where: { type: "OUT", createdAt: { gte: thisMonthStart } },
+            // jobPart withdrawals today (consumable + paint + shop)
+            prisma.jobPart.count({
+                where: {
+                    addedAt: { gte: todayStart },
+                    source: { in: ["CONSUMABLE", "PAINT", "SHOP_PART", "SHOP_STOCK"] },
+                },
+            }),
+            // Top withdrawn this month from jobPart
+            prisma.jobPart.groupBy({
+                by: ["partName"],
+                where: { addedAt: { gte: thisMonthStart } },
                 _sum: { quantity: true },
+                _count: true,
                 orderBy: { _sum: { quantity: "desc" } },
                 take: 5,
             }),
             prisma.part.count({ where: { type: "PAINT" } }),
             prisma.part.count({ where: { type: "CONSUMABLE" } }),
-            prisma.shopStock.aggregate({ _sum: { quantity: true } }),
-            // Moved into Promise.all (was sequential before)
+            // ShopStock: count unique items, not sum of quantities
+            prisma.shopStock.count(),
+            // 7-day stockMovement
             prisma.stockMovement.findMany({
                 where: { createdAt: { gte: sevenDaysAgo } },
                 select: { type: true, quantity: true, createdAt: true },
             }),
+            // 7-day jobPart withdrawals
+            prisma.jobPart.findMany({
+                where: {
+                    addedAt: { gte: sevenDaysAgo },
+                    source: { in: ["CONSUMABLE", "PAINT", "SHOP_PART", "SHOP_STOCK"] },
+                },
+                select: { quantity: true, addedAt: true, source: true },
+            }),
+            // Today's stock IN from stockMovement
+            prisma.stockMovement.aggregate({
+                where: { type: "IN", createdAt: { gte: todayStart } },
+                _sum: { quantity: true },
+            }),
         ]);
 
-        // Enrich top withdrawn (still needs sequential lookup)
-        const topPartIds = topWithdrawnRaw.map(t => t.partId);
-        const topParts = topPartIds.length > 0
-            ? await prisma.part.findMany({ where: { id: { in: topPartIds } }, include: { category: true } })
-            : [];
-        const topPartMap = new Map(topParts.map(p => [p.id, p]));
-        const topWithdrawn = topWithdrawnRaw.map(t => ({
-            partId: t.partId,
+        // Enrich top withdrawn (now from jobPart groupBy partName)
+        const topWithdrawn = topWithdrawnRaw.map((t, idx) => ({
+            rank: idx + 1,
+            partName: t.partName,
             totalQty: t._sum.quantity || 0,
-            part: topPartMap.get(t.partId),
+            count: t._count,
+            part: { name: t.partName },
         }));
 
-        // Filter low stock properly (Prisma can't compare column-to-column, so JS filter stays)
-        const actualLowStock = lowStockParts.filter((p) => p.quantity <= p.minStock);
+        // Filter low stock properly (Prisma can't compare column-to-column, so JS filter)
+        const actualLowStock = lowStockPartsAll.filter((p) => p.quantity <= p.minStock);
 
-        // Compute daily chart
+        // Compute daily chart (combine stockMovement + jobPart)
         const dailyMap = new Map<string, { inQty: number; outQty: number }>();
         for (let i = 0; i < 7; i++) {
             const d = new Date();
@@ -112,6 +141,7 @@ stockRouter.get("/summary", async (c) => {
             const key = d.toISOString().split("T")[0];
             dailyMap.set(key, { inQty: 0, outQty: 0 });
         }
+        // Add stockMovement data
         for (const m of recentDailyMovements) {
             const key = m.createdAt.toISOString().split("T")[0];
             const entry = dailyMap.get(key);
@@ -120,11 +150,23 @@ stockRouter.get("/summary", async (c) => {
                 else entry.outQty += m.quantity;
             }
         }
+        // Add jobPart withdrawal data (as OUT)
+        for (const jp of recentDailyJobParts) {
+            const key = jp.addedAt.toISOString().split("T")[0];
+            const entry = dailyMap.get(key);
+            if (entry) {
+                entry.outQty += jp.quantity;
+            }
+        }
         const dailyChart = Array.from(dailyMap.entries()).map(([date, data]) => ({
             date,
             label: new Date(date).toLocaleDateString("th-TH", { day: "2-digit", month: "short" }),
             ...data,
         }));
+
+        // Combine today counts (stockMovement + jobPart)
+        const todayOutCount = todayOutMovements + todayJobPartsOut;
+        const todayInCount = todayInMovements;
 
         const result = {
             totalParts,
@@ -132,12 +174,12 @@ stockRouter.get("/summary", async (c) => {
             totalStock: totalStockAgg._sum.quantity || 0,
             paintCount,
             consumableCount,
-            shopStockCount: shopStockAgg._sum.quantity || 0,
+            shopStockCount,
             lowStockCount: actualLowStock.length,
             pendingClaimsCount: recentClaims.length,
             todayOutCount,
             todayInCount,
-            lowStockParts: actualLowStock,
+            lowStockParts: actualLowStock.slice(0, 10),
             pendingClaims: recentClaims,
             recentMovements,
             topWithdrawn,
@@ -149,6 +191,7 @@ stockRouter.get("/summary", async (c) => {
 
         return c.json({ success: true, data: result });
     } catch (error) {
+        console.error("Dashboard summary error:", error);
         return c.json({ success: false, error: "ไม่สามารถดึงข้อมูลสรุปได้" }, 500);
     }
 });
