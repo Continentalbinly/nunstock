@@ -84,13 +84,14 @@ export default function PaintsPage() {
             const params: Record<string, string> = { page: String(page), pageSize: "20", type: "PAINT" };
             if (debouncedSearch) params.search = debouncedSearch;
             if (lowStockOnly) params.lowStock = "true";
+            if (typeFilter !== "ทั้งหมด") params.specification = typeFilter;
             const result = await getParts(params);
             setParts(result.data);
             setPagination(result.pagination);
         } catch (err) { console.error(err); }
     };
 
-    useEffect(() => { fetchParts(); }, [page, debouncedSearch, lowStockOnly]);
+    useEffect(() => { fetchParts(); }, [page, debouncedSearch, lowStockOnly, typeFilter]);
 
     const handleFilterChange = (setter: (v: any) => void, value: any) => { setPage(1); setter(value); };
 
@@ -126,7 +127,7 @@ export default function PaintsPage() {
         </div>
     );
 
-    const filteredParts = typeFilter === "ทั้งหมด" ? parts : parts.filter(p => p.specification === typeFilter);
+    const filteredParts = parts;
     const isIn = actionType === "IN";
     const accentColor = isIn ? "#22C55E" : "#8B5CF6";
 
