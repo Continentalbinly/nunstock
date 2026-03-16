@@ -2,8 +2,11 @@ import { describe, it, expect } from "vitest";
 import { z } from "zod";
 
 // Recreate the schemas exactly as they are in the routes (no DB needed)
+const PART_CODE_REGEX = /^[A-Za-z0-9\-_.*@#!+/\\]+$/;
+const PART_CODE_ERROR = "รหัสต้องเป็นภาษาอังกฤษ ตัวเลข หรืออักขระพิเศษเท่านั้น (A-Z, 0-9, -_.*@#!+/)";
+
 const partSchema = z.object({
-    code: z.string().min(1, "กรุณาระบุรหัสอะไหล่"),
+    code: z.string().min(1, "กรุณาระบุรหัสอะไหล่").regex(PART_CODE_REGEX, PART_CODE_ERROR),
     name: z.string().min(1, "กรุณาระบุชื่ออะไหล่"),
     type: z.enum(["CONSUMABLE", "INSURANCE", "PAINT"]).optional(),
     description: z.string().optional(),
@@ -72,6 +75,42 @@ describe("Part Schema Validation", () => {
             const result = partSchema.safeParse({ code: "P-001", name: "Test", type });
             expect(result.success).toBe(true);
         }
+    });
+
+    // ── Part Code Format Tests ──────────────────────────
+    it("should accept English code with dashes (IN-TYT-003)", () => {
+        const result = partSchema.safeParse({ code: "IN-TYT-003", name: "Test" });
+        expect(result.success).toBe(true);
+    });
+
+    it("should accept code with special characters (PT#013)", () => {
+        const result = partSchema.safeParse({ code: "PT#013", name: "Test" });
+        expect(result.success).toBe(true);
+    });
+
+    it("should accept auto-generated insurance code (INS-M5ABCDE)", () => {
+        const result = partSchema.safeParse({ code: "INS-M5ABCDE", name: "Test" });
+        expect(result.success).toBe(true);
+    });
+
+    it("should accept code with allowed special chars (-_.*@#!+/)", () => {
+        const result = partSchema.safeParse({ code: "A-B_C.D*E@F#G!H+I/J", name: "Test" });
+        expect(result.success).toBe(true);
+    });
+
+    it("should reject Thai-only code (มือเปิดประตู)", () => {
+        const result = partSchema.safeParse({ code: "มือเปิดประตู", name: "Test" });
+        expect(result.success).toBe(false);
+    });
+
+    it("should reject mixed Thai+English code (บานพับ-001)", () => {
+        const result = partSchema.safeParse({ code: "บานพับ-001", name: "Test" });
+        expect(result.success).toBe(false);
+    });
+
+    it("should reject code with spaces (part 001)", () => {
+        const result = partSchema.safeParse({ code: "part 001", name: "Test" });
+        expect(result.success).toBe(false);
     });
 });
 

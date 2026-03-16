@@ -74,8 +74,11 @@ partsRouter.get("/:id", async (c) => {
     }
 });
 
+const PART_CODE_REGEX = /^[A-Za-z0-9\-_.*@#!+/\\]+$/;
+const PART_CODE_ERROR = "รหัสต้องเป็นภาษาอังกฤษ ตัวเลข หรืออักขระพิเศษเท่านั้น (A-Z, 0-9, -_.*@#!+/)";
+
 const partSchema = z.object({
-    code: z.string().min(1, "กรุณาระบุรหัสอะไหล่"),
+    code: z.string().min(1, "กรุณาระบุรหัสอะไหล่").regex(PART_CODE_REGEX, PART_CODE_ERROR),
     name: z.string().min(1, "กรุณาระบุชื่ออะไหล่"),
     type: z.enum(["CONSUMABLE", "INSURANCE", "PAINT"]).optional(),
     description: z.string().optional(),
@@ -88,7 +91,7 @@ const partSchema = z.object({
 });
 
 const partUpdateSchema = z.object({
-    code: z.string().min(1, "กรุณาระบุรหัสอะไหล่").optional(),
+    code: z.string().min(1, "กรุณาระบุรหัสอะไหล่").regex(PART_CODE_REGEX, PART_CODE_ERROR).optional(),
     name: z.string().min(1, "กรุณาระบุชื่ออะไหล่").optional(),
     description: z.string().optional().nullable(),
     brand: z.string().optional().nullable(),

@@ -8,6 +8,9 @@ import BarcodeModal from "@/components/BarcodeModal";
 import PaintWithdrawModal from "@/components/PaintWithdrawModal";
 import { useAuthStore } from "@/lib/stores/auth-store";
 
+const PART_CODE_REGEX = /^[A-Za-z0-9\-_.*@#!+/\\]*$/;
+const filterPartCode = (v: string) => v.replace(/[^A-Za-z0-9\-_.*@#!+/\\]/g, "");
+
 
 const PAINT_TYPES = ["ทั้งหมด", "แม่สี", "สีรองพื้น", "สีผสม", "สั่งร้านนอก"];
 
@@ -306,7 +309,7 @@ export default function PaintsPage() {
                         {createError && <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-500 text-sm">{createError}</div>}
                         <div className="space-y-4">
                             <div className="grid grid-cols-2 gap-3">
-                                <div><label className="text-sm mb-1 block" style={{ color: "var(--t-text-secondary)" }}>รหัสสี (สีเบอร์) *</label><input value={createForm.code} onChange={(e) => setCreateForm({ ...createForm, code: e.target.value })} className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-purple-500/30" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} placeholder="PT-013" /></div>
+                                <div><label className="text-sm mb-1 block" style={{ color: "var(--t-text-secondary)" }}>รหัสสี (สีเบอร์) *</label><input value={createForm.code} onChange={(e) => setCreateForm({ ...createForm, code: filterPartCode(e.target.value) })} className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-purple-500/30" style={{ background: "var(--t-input-bg)", border: `1px solid ${createForm.code && !PART_CODE_REGEX.test(createForm.code) ? "#EF4444" : "var(--t-input-border)"}`, color: "var(--t-input-text)" }} placeholder="PT-013" /><p className="text-[10px] mt-1" style={{ color: "var(--t-text-dim)" }}>เฉพาะ A-Z, 0-9 และ -_.*@#!+/</p></div>
                                 <div><label className="text-sm mb-1 block" style={{ color: "var(--t-text-secondary)" }}>ยี่ห้อ</label><input value={createForm.brand} onChange={(e) => setCreateForm({ ...createForm, brand: e.target.value })} className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-purple-500/30" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} placeholder="Sikkens, Standox" /></div>
                             </div>
                             <div className="grid grid-cols-2 gap-3">
@@ -328,7 +331,7 @@ export default function PaintsPage() {
                         </div>
                         <div className="flex gap-3 mt-6 pt-4" style={{ borderTop: "1px solid var(--t-border-subtle)" }}>
                             <button onClick={() => setShowCreate(false)} className="flex-1 rounded-lg py-2.5 text-sm font-medium cursor-pointer" style={{ background: "var(--t-input-bg)", color: "var(--t-text-secondary)", border: "1px solid var(--t-input-border)" }}>ยกเลิก</button>
-                            <button onClick={async () => { if (!createForm.code || !createForm.name) { setCreateError("กรุณากรอกรหัสและชื่อสี"); return; } setCreateSaving(true); setCreateError(""); try { await createPart({ ...createForm, quantity: Number(createForm.quantity), minStock: Number(createForm.minStock), type: "PAINT" }); setShowCreate(false); fetchParts(); } catch (err: any) { setCreateError(err.message || "เกิดข้อผิดพลาด"); } finally { setCreateSaving(false); } }} disabled={createSaving} className="flex-1 text-white font-semibold rounded-lg py-2.5 text-sm cursor-pointer disabled:opacity-50" style={{ background: "#8B5CF6" }}>{createSaving ? "กำลังบันทึก..." : "เพิ่มสี"}</button>
+                            <button onClick={async () => { if (!createForm.code || !createForm.name) { setCreateError("กรุณากรอกรหัสและชื่อสี"); return; } if (!PART_CODE_REGEX.test(createForm.code)) { setCreateError("รหัสต้องเป็นภาษาอังกฤษ ตัวเลข หรืออักขระพิเศษเท่านั้น (A-Z, 0-9, -_.*@#!+/)"); return; } setCreateSaving(true); setCreateError(""); try { await createPart({ ...createForm, quantity: Number(createForm.quantity), minStock: Number(createForm.minStock), type: "PAINT" }); setShowCreate(false); fetchParts(); } catch (err: any) { setCreateError(err.message || "เกิดข้อผิดพลาด"); } finally { setCreateSaving(false); } }} disabled={createSaving} className="flex-1 text-white font-semibold rounded-lg py-2.5 text-sm cursor-pointer disabled:opacity-50" style={{ background: "#8B5CF6" }}>{createSaving ? "กำลังบันทึก..." : "เพิ่มสี"}</button>
                         </div>
                     </div>
                 </div>
@@ -345,7 +348,7 @@ export default function PaintsPage() {
                         {editPartError && <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-500 text-sm">{editPartError}</div>}
                         <div className="space-y-3">
                             <div className="grid grid-cols-2 gap-3">
-                                <div><label className="text-sm mb-1 block" style={{ color: "var(--t-text-secondary)" }}>รหัสสี *</label><input value={editPartForm.code} onChange={(e) => setEditPartForm({ ...editPartForm, code: e.target.value })} className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-purple-500/30" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} /></div>
+                                <div><label className="text-sm mb-1 block" style={{ color: "var(--t-text-secondary)" }}>รหัสสี *</label><input value={editPartForm.code} onChange={(e) => setEditPartForm({ ...editPartForm, code: filterPartCode(e.target.value) })} className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-purple-500/30" style={{ background: "var(--t-input-bg)", border: `1px solid ${editPartForm.code && !PART_CODE_REGEX.test(editPartForm.code) ? "#EF4444" : "var(--t-input-border)"}`, color: "var(--t-input-text)" }} /><p className="text-[10px] mt-1" style={{ color: "var(--t-text-dim)" }}>เฉพาะ A-Z, 0-9 และ -_.*@#!+/</p></div>
                                 <div><label className="text-sm mb-1 block" style={{ color: "var(--t-text-secondary)" }}>ยี่ห้อ</label><input value={editPartForm.brand} onChange={(e) => setEditPartForm({ ...editPartForm, brand: e.target.value })} className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-purple-500/30" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} /></div>
                             </div>
                             <div className="grid grid-cols-2 gap-3">
@@ -366,7 +369,7 @@ export default function PaintsPage() {
                         </div>
                         <div className="flex gap-3 mt-5 pt-4" style={{ borderTop: "1px solid var(--t-border-subtle)" }}>
                             <button onClick={() => setEditingPart(null)} className="flex-1 rounded-lg py-2.5 text-sm font-medium cursor-pointer" style={{ background: "var(--t-input-bg)", color: "var(--t-text-secondary)", border: "1px solid var(--t-input-border)" }}>ยกเลิก</button>
-                            <button onClick={async () => { if (!editPartForm.code || !editPartForm.name) { setEditPartError("กรุณากรอกรหัสและชื่อ"); return; } setEditPartSaving(true); setEditPartError(""); try { await updatePart(editingPart.id, editPartForm); setEditingPart(null); toast.success("แก้ไขสีเรียบร้อย"); fetchParts(); } catch (err: any) { setEditPartError(err.message || "เกิดข้อผิดพลาด"); } finally { setEditPartSaving(false); } }} disabled={editPartSaving} className="flex-1 text-white font-semibold rounded-lg py-2.5 text-sm cursor-pointer disabled:opacity-50" style={{ background: "#8B5CF6" }}>{editPartSaving ? "กำลังบันทึก..." : "บันทึก"}</button>
+                            <button onClick={async () => { if (!editPartForm.code || !editPartForm.name) { setEditPartError("กรุณากรอกรหัสและชื่อ"); return; } if (!PART_CODE_REGEX.test(editPartForm.code)) { setEditPartError("รหัสต้องเป็นภาษาอังกฤษ ตัวเลข หรืออักขระพิเศษเท่านั้น"); return; } setEditPartSaving(true); setEditPartError(""); try { await updatePart(editingPart.id, editPartForm); setEditingPart(null); toast.success("แก้ไขสีเรียบร้อย"); fetchParts(); } catch (err: any) { setEditPartError(err.message || "เกิดข้อผิดพลาด"); } finally { setEditPartSaving(false); } }} disabled={editPartSaving} className="flex-1 text-white font-semibold rounded-lg py-2.5 text-sm cursor-pointer disabled:opacity-50" style={{ background: "#8B5CF6" }}>{editPartSaving ? "กำลังบันทึก..." : "บันทึก"}</button>
                         </div>
                     </div>
                 </div>

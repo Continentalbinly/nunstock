@@ -10,6 +10,9 @@ import ConsumableWithdrawModal from "@/components/ConsumableWithdrawModal";
 import { Barcode } from "lucide-react";
 import { useAuthStore } from "@/lib/stores/auth-store";
 
+const PART_CODE_REGEX = /^[A-Za-z0-9\-_.*@#!+/\\]*$/;
+const filterPartCode = (v: string) => v.replace(/[^A-Za-z0-9\-_.*@#!+/\\]/g, "");
+
 export default function ConsumablesPage() {
     const { addToCart } = useCart();
     const { isAdmin } = useAuthStore();
@@ -346,7 +349,7 @@ export default function ConsumablesPage() {
                         <div className="flex-1 overflow-y-auto p-5 space-y-4">
                             {editPartError && <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center gap-2"><AlertCircle className="w-4 h-4 text-red-500 shrink-0" /><p className="text-sm text-red-500">{editPartError}</p></div>}
                             <div className="grid grid-cols-2 gap-3">
-                                <div><label className="text-xs font-semibold mb-1.5 block" style={{ color: "var(--t-text-secondary)" }}>รหัส *</label><input value={editPartForm.code} onChange={(e) => setEditPartForm({ ...editPartForm, code: e.target.value })} className="w-full rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} /></div>
+                                <div><label className="text-xs font-semibold mb-1.5 block" style={{ color: "var(--t-text-secondary)" }}>รหัส *</label><input value={editPartForm.code} onChange={(e) => setEditPartForm({ ...editPartForm, code: filterPartCode(e.target.value) })} className="w-full rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20" style={{ background: "var(--t-input-bg)", border: `1px solid ${editPartForm.code && !PART_CODE_REGEX.test(editPartForm.code) ? "#EF4444" : "var(--t-input-border)"}`, color: "var(--t-input-text)" }} /><p className="text-[10px] mt-1" style={{ color: "var(--t-text-dim)" }}>เฉพาะ A-Z, 0-9 และ -_.*@#!+/</p></div>
                                 <div><label className="text-xs font-semibold mb-1.5 block" style={{ color: "var(--t-text-secondary)" }}>ยี่ห้อ</label><input value={editPartForm.brand} onChange={(e) => setEditPartForm({ ...editPartForm, brand: e.target.value })} className="w-full rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20" style={{ background: "var(--t-input-bg)", border: "1px solid var(--t-input-border)", color: "var(--t-input-text)" }} /></div>
                             </div>
                             <div className="grid grid-cols-2 gap-3">
@@ -362,7 +365,7 @@ export default function ConsumablesPage() {
                         {/* Footer */}
                         <div className="px-5 py-4 flex gap-3 shrink-0" style={{ borderTop: "1px solid var(--t-border-subtle)" }}>
                             <button onClick={() => setEditingPart(null)} className="flex-1 rounded-xl py-2.5 text-sm font-medium cursor-pointer" style={{ background: "var(--t-input-bg)", color: "var(--t-text-secondary)", border: "1px solid var(--t-input-border)" }}>ยกเลิก</button>
-                            <button onClick={async () => { if (!editPartForm.code || !editPartForm.name) { setEditPartError("กรุณากรอกรหัสและชื่อ"); return; } setEditPartSaving(true); setEditPartError(""); try { await updatePart(editingPart.id, editPartForm); setEditingPart(null); toast.success("แก้ไขวัสดุเรียบร้อย"); fetchParts(); } catch (err: any) { setEditPartError(err.message || "เกิดข้อผิดพลาด"); } finally { setEditPartSaving(false); } }} disabled={editPartSaving} className="flex-1 text-white font-bold rounded-xl py-2.5 text-sm cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-lg hover:-translate-y-0.5" style={{ background: "linear-gradient(135deg, #F97316, #EA580C)", boxShadow: "0 4px 14px rgba(249,115,22,0.35)" }}>{editPartSaving ? "กำลังบันทึก..." : "บันทึก"}</button>
+                            <button onClick={async () => { if (!editPartForm.code || !editPartForm.name) { setEditPartError("กรุณากรอกรหัสและชื่อ"); return; } if (!PART_CODE_REGEX.test(editPartForm.code)) { setEditPartError("รหัสต้องเป็นภาษาอังกฤษ ตัวเลข หรืออักขระพิเศษเท่านั้น"); return; } setEditPartSaving(true); setEditPartError(""); try { await updatePart(editingPart.id, editPartForm); setEditingPart(null); toast.success("แก้ไขวัสดุเรียบร้อย"); fetchParts(); } catch (err: any) { setEditPartError(err.message || "เกิดข้อผิดพลาด"); } finally { setEditPartSaving(false); } }} disabled={editPartSaving} className="flex-1 text-white font-bold rounded-xl py-2.5 text-sm cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-lg hover:-translate-y-0.5" style={{ background: "linear-gradient(135deg, #F97316, #EA580C)", boxShadow: "0 4px 14px rgba(249,115,22,0.35)" }}>{editPartSaving ? "กำลังบันทึก..." : "บันทึก"}</button>
                         </div>
                     </div>
                 </div>
