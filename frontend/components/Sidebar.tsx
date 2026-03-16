@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { useTheme } from "@/components/ThemeProvider";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { getNavigationForRole, type NavItem } from "@/lib/config/navigation";
-import { Wrench as WrenchIcon, LogOut, Sun, Moon, type LucideIcon } from "lucide-react";
+import { LogOut, Sun, Moon, type LucideIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 // ─── NavLink ────────────────────────────────────────────
@@ -49,9 +49,7 @@ export function Sidebar() {
         <aside className="sidebar">
             {/* Logo */}
             <div className="flex items-center gap-3 px-5 py-5" style={{ borderBottom: `1px solid var(--t-border-subtle)` }}>
-                <div className="w-10 h-10 rounded-xl bg-linear-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shrink-0 shadow-lg shadow-emerald-500/20">
-                    <WrenchIcon className="w-5 h-5 text-white" />
-                </div>
+                <img src="/logo.jpeg" alt="นันการช่าง" className="w-10 h-10 rounded-xl shrink-0 shadow-lg object-cover" />
                 <div>
                     <h1 style={{ color: "var(--t-text)" }} className="font-bold text-base leading-tight tracking-tight">นันการช่าง</h1>
                     <p style={{ color: "var(--t-text-muted)" }} className="text-[11px]" suppressHydrationWarning>

@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "@/components/ThemeProvider";
 import { useAuthStore } from "@/lib/stores/auth-store";
-import { Wrench, Eye, EyeOff, LogIn, Sun, Moon, Download } from "lucide-react";
+import { Eye, EyeOff, LogIn, Sun, Moon, Download } from "lucide-react";
 import { isElectron } from "@/lib/electron";
 
 export default function LoginPage() {
@@ -91,9 +91,7 @@ export default function LoginPage() {
             <div className="w-full max-w-sm relative z-10">
                 {/* Logo */}
                 <div className="text-center mb-8">
-                    <div className="w-16 h-16 bg-linear-to-br from-emerald-500 to-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xl shadow-emerald-500/25">
-                        <Wrench className="w-8 h-8 text-white" />
-                    </div>
+                    <img src="/logo.jpeg" alt="นันการช่าง" className="w-16 h-16 rounded-2xl mx-auto mb-4 shadow-xl object-cover" />
                     <h1 className="text-2xl font-bold tracking-tight" style={{ color: "var(--t-text)" }}>นันการช่าง</h1>
                     <p className="mt-1 text-sm" style={{ color: "var(--t-text-muted)" }}>ระบบจัดการอะไหล่ร้านซ่อมรถยนต์</p>
                 </div>

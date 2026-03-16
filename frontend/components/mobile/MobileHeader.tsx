@@ -6,7 +6,6 @@ import { useTheme } from "@/components/ThemeProvider";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { getNavigationForRole, getMobileNavForRole, type NavItem } from "@/lib/config/navigation";
 import {
-    Wrench as WrenchIcon,
     Menu,
     X,
     LogOut,
@@ -111,9 +110,7 @@ export function MobileHeader() {
                 }}
             >
                 <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-lg bg-linear-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shrink-0 shadow-md shadow-emerald-500/20">
-                        <WrenchIcon className="w-4 h-4 text-white" />
-                    </div>
+                    <img src="/logo.jpeg" alt="นันการช่าง" className="w-8 h-8 rounded-lg shrink-0 shadow-md object-cover" />
                     <div>
                         <h1
                             style={{ color: "var(--t-text)" }}
