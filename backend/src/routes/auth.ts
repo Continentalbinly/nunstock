@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { setCookie, deleteCookie, getCookie } from "hono/cookie";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
-import { prisma } from "../lib/prisma.js";
+import { prisma } from "../lib/prisma.js"; 
 
 export const authRouter = new Hono();
 

@@ -7,7 +7,7 @@ import {
     Wrench, Search, Plus, Car, Clock, PlayCircle, PackageCheck, Truck,
     ShieldCheck, Banknote, Ban, ArrowRight, Bell,
 } from "lucide-react";
-import { Pagination } from "@/components/Pagination";
+import { Pagination } from "@/components/Pagination"; 
 
 const STATUS_CONFIG: Record<string, { label: string; icon: any; color: string; bg: string }> = {
     WAITING_PARTS: { label: "รออะไหล่", icon: Clock, color: "#F59E0B", bg: "rgba(245,158,11,0.12)" },
