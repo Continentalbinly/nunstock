@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { getStockSummary } from "@/lib/api";
 import { Package, Layers, AlertTriangle, ShieldCheck, ArrowUpFromLine, ArrowDownToLine, TrendingDown, BarChart3, Trophy, Palette, Warehouse } from "lucide-react";
-import Link from "next/link";
+import Link from "next/link"; 
 
 const statusLabel: Record<string, string> = {
   WAITING_PARTS: "รออะไหล่", RECEIVED: "รับรถ", IN_PROGRESS: "กำลังซ่อม", COMPLETED: "เสร็จสิ้น", DELIVERED: "ส่งมอบ",
