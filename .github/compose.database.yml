@@ -1,0 +1,22 @@
+services:
+  db:
+    image: postgres:16.15-bookworm
+    container_name: nunstock-db
+    restart: unless-stopped
+    env_file: /etc/nunstock/database.env
+    command: [postgres, -c, timezone=Europe/Berlin]
+    mem_limit: 768m
+    cpus: 1.0
+    ports:
+      - "127.0.0.1:15433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U nunstock -d nunstock]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+volumes:
+  pgdata:
+    external: true
+    name: nunstock_migration_pgdata

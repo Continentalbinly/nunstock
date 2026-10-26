@@ -63,7 +63,7 @@ app.use("*", async (c, next) => {
     await next();
     c.header("X-Response-Time", `${Date.now() - start}ms`);
 });
-app.use("*", logger());
+if (process.env.NODE_ENV !== "production") app.use("*", logger());
 app.use(
     "*",
     cors({
@@ -107,6 +107,7 @@ serve(
     {
         fetch: app.fetch,
         port: PORT,
+        hostname: process.env.HOST || "127.0.0.1",
     },
     (info) => {
         console.log(`\n🚗 NunStock Backend เริ่มทำงานที่ http://localhost:${info.port}`);

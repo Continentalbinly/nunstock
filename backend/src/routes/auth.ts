@@ -1,12 +1,14 @@
 import { Hono } from "hono";
 import { setCookie, deleteCookie, getCookie } from "hono/cookie";
 import jwt from "jsonwebtoken";
+import { createSecretKey } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { prisma } from "../lib/prisma.js"; 
 
 export const authRouter = new Hono();
 
 const JWT_SECRET = process.env.JWT_SECRET || "nunstock-secret-key-2025";
+const JWT_KEY = createSecretKey(Buffer.from(JWT_SECRET));
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
 const COOKIE_NAME = "nunstock_token";
 
@@ -54,7 +56,7 @@ authRouter.get("/me", (c) => {
     try {
         const token = getCookie(c, COOKIE_NAME);
         if (!token) return c.json({ success: false, error: "ไม่ได้เข้าสู่ระบบ" }, 401);
-        const payload = jwt.verify(token, JWT_SECRET) as any;
+        const payload = jwt.verify(token, JWT_KEY) as any;
         return c.json({ success: true, data: { id: payload.id, username: payload.username, name: payload.name, role: payload.role } });
     } catch {
         return c.json({ success: false, error: "Token ไม่ถูกต้อง" }, 401);
@@ -67,7 +69,7 @@ export function requireAuth() {
         const token = getCookie(c, COOKIE_NAME);
         if (!token) return c.json({ success: false, error: "กรุณาเข้าสู่ระบบก่อน" }, 401);
         try {
-            const payload = jwt.verify(token, JWT_SECRET);
+            const payload = jwt.verify(token, JWT_KEY);
             c.set("user", payload);
             await next();
         } catch {

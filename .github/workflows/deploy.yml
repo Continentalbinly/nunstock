@@ -1,262 +1,50 @@
-name: Deploy NunStock to VPS
+name: Deploy NunStock to Kham
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nunstock-production-deploy
+  cancel-in-progress: false
 
 jobs:
-  # Job 1: CI - Test & Build (runs on GitHub runner)
   ci:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js 22
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - name: Verify backend
+        working-directory: backend
+        run: npm ci && npx prisma generate && npm run type-check && npm test
 
-      # ── Backend ──
-      - name: Backend — Install dependencies
-        working-directory: ./backend
-        run: npm install
-
-      - name: Backend — Generate Prisma Client
-        working-directory: ./backend
-        run: npx prisma generate
-
-      - name: Backend — Type Check
-        working-directory: ./backend
-        run: npm run type-check
-
-      - name: Backend — Run Tests
-        working-directory: ./backend
-        run: npm test
-
-      # ── Frontend ──
-      - name: Frontend — Install dependencies
-        working-directory: ./frontend
-        run: npm install
-
-      - name: Frontend — Build
-        working-directory: ./frontend
-        run: npm run build
-        env:
-          NEXT_PUBLIC_API_URL: http://localhost:1100
-          NEXT_PUBLIC_APP_VERSION: ci-check
-
-  # Job 2: Deploy (only if CI passes)
   deploy:
     needs: ci
     runs-on: ubuntu-latest
-
+    timeout-minutes: 40
     steps:
-      - name: Deploy to VPS
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          password: ${{ secrets.VPS_PASSWORD }}
-          command_timeout: 30m
-          envs: DB_PASSWORD,DATABASE_URL,JWT_SECRET,CF_ORIGIN_CERT,CF_ORIGIN_KEY,LINE_CHANNEL_ACCESS_TOKEN,LINE_CHANNEL_SECRET
-          script: |
-            set -e
-            echo "======================================"
-            echo "  NunStock Auto Deploy"
-            echo "======================================"
-
-            # 1. Node.js 22
-            export NODE_VERSION=$(node -v 2>/dev/null || echo "none")
-            if [ "$NODE_VERSION" = "none" ]; then
-              echo ">>> Installing Node.js 22..."
-              curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
-              sudo apt install -y nodejs
-            else
-              echo ">>> Node.js $NODE_VERSION ready"
-            fi
-
-            # 2. PM2
-            if ! command -v pm2 &>/dev/null; then
-              echo ">>> Installing PM2..."
-              sudo npm install -g pm2
-              pm2 startup systemd -u $USER --hp $HOME | tail -1 | bash || true
-            else
-              echo ">>> PM2 $(pm2 -v) ready"
-            fi
-
-            # 3. PostgreSQL
-            if ! command -v psql &>/dev/null; then
-              echo ">>> Installing PostgreSQL..."
-              sudo apt install -y postgresql postgresql-contrib
-              sudo systemctl enable postgresql
-              sudo systemctl start postgresql
-            else
-              echo ">>> PostgreSQL ready"
-            fi
-
-            # 4. Nginx
-            if ! command -v nginx &>/dev/null; then
-              echo ">>> Installing Nginx..."
-              sudo apt install -y nginx
-              sudo systemctl enable nginx
-            else
-              echo ">>> Nginx ready"
-            fi
-
-            # ── 5. Setup DB (safe idempotent) ──────
-            echo ">>> Setting up database..."
-            sudo -u postgres psql -tc "SELECT 1 FROM pg_roles WHERE rolname='nunstock'" \
-              | grep -q 1 \
-              && sudo -u postgres psql -c "ALTER USER nunstock WITH PASSWORD '$DB_PASSWORD'" \
-              || sudo -u postgres psql -c "CREATE USER nunstock WITH PASSWORD '$DB_PASSWORD'"
-            sudo -u postgres psql -tc "SELECT 1 FROM pg_database WHERE datname='nunstock'" \
-              | grep -q 1 || \
-              sudo -u postgres psql -c "CREATE DATABASE nunstock OWNER nunstock"
-            echo ">>> Database ready"
-
-            # 6. Clone or Pull
-            if [ ! -d "/var/www/nunstock/.git" ]; then
-              echo ">>> Cloning project..."
-              sudo mkdir -p /var/www/nunstock
-              sudo chown $USER:$USER /var/www/nunstock
-              git clone https://github.com/${{ github.repository }} /var/www/nunstock
-            else
-              echo ">>> Pulling latest code..."
-              cd /var/www/nunstock
-              git fetch origin
-              git reset --hard origin/main
-            fi
-
-            # 7. Create .env files
-            echo ">>> Creating .env files..."
-            cat > /var/www/nunstock/backend/.env << EOF
-            DATABASE_URL=$DATABASE_URL
-            PORT=1100
-            NODE_ENV=production
-            JWT_SECRET=$JWT_SECRET
-            LINE_CHANNEL_ACCESS_TOKEN=$LINE_CHANNEL_ACCESS_TOKEN
-            LINE_CHANNEL_SECRET=$LINE_CHANNEL_SECRET
-            CORS_ORIGINS=https://nunmechanic.com,https://api.nunmechanic.com
-            EOF
-            sed -i 's/^[[:space:]]*//' /var/www/nunstock/backend/.env
-
-            APP_VER="1.0.$(git rev-list --count HEAD)"
-            cat > /var/www/nunstock/frontend/.env.local << ENVEOF
-            NEXT_PUBLIC_API_URL=http://localhost:1100
-            NEXT_PUBLIC_APP_VERSION=$APP_VER
-            ENVEOF
-            sed -i 's/^[[:space:]]*//' /var/www/nunstock/frontend/.env.local
-
-            # 8. SSL Certificates (Cloudflare Origin)
-            echo ">>> Setting up SSL certificates..."
-            sudo mkdir -p /etc/ssl/nunmechanic
-            echo "$CF_ORIGIN_CERT" | sudo tee /etc/ssl/nunmechanic/origin.pem > /dev/null
-            echo "$CF_ORIGIN_KEY" | sudo tee /etc/ssl/nunmechanic/origin-key.pem > /dev/null
-            sudo chmod 600 /etc/ssl/nunmechanic/origin-key.pem
-            sudo chmod 644 /etc/ssl/nunmechanic/origin.pem
-
-            # 9. Nginx Config
-            echo ">>> Configuring Nginx..."
-            sudo cp /var/www/nunstock/nginx/nunmechanic.conf /etc/nginx/sites-available/nunmechanic
-            sudo cp /var/www/nunstock/nginx/api.nunmechanic.conf /etc/nginx/sites-available/api.nunmechanic
-            sudo ln -sf /etc/nginx/sites-available/nunmechanic /etc/nginx/sites-enabled/
-            sudo ln -sf /etc/nginx/sites-available/api.nunmechanic /etc/nginx/sites-enabled/
-            sudo rm -f /etc/nginx/sites-enabled/default
-            sudo nginx -t && sudo systemctl reload nginx
-
-            # 10. Deploy Backend
-            echo ">>> Deploy Backend (port 1100)..."
-            cd /var/www/nunstock/backend
-            npm install --prefer-offline
-            npx prisma generate
-
-            # Run migrations — baseline if DB was created via db push (no migration history)
-            echo ">>> Checking migration state..."
-            MIGRATED=$(sudo -u postgres psql -U postgres -d nunstock -tc \
-              "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name='_prisma_migrations')" \
-              2>/dev/null | tr -d '[:space:]')
-
-            if [ "$MIGRATED" = "f" ]; then
-              echo ">>> Baseline: marking existing migrations as applied (first-time migrate)..."
-              npx prisma migrate resolve --applied "20260220154116_init"
-              npx prisma migrate resolve --applied "20260220160655_add_users"
-              npx prisma migrate resolve --applied "20260220180933_add_stock_movements"
-              npx prisma migrate resolve --applied "20260221142318_add_category_hierarchy"
-              npx prisma migrate resolve --applied "20260221152905_allow_duplicate_category_names"
-              npx prisma migrate resolve --applied "20260225062526_add_line_registration"
-              npx prisma migrate resolve --applied "20260225172600_add_line_user_id_to_claims"
-              npx prisma migrate resolve --applied "20260301113000_add_specification_field"
-              npx prisma migrate resolve --applied "20260302050618_add_shop_stock"
-              npx prisma migrate resolve --applied "20260302085510_add_jobs"
-              npx prisma migrate resolve --applied "20260302093550_add_job_part_status"
-              npx prisma migrate resolve --applied "20260302095227_add_job_claim_fields"
-              npx prisma migrate resolve --applied "20260302155111_job_status_flow_restructure"
-              npx prisma migrate resolve --applied "20260302161411_add_repair_steps"
-              npx prisma migrate resolve --applied "20260302162919_job_repair_steps_model"
-              npx prisma migrate resolve --applied "20260302165309_add_notification_model"
-              npx prisma migrate resolve --applied "20260303021301_add_cancelled_status"
-              npx prisma migrate resolve --applied "20260303021435_add_job_cancel_source"
-              npx prisma migrate resolve --applied "20260303023531_repair_templates_and_withdrawn"
-              npx prisma migrate resolve --applied "20260303032534_add_jobpart_barcode"
-              npx prisma migrate resolve --applied "20260304040000_separate_part_types"
-              npx prisma migrate resolve --applied "20260304050000_lookup_options"
-              npx prisma migrate resolve --applied "20260304054000_split_unit_groups"
-              npx prisma migrate resolve --applied "20260304064000_cleanup_spec_options"
-              npx prisma migrate resolve --applied "20260304080000_drop_paint_colors"
-              npx prisma migrate resolve --applied "20260304103000_make_part_type_optional"
-            else
-              echo ">>> Migration history found, skipping baseline"
-            fi
-
-            echo ">>> Running database migrations..."
-            npx prisma migrate deploy
-
-            # Safety: ensure DB schema matches schema.prisma
-            echo ">>> Syncing schema (db push)..."
-            npx prisma db push --accept-data-loss 2>/dev/null || npx prisma db push
-
-            # Only seed if seed files changed (check last 5 commits)
-            if git diff HEAD~5 --name-only 2>/dev/null | grep -q "backend/src/seed"; then
-              echo ">>> Seed files changed, running seeds..."
-              npx tsx src/seed.ts 2>/dev/null || true
-              npx tsx src/seed-admin.ts 2>/dev/null || true
-            else
-              echo ">>> Seed files unchanged, skipping"
-            fi
-            rm -rf dist
-            npx tsc
-            pm2 reload nunstock-backend --update-env 2>/dev/null \
-              || NODE_ARGS='--env-file=/var/www/nunstock/backend/.env' \
-                 pm2 start dist/index.js --name nunstock-backend \
-                 --node-args='--env-file=/var/www/nunstock/backend/.env'
-
-            # 11. Deploy Frontend
-            echo ">>> Deploy Frontend (port 9090)..."
-            cd /var/www/nunstock/frontend
-            npm install --prefer-offline
-            npm run build
-            # Copy static assets into standalone directory (required by standalone mode)
-            cp -r public .next/standalone/public
-            mkdir -p .next/standalone/.next
-            cp -r .next/static .next/standalone/.next/static
-            # Restart PM2 with standalone server
-            pm2 delete nunstock-frontend 2>/dev/null || true
-            PORT=9090 pm2 start .next/standalone/server.js --name nunstock-frontend
-
-            pm2 save
-            echo "======================================"
-            echo "  Deploy complete!"
-            echo "  https://nunmechanic.com"
-            echo "  https://api.nunmechanic.com"
-            echo "======================================"
+      - name: Deploy exact main commit through the restricted release key
         env:
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          CF_ORIGIN_CERT: ${{ secrets.CF_ORIGIN_CERT }}
-          CF_ORIGIN_KEY: ${{ secrets.CF_ORIGIN_KEY }}
-          LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
-          LINE_CHANNEL_SECRET: ${{ secrets.LINE_CHANNEL_SECRET }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_SSH_HOST_KEY: ${{ secrets.VPS_SSH_HOST_KEY }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          umask 077
+          ssh_dir=$(mktemp -d "$RUNNER_TEMP/nunstock-ssh.XXXXXX")
+          trap 'rm -rf "$ssh_dir"' EXIT
+          printf '%s\n' "$VPS_SSH_KEY" > "$ssh_dir/key"
+          printf '%s %s\n' "$VPS_HOST" "$VPS_SSH_HOST_KEY" > "$ssh_dir/known_hosts"
+          ssh -i "$ssh_dir/key" -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$ssh_dir/known_hosts" -o ServerAliveInterval=20 \
+            "$VPS_USER@$VPS_HOST" "deploy $GITHUB_SHA"
