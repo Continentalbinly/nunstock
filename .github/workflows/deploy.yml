@@ -31,6 +31,26 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
+      # SSH goes through Cloudflare Access (ssh.kham.la) instead of public port 22.
+      # Spec: kham-agents .agents/specs/2026-11-25-ssh-via-cloudflare-tunnel-design.md
+      - name: Route SSH to the VPS through Cloudflare Access
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+        run: |
+          set -euo pipefail
+          if ! command -v cloudflared >/dev/null; then
+            curl -fsSL -o /tmp/cloudflared.deb https://github.com/cloudflare/cloudflared/releases/download/2026.3.0/cloudflared-linux-amd64.deb
+            sudo dpkg -i /tmp/cloudflared.deb >/dev/null
+          fi
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          {
+            echo "Host $VPS_HOST"
+            echo "  ProxyCommand $(command -v cloudflared) access ssh --hostname ssh.kham.la --service-token-id $CF_ACCESS_CLIENT_ID --service-token-secret $CF_ACCESS_CLIENT_SECRET"
+          } >> ~/.ssh/config
+          chmod 600 ~/.ssh/config
+          echo "ssh to the VPS now goes through ssh.kham.la"
       - name: Deploy exact main commit through the restricted release key
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
